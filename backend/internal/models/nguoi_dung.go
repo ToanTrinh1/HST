@@ -11,11 +11,11 @@ import "time"
 type User struct {
 	ID        string    `json:"id" db:"id"`
 	Email     string    `json:"email" db:"email"`
-	Password  string    `json:"-" db:"password"`
-	Name      string    `json:"name" db:"name"`
-	Role      string    `json:"role" db:"role"`
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+	Password  string    `json:"-" db:"mat_khau"`
+	Name      string    `json:"name" db:"ten"`
+	Role      string    `json:"vai_tro" db:"vai_tro"`
+	CreatedAt time.Time `json:"created_at" db:"thoi_gian_tao"`
+	UpdatedAt time.Time `json:"updated_at" db:"thoi_gian_cap_nhat"`
 }
 
 // Request DTOs

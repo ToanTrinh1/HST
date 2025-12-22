@@ -10,15 +10,16 @@ import (
 func SetupRoutes(
 	router *gin.Engine,
 	authHandler *handlers.AuthHandler,
+	betReceiptHandler *handlers.BetReceiptHandler,
 ) {
 	// API group - prefix /api cho tất cả endpoints
 	api := router.Group("/api")
 
 	// Setup routes theo từng module
 	setupAuthRoutes(api, authHandler)
+	setupDonHangRoutes(api, betReceiptHandler)
 
 	// TODO: Thêm các routes khác ở đây khi phát triển
 	// setupUserRoutes(api, userHandler)
 	// setupProductRoutes(api, productHandler)
-	// setupOrderRoutes(api, orderHandler)
 }

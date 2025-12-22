@@ -11,6 +11,8 @@
   justify-content: space-between;
   align-items: center;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  position: relative;
+  z-index: 100;
 }
 
 .navbar-brand h2 {
@@ -48,6 +50,7 @@
 
 .avatar-container {
   position: relative;
+  z-index: 1000;
 }
 
 .avatar {
@@ -79,7 +82,7 @@
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   min-width: 200px;
-  z-index: 1000;
+  z-index: 10000;
   overflow: hidden;
 }
 
@@ -154,13 +157,20 @@
   gap: 60px; /* Tăng khoảng cách giữa card và biểu đồ */
 }
 
-
 /* Thu nhỏ toàn bộ nội dung bên trong home-content khoảng 20% */
 .home-content-inner {
+  display: flex;
+  gap: 20px;
+  width: calc(100% / 0.65); /* Bù lại scale để card có thể kéo dài hết */
   transform: scale(0.65); /* 0.8 (lần trước) * 0.7 (nhỏ thêm ~30%) ≈ 0.56 */
   transform-origin: top left;
   /* Tính toán margin-bottom: (1 - scale) * chiều cao ước tính ≈ (1 - 0.65) * 600px = 210px */
   margin-bottom: -210px; /* Tăng margin-bottom âm để bù lại khoảng trắng do transform scale */
+}
+
+.home-content-inner > .card {
+  flex: 1 1 50%;
+  min-width: 0;
 }
 
 .top-chart {

@@ -102,3 +102,14 @@ func (s *AuthService) Login(req *models.LoginRequest) (*models.AuthResponse, err
 		User:  user,
 	}, nil
 }
+
+// GetCurrentUser - Lấy thông tin user hiện tại theo userID (dùng cho GetCurrentUser endpoint)
+func (s *AuthService) GetCurrentUser(userID string) (*models.User, error) {
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	// Không trả password
+	user.Password = ""
+	return user, nil
+}

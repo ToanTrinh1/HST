@@ -27,16 +27,34 @@ const LoginForm = () => {
       console.log('Login result:', result);
 
       if (result.success) {
-        console.log('Login successful, checking user role...');
-        // Lấy user từ localStorage để kiểm tra role
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        console.log('User role:', user.role);
+        console.log('Login successful, checking user vai_tro...');
         
-        if (user.role === 'admin') {
-          console.log('Admin detected, redirecting to /admin');
+        // Lấy user từ result (đã được trả về từ login function)
+        const currentUser = result.user;
+        console.log('LoginForm - User from result:', currentUser);
+        console.log('LoginForm - User object keys:', currentUser ? Object.keys(currentUser) : 'null');
+        console.log('LoginForm - Full user object:', JSON.stringify(currentUser, null, 2));
+        
+        // Fallback: Nếu không có trong result, lấy từ localStorage
+        const userToCheck = currentUser || JSON.parse(localStorage.getItem('user') || '{}');
+        console.log('LoginForm - User to check:', userToCheck);
+        console.log('LoginForm - User to check keys:', Object.keys(userToCheck));
+        console.log('LoginForm - User to check.vai_tro:', userToCheck?.vai_tro);
+        console.log('LoginForm - User to check.role:', userToCheck?.role);
+        
+        // Check cả vai_tro và role (fallback) - ưu tiên vai_tro
+        // Tạm thời check role trước nếu backend chưa update
+        const userRole = userToCheck?.vai_tro || userToCheck?.role;
+        console.log('LoginForm - Final userRole to check:', userRole);
+        console.log('LoginForm - Is admin?', userRole === 'admin');
+        console.log('LoginForm - userToCheck.vai_tro:', userToCheck?.vai_tro);
+        console.log('LoginForm - userToCheck.role:', userToCheck?.role);
+        
+        if (userRole === 'admin') {
+          console.log('✅ Admin detected, redirecting to /admin');
           navigate('/admin', { replace: true }); // Redirect admin to admin page
         } else {
-          console.log('Regular user, redirecting to home');
+          console.log('❌ Regular user (vai_tro/role:', userRole, '), redirecting to home');
           navigate('/', { replace: true }); // Redirect regular user to home page
         }
       } else {

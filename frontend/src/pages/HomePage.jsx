@@ -113,7 +113,7 @@ const HomePage = () => {
       </div>
       <div className="home-content">
         <div className="home-content-inner">
-          <Card title="CÔNG THỨC TÍNH TIỀN  😻1 tệ = 3550">
+          <Card title="CÔNG THỨC TÍNH TIỀN 😻">
             <h4 style={{ 
               textAlign: 'left',
               fontSize: '16px',
@@ -126,11 +126,21 @@ const HomePage = () => {
             </h4>
             <BetCalculationWrapper />
           </Card>
+          <Card title="MINI GAME">
+            <div style={{
+              padding: '40px 20px',
+              textAlign: 'center',
+              color: '#666',
+              fontSize: '14px'
+            }}>
+              Mini game sẽ được cập nhật sau này
+            </div>
+          </Card>
         </div>
-          <div className="top-chart">
-            <h4 className="top-chart-title">5 côn đồ mạnh nhất</h4>
-            <p className="top-chart-note">Top 1 sẽ được 200k mỗi tháng dựa theo số $ cày được</p>
-            <div className="top-chart-bars">
+        <div className="top-chart">
+          <h4 className="top-chart-title">5 côn đồ mạnh nhất</h4>
+          <p className="top-chart-note">Top 1 sẽ được 200k mỗi tháng dựa theo số ¥ cày được</p>
+          <div className="top-chart-bars">
             {[1, 2, 3, 4, 5].map((i) => {
               const icon = i === 1 ? '🐃' : '🐔';
               const progressWidth = `${90 - i * 10}%`;

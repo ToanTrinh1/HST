@@ -136,6 +136,41 @@ export const authAPI = {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
   },
+
+  getCurrentUser: async () => {
+    try {
+      console.log('authAPI - Gửi GET request đến /auth/me');
+      const response = await axiosInstance.get('/auth/me');
+      console.log('authAPI - ✅ Backend response:', response.data);
+
+      if (!response.data) {
+        console.error('authAPI - Response.data is null or undefined');
+        return {
+          success: false,
+          error: 'Không nhận được dữ liệu từ server',
+        };
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('authAPI - ❌ GetCurrentUser error:', error);
+      console.error('authAPI - Error response:', error.response?.data);
+      console.error('authAPI - Error status:', error.response?.status);
+
+      let errorMsg = 'Không thể lấy thông tin user';
+
+      if (error.response?.status === 401) {
+        errorMsg = 'Token không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.';
+      } else if (error.response) {
+        errorMsg = error.response.data?.error || errorMsg;
+      }
+
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  },
 };
 
 export default authAPI;

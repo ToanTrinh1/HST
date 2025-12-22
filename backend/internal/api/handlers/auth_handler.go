@@ -4,18 +4,24 @@ package handlers
 import (
 	"fullstack-backend/internal/models"
 	"fullstack-backend/internal/service"
+	"fullstack-backend/pkg/utils"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
 type AuthHandler struct {
 	authService *service.AuthService
+	jwtSecret   string
 }
 
-func NewAuthHandler(authService *service.AuthService) *AuthHandler {
-	return &AuthHandler{authService: authService}
+func NewAuthHandler(authService *service.AuthService, jwtSecret string) *AuthHandler {
+	return &AuthHandler{
+		authService: authService,
+		jwtSecret:   jwtSecret,
+	}
 }
 
 // Register xử lý đăng ký user mới
@@ -94,12 +100,65 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	log.Printf("✅ ĐĂNG NHẬP THÀNH CÔNG - User ID: %s, Email: %s", response.User.ID, response.User.Email)
+	log.Printf("✅ ĐĂNG NHẬP THÀNH CÔNG - User ID: %s, Email: %s, VaiTro: %s", response.User.ID, response.User.Email, response.User.Role)
+	log.Printf("🔍 DEBUG - User struct Role field: %s", response.User.Role)
+	log.Printf("🔍 DEBUG - User struct fields: ID=%s, Email=%s, Name=%s, Role=%s", response.User.ID, response.User.Email, response.User.Name, response.User.Role)
 	log.Println("=== KẾT THÚC XỬ LÝ ĐĂNG NHẬP ===\n")
 
 	// Trả response thành công
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    response,
+	})
+}
+
+// GetCurrentUser lấy thông tin user hiện tại từ JWT token
+func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
+	// Lấy token từ header
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Authorization header required",
+		})
+		return
+	}
+
+	// Parse Bearer token
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	if tokenString == authHeader {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Invalid authorization format",
+		})
+		return
+	}
+
+	// Validate JWT token
+	claims, err := utils.ValidateJWT(tokenString, h.jwtSecret)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Invalid or expired token",
+		})
+		return
+	}
+
+	// Lấy user từ database (để đảm bảo có thông tin mới nhất, kể cả khi role đã thay đổi)
+	user, err := h.authService.GetCurrentUser(claims.UserID)
+	if err != nil {
+		log.Printf("❌ Lỗi khi lấy user: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Failed to get user information",
+		})
+		return
+	}
+
+	log.Printf("✅ GetCurrentUser - User ID: %s, Email: %s, VaiTro: %s", user.ID, user.Email, user.Role)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    user,
 	})
 }

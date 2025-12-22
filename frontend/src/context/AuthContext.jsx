@@ -51,6 +51,8 @@ export const AuthProvider = ({ children }) => {
         
         console.log('AuthContext - Token:', token);
         console.log('AuthContext - User:', user);
+        console.log('AuthContext - User vai_tro:', user.vai_tro);
+        console.log('AuthContext - User keys:', Object.keys(user));
         
         // Lưu vào localStorage
         localStorage.setItem('token', token);
@@ -59,8 +61,11 @@ export const AuthProvider = ({ children }) => {
         // Update state
         setUser(user);
         
+        console.log('AuthContext - User saved to localStorage and state');
+        
         console.log('AuthContext - Login successful, returning success');
-        return { success: true };
+        // Trả về user object để LoginForm có thể check vai_tro ngay
+        return { success: true, user: user };
       } else {
         const errorMsg = response.error || 'Đăng nhập thất bại';
         console.log('AuthContext - Login failed:', errorMsg);

@@ -24,6 +24,7 @@ help:
 	@echo "  $(YELLOW)make tidy$(NC)         - Tidy go modules"
 	@echo "  $(YELLOW)make docker-db$(NC)    - Chạy PostgreSQL trong Docker"
 	@echo "  $(YELLOW)make migrate-up$(NC)   - Chạy database migrations"
+	@echo "  $(YELLOW)make set-admin$(NC)    - Set user thành admin (EMAIL=user@example.com)"
 
 # Chạy server
 run:
@@ -85,10 +86,28 @@ docker-db-stop:
 	@echo "$(YELLOW)🛑 Stopping PostgreSQL...$(NC)"
 	@cd .. && docker-compose stop postgres
 
-# Migrate up
+# Migrate up - Chạy migrations
 migrate-up:
 	@echo "$(GREEN)⬆️  Running migrations...$(NC)"
-	@echo "$(YELLOW)Note: Chạy migrations trong DBeaver hoặc psql$(NC)"
+	@if [ -f migrations/001_create_bet_tables.sql ]; then \
+		echo "$(GREEN)Running migration: 001_create_bet_tables.sql$(NC)"; \
+		cat migrations/001_create_bet_tables.sql | docker exec -i fullstack-postgres psql -U postgres -d hst_db; \
+		echo "$(GREEN)✅ Migration completed$(NC)"; \
+	else \
+		echo "$(RED)❌ Migration file not found$(NC)"; \
+	fi
+
+# Migrate với DBeaver (hướng dẫn)
+migrate-guide:
+	@echo "$(YELLOW)📖 Hướng dẫn chạy migrations:$(NC)"
+	@echo "  1. Mở DBeaver và kết nối đến database hst_db"
+	@echo "  2. Mở SQL Editor (Ctrl+\`)"
+	@echo "  3. Mở file: backend/migrations/001_create_bet_tables.sql"
+	@echo "  4. Copy toàn bộ nội dung và paste vào SQL Editor"
+	@echo "  5. Chạy script (F5 hoặc Ctrl+Enter)"
+	@echo ""
+	@echo "$(YELLOW)Hoặc dùng command line:$(NC)"
+	@echo "  cat backend/migrations/001_create_bet_tables.sql | docker exec -i fullstack-postgres psql -U postgres -d hst_db"
 
 # Format code
 fmt:
@@ -130,3 +149,14 @@ all: docker-db run
 quick: tidy docker-db
 	@sleep 2
 	@make run
+
+# Set user thành admin
+set-admin:
+	@if [ -z "$(EMAIL)" ]; then \
+		echo "$(RED)❌ Vui lòng cung cấp email: make set-admin EMAIL=user@example.com$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)🔧 Setting user $(EMAIL) as admin...$(NC)"
+	@docker exec -i $$(docker ps -q -f name=postgres) psql -U postgres -d hst_db -c "UPDATE nguoi_dung SET vai_tro = 'admin', thoi_gian_cap_nhat = NOW() WHERE email = '$(EMAIL)';"
+	@docker exec -i $$(docker ps -q -f name=postgres) psql -U postgres -d hst_db -c "SELECT id, email, ten, vai_tro FROM nguoi_dung WHERE email = '$(EMAIL)';"
+	@echo "$(GREEN)✅ User đã được set thành admin$(NC)"

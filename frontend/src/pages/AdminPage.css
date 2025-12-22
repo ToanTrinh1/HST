@@ -1,0 +1,399 @@
+.admin-content {
+  padding: 20px;
+  min-height: calc(100vh - 140px); /* Trừ đi chiều cao navbar và footer */
+  margin-bottom: 70px; /* Để không bị che bởi footer */
+}
+
+.admin-tab-content {
+  background: white;
+  border-radius: 12px;
+  padding: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.admin-tab-content h3 {
+  margin: 0 0 16px 0;
+  color: #333;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.admin-tab-content p {
+  color: #666;
+  font-size: 16px;
+  margin: 0;
+}
+
+.bet-list-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
+  border-radius: 12px;
+}
+
+.bet-list-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.bet-list-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #f5f5f5;
+}
+
+.bet-list-table th {
+  padding: 12px 8px;
+  text-align: center;
+  font-weight: 600;
+  border: 1px solid #e0e0e0;
+  background: linear-gradient(to bottom, #f8f9fa, #f1f3f5);
+  font-size: 12px;
+  white-space: nowrap;
+  position: relative;
+  color: #333;
+}
+
+/* Cột Tên (cột 2) - rộng ngang với cột Nhiệm vụ (cột 5) */
+.bet-list-table th:nth-child(2),
+.bet-list-table td:nth-child(2),
+.bet-list-table th:nth-child(5),
+.bet-list-table td:nth-child(5) {
+  min-width: 100px;
+  width: 100px;
+}
+
+/* Cột Ghi chú - rộng hơn 20px */
+.bet-list-table th:nth-child(9),
+.bet-list-table td:nth-child(9) {
+  min-width: 120px;
+  width: auto;
+}
+
+/* Cột Tiến độ hoàn thành (cột 11) - rộng hơn để hiển thị đủ text như "ĐANG THỰC HIỆN" */
+.bet-list-table th:nth-child(11),
+.bet-list-table td:nth-child(11) {
+  min-width: 160px;
+  width: 160px;
+  max-width: 180px;
+}
+
+.bet-list-table td {
+  padding: 10px 8px;
+  border: 1px solid #e0e0e0;
+  text-align: center;
+  font-size: 12px;
+  color: #555;
+}
+
+
+.bet-list-table tbody tr:nth-child(even) {
+  background: #fafafa;
+}
+
+.bet-list-table tbody tr:hover {
+  background: #e8f4f8;
+  transition: background-color 0.2s ease;
+}
+
+.bet-list-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+.status-select {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: transparent;
+}
+
+.status-select.status-done,
+select.status-select.status-done {
+  background: #4caf50 !important; /* Xanh lá - DONE */
+  color: white !important;
+}
+
+.status-select.status-in-progress,
+select.status-select.status-in-progress {
+  background: #ffeb3b !important; /* Vàng - ĐANG THỰC HIỆN */
+  color: #333 !important;
+}
+
+.status-select.status-compensation,
+select.status-select.status-compensation {
+  background: #f44336 !important; /* Đỏ - ĐỀN */
+  color: white !important;
+}
+
+.status-select.status-pending,
+select.status-select.status-pending {
+  background: #9c27b0 !important; /* Tím - CHỜ CHẤP NHẬN */
+  color: white !important;
+}
+
+.status-select.status-cancelled,
+select.status-select.status-cancelled {
+  background: #212121 !important; /* Đen - HỦY BỎ */
+  color: white !important;
+}
+
+.status-select.status-scanning,
+select.status-select.status-scanning {
+  background: #e91e63 !important; /* Hồng - ĐANG QUÉT MÃ */
+  color: white !important;
+}
+
+.status-select.status-waiting-ref,
+select.status-select.status-waiting-ref {
+  background: #795548 !important; /* Nâu - CHỜ TRỌNG TÀI */
+  color: white !important;
+}
+
+.admin-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background-color: #ffffff;
+  border-top: 1px solid #e0e0e0;
+  padding: 8px 0;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  height: 60px;
+}
+
+.admin-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 24px;
+  transition: all 0.3s ease;
+  color: #666;
+  flex: 1;
+  max-width: 200px;
+}
+
+.admin-nav-item:hover {
+  background-color: #f5f5f5;
+  border-radius: 8px;
+}
+
+.admin-nav-item.active {
+  color: #667eea;
+}
+
+.admin-nav-item.active .admin-nav-icon {
+  transform: scale(1.1);
+}
+
+.admin-nav-icon {
+  font-size: 24px;
+  margin-bottom: 4px;
+  transition: transform 0.3s ease;
+}
+
+.admin-nav-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Action bar */
+.admin-action-bar {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: flex-end;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.btn-create-don-hang {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.btn-create-don-hang:hover {
+  background: #5568d3;
+}
+
+/* Modal styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  padding: 20px;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 24px;
+  color: #333;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.modal-close:hover {
+  background: #f5f5f5;
+}
+
+/* Form styles */
+.create-don-hang-form {
+  padding: 20px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.form-group .required {
+  color: #f44336;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.form-group input::placeholder {
+  color: #999;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.btn-cancel {
+  background: #f5f5f5;
+  color: #333;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-cancel:hover:not(:disabled) {
+  background: #e0e0e0;
+}
+
+.btn-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-submit {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-submit:hover:not(:disabled) {
+  background: #5568d3;
+}
+
+.btn-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+

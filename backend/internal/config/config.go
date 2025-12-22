@@ -21,7 +21,7 @@ func Load() *Config {
 		DBPort:     getEnv("DB_PORT", "5432"),
 		DBUser:     getEnv("DB_USER", "postgres"),
 		DBPassword: getEnv("DB_PASSWORD", "postgres"),
-		DBName:     getEnv("DB_NAME", "HST_db"),
+		DBName:     getEnv("DB_NAME", "hst_db"),
 		JWTSecret:  getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
 	}
 }

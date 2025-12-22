@@ -20,9 +20,9 @@ func (r *UserRepository) Create(user *models.User) error {
 		user.Role = "user"
 	}
 	query := `
-        INSERT INTO users (email, password, name, role) 
+        INSERT INTO nguoi_dung (email, mat_khau, ten, vai_tro) 
         VALUES ($1, $2, $3, $4) 
-        RETURNING id, created_at, updated_at
+        RETURNING id, thoi_gian_tao, thoi_gian_cap_nhat
     `
 	return r.db.QueryRow(
 		query, user.Email, user.Password, user.Name, user.Role,
@@ -33,8 +33,8 @@ func (r *UserRepository) Create(user *models.User) error {
 func (r *UserRepository) FindByID(id string) (*models.User, error) {
 	user := &models.User{}
 	query := `
-        SELECT id, email, password, name, role, created_at, updated_at 
-        FROM users 
+        SELECT id, email, mat_khau, ten, vai_tro, thoi_gian_tao, thoi_gian_cap_nhat 
+        FROM nguoi_dung 
         WHERE id = $1
     `
 	err := r.db.QueryRow(query, id).Scan(
@@ -51,8 +51,8 @@ func (r *UserRepository) FindByID(id string) (*models.User, error) {
 func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 	user := &models.User{}
 	query := `
-        SELECT id, email, password, name, role, created_at, updated_at 
-        FROM users 
+        SELECT id, email, mat_khau, ten, vai_tro, thoi_gian_tao, thoi_gian_cap_nhat 
+        FROM nguoi_dung 
         WHERE email = $1
     `
 	err := r.db.QueryRow(query, email).Scan(
@@ -65,14 +65,14 @@ func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 	return user, nil
 }
 
-// FindByName tìm user theo Name (tìm kiếm gần đúng)
+// FindByName tìm user theo Name (tìm chính xác, phân biệt hoa thường)
 func (r *UserRepository) FindByName(name string) ([]*models.User, error) {
 	query := `
-        SELECT id, email, password, name, role, created_at, updated_at 
-        FROM users 
-        WHERE name ILIKE $1
+        SELECT id, email, mat_khau, ten, vai_tro, thoi_gian_tao, thoi_gian_cap_nhat 
+        FROM nguoi_dung 
+        WHERE ten = $1
     `
-	rows, err := r.db.Query(query, "%"+name+"%")
+	rows, err := r.db.Query(query, name)
 	if err != nil {
 		return nil, err
 	}
@@ -97,8 +97,8 @@ func (r *UserRepository) FindByName(name string) ([]*models.User, error) {
 // UpdateUser cập nhật user (đổi tên và email)
 func (r *UserRepository) UpdateUser(id string, name string, email string) error {
 	query := `
-        UPDATE users 
-        SET name = $1, email = $2, updated_at = CURRENT_TIMESTAMP 
+        UPDATE nguoi_dung 
+        SET ten = $1, email = $2, thoi_gian_cap_nhat = CURRENT_TIMESTAMP 
         WHERE id = $3
     `
 	result, err := r.db.Exec(query, name, email, id)
@@ -121,8 +121,8 @@ func (r *UserRepository) UpdateUser(id string, name string, email string) error 
 // UpdatePassword cập nhật password
 func (r *UserRepository) UpdatePassword(id string, hashedPassword string) error {
 	query := `
-        UPDATE users 
-        SET password = $1, updated_at = CURRENT_TIMESTAMP 
+        UPDATE nguoi_dung 
+        SET mat_khau = $1, thoi_gian_cap_nhat = CURRENT_TIMESTAMP 
         WHERE id = $2
     `
 	result, err := r.db.Exec(query, hashedPassword, id)
@@ -144,7 +144,7 @@ func (r *UserRepository) UpdatePassword(id string, hashedPassword string) error 
 
 // DeleteUser xóa user
 func (r *UserRepository) DeleteUser(id string) error {
-	query := `DELETE FROM users WHERE id = $1`
+	query := `DELETE FROM nguoi_dung WHERE id = $1`
 	result, err := r.db.Exec(query, id)
 	if err != nil {
 		return err
@@ -165,9 +165,9 @@ func (r *UserRepository) DeleteUser(id string) error {
 // GetAll lấy tất cả users (có phân trang)
 func (r *UserRepository) GetAll(limit, offset int) ([]*models.User, error) {
 	query := `
-        SELECT id, email, password, name, role, created_at, updated_at 
-        FROM users 
-        ORDER BY created_at DESC
+        SELECT id, email, mat_khau, ten, vai_tro, thoi_gian_tao, thoi_gian_cap_nhat 
+        FROM nguoi_dung 
+        ORDER BY thoi_gian_tao DESC
         LIMIT $1 OFFSET $2
     `
 	rows, err := r.db.Query(query, limit, offset)
