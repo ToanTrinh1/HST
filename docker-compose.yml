@@ -12,7 +12,7 @@ services:
       - DB_PORT=5432
       - DB_USER=postgres
       - DB_PASSWORD=postgres
-      - DB_NAME=fullstack_db
+      - DB_NAME=hst_db
       - JWT_SECRET=your-super-secret-jwt-key
     volumes:
       - ./backend:/app
@@ -29,7 +29,7 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=fullstack_db
+      - POSTGRES_DB=hst_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:

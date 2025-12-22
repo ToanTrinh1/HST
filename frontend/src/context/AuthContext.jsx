@@ -29,9 +29,25 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.login({ email, password });
       console.log('AuthContext - Full response:', response);
       
-      if (response.success) {
+      // Kiểm tra response có tồn tại không
+      if (!response) {
+        console.error('AuthContext - Response is null or undefined');
+        const errorMsg = 'Không nhận được phản hồi từ server';
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
+      }
+      
+      if (response.success && response.data) {
         // Backend trả về: { success: true, data: { token, user } }
         const { token, user } = response.data;
+        
+        // Kiểm tra token và user có tồn tại không
+        if (!token || !user) {
+          console.error('AuthContext - Token or user is missing in response.data');
+          const errorMsg = 'Dữ liệu phản hồi không đầy đủ';
+          setError(errorMsg);
+          return { success: false, error: errorMsg };
+        }
         
         console.log('AuthContext - Token:', token);
         console.log('AuthContext - User:', user);
@@ -46,13 +62,14 @@ export const AuthProvider = ({ children }) => {
         console.log('AuthContext - Login successful, returning success');
         return { success: true };
       } else {
-        console.log('AuthContext - Login failed:', response.error);
-        setError(response.error);
-        return { success: false, error: response.error };
+        const errorMsg = response.error || 'Đăng nhập thất bại';
+        console.log('AuthContext - Login failed:', errorMsg);
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
       }
     } catch (err) {
       console.error('AuthContext - Login exception:', err);
-      const errorMessage = err.message || 'Login failed';
+      const errorMessage = err.message || 'Đăng nhập thất bại. Vui lòng thử lại.';
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
@@ -69,6 +86,14 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.register({ email, password, name });
       console.log('AuthContext - Response từ API:', response);
       
+      // Kiểm tra response có tồn tại không
+      if (!response) {
+        console.error('AuthContext - Response is null or undefined');
+        const errorMsg = 'Không nhận được phản hồi từ server';
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
+      }
+      
       if (response.success) {
         console.log('AuthContext - ✅ API trả về success=true');
         console.log('AuthContext - Đăng ký thành công! KHÔNG tự động đăng nhập');
@@ -78,14 +103,15 @@ export const AuthProvider = ({ children }) => {
         
         return { success: true };
       } else {
+        const errorMsg = response.error || 'Đăng ký thất bại';
         console.error('AuthContext - ❌ API trả về success=false');
-        console.error('AuthContext - Error:', response.error);
-        setError(response.error);
-        return { success: false, error: response.error };
+        console.error('AuthContext - Error:', errorMsg);
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
       }
     } catch (err) {
       console.error('AuthContext - ❌ Exception xảy ra:', err);
-      const errorMessage = err.message || 'Registration failed';
+      const errorMessage = err.message || 'Đăng ký thất bại. Vui lòng thử lại.';
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
@@ -98,6 +124,13 @@ export const AuthProvider = ({ children }) => {
     setError(null);
   };
 
+  // Update user function
+  const updateUser = (updatedUserData) => {
+    const updatedUser = { ...user, ...updatedUserData };
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    setUser(updatedUser);
+  };
+
   const value = {
     user,
     loading,
@@ -105,6 +138,7 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    updateUser,
     isAuthenticated: !!user,
   };
 
