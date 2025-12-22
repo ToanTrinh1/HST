@@ -1,0 +1,47 @@
+.card {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: box-shadow 0.3s ease;
+  margin: 0;
+  width: 100%;
+}
+
+.card:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.card-title {
+  margin: 0;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.card-body {
+  padding: 20px 20px 0px 20px; /* Loại bỏ padding bottom để bo sát bảng */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px; /* Giảm khoảng trống giữa các block bên trong */
+}
+
+.card-body .card {
+  margin: 0;
+  max-width: 100%;
+}
+
+.card-body .card .card-title {
+  font-size: 14px;
+  font-weight: 500;
+}
+

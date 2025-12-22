@@ -43,11 +43,12 @@ func (s *AuthService) Register(req *models.RegisterRequest) (*models.AuthRespons
 	}
 	log.Println("Service - ✅ Password đã được mã hóa")
 
-	// 3. Tạo user mới
+	// 3. Tạo user mới (mặc định role là "user")
 	user := &models.User{
 		Email:    req.Email,
 		Password: hashedPassword,
 		Name:     req.Name,
+		Role:     "user", // Mặc định là user
 	}
 
 	if err := s.userRepo.Create(user); err != nil {
@@ -57,7 +58,7 @@ func (s *AuthService) Register(req *models.RegisterRequest) (*models.AuthRespons
 	log.Printf("Service - ✅ User đã được tạo với ID: %s", user.ID)
 
 	// 4. Generate JWT token
-	token, err := utils.GenerateJWT(user.ID, user.Email, s.jwtSecret)
+	token, err := utils.GenerateJWT(user.ID, user.Email, user.Role, s.jwtSecret)
 	if err != nil {
 		log.Printf("Service - ❌ Lỗi tạo JWT token: %v", err)
 		return nil, errors.New("Lỗi khi tạo token xác thực")
@@ -89,7 +90,7 @@ func (s *AuthService) Login(req *models.LoginRequest) (*models.AuthResponse, err
 	}
 
 	// 3. Generate JWT token
-	token, err := utils.GenerateJWT(user.ID, user.Email, s.jwtSecret)
+	token, err := utils.GenerateJWT(user.ID, user.Email, user.Role, s.jwtSecret)
 	if err != nil {
 		return nil, err
 	}

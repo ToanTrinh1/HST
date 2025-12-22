@@ -1,108 +1,128 @@
-import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { userAPI } from '../api';
+import BottomNavigation from '../components/BottomNavigation';
 import './ProfilePage.css';
+import './HomePage.css';
 
 const ProfilePage = () => {
-  const { user, updateUser } = useAuth();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-  });
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [loading, setLoading] = useState(false);
+  const dropdownRef = useRef(null);
 
-  useEffect(() => {
-    if (user) {
-      setFormData({
-        name: user.name || '',
-        email: user.email || '',
-      });
-    }
-  }, [user]);
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-    setError('');
-    setSuccess('');
+  const handleSearch = (e) => {
+    e.preventDefault();
+    // Handle search logic here
+    console.log('Searching for:', searchQuery);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    setLoading(true);
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+    setShowDropdown(false);
+  };
 
-    try {
-      const result = await userAPI.updateProfile(formData);
-      if (result.success) {
-        setSuccess('Cập nhật hồ sơ thành công!');
-        // Cập nhật user trong context và localStorage
-        updateUser(formData);
-      } else {
-        setError(result.error || 'Cập nhật hồ sơ thất bại');
+  const handleProfileClick = () => {
+    navigate('/profile');
+    setShowDropdown(false);
+  };
+
+  // Đóng dropdown khi click bên ngoài
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
       }
-    } catch (error) {
-      console.error('Profile update error:', error);
-      setError('Đã có lỗi xảy ra. Vui lòng thử lại.');
-    }
+    };
 
-    setLoading(false);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Lấy chữ cái đầu tiên của tên để hiển thị trong avatar
+  const getInitials = (name) => {
+    if (!name) return 'U';
+    return name.charAt(0).toUpperCase();
   };
 
   return (
-    <div className="profile-container">
-      <div className="profile-header">
-        <h1>Chỉnh sửa hồ sơ cá nhân</h1>
-        <button onClick={() => navigate('/')} className="btn-back">
-          ← Quay lại
-        </button>
-      </div>
-
-      <div className="profile-content">
-        <div className="profile-card">
-          {error && <div className="error-message">{error}</div>}
-          {success && <div className="success-message">{success}</div>}
-
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label htmlFor="name">Họ và tên</label>
-              <input
-                id="name"
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                placeholder="Nhập họ và tên"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="email">Email</label>
-              <input
-                id="email"
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                placeholder="Nhập email"
-              />
-            </div>
-
-            <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? 'Đang cập nhật...' : 'Cập nhật hồ sơ'}
-            </button>
-          </form>
+    <div className="page-with-bottom-nav">
+      <div className="home-navbar">
+        <div className="navbar-brand">
+          <h2>My App</h2>
+        </div>
+        <div className="navbar-menu">
+          {isAuthenticated ? (
+            <>
+              <form onSubmit={handleSearch} className="search-form">
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="search-input"
+                />
+              </form>
+              <div className="avatar-container" ref={dropdownRef}>
+                <div
+                  className="avatar"
+                  onClick={() => setShowDropdown(!showDropdown)}
+                >
+                  {getInitials(user?.name)}
+                </div>
+                {showDropdown && (
+                  <div className="dropdown-menu">
+                    <div
+                      className="dropdown-item"
+                      onClick={handleProfileClick}
+                    >
+                      Chỉnh sửa hồ sơ cá nhân
+                    </div>
+                    <div className="dropdown-item" onClick={handleLogout}>
+                      Đăng xuất
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <Link to="/login" className="btn-nav">
+                Đăng nhập
+              </Link>
+              <Link to="/register" className="btn-nav">
+                Đăng ký
+              </Link>
+              <form onSubmit={handleSearch} className="search-form">
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="search-input"
+                />
+              </form>
+            </>
+          )}
         </div>
       </div>
+      <div className="profile-content" style={{ 
+        padding: '2rem',
+        textAlign: 'center'
+      }}>
+        <h1 style={{ 
+          fontSize: '2rem', 
+          fontWeight: 'bold',
+          marginTop: '2rem'
+        }}>
+          đây là tôi
+        </h1>
+      </div>
+      <BottomNavigation />
     </div>
   );
 };

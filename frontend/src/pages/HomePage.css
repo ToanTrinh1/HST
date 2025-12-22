@@ -144,9 +144,129 @@
 }
 
 .home-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 60px 20px;
+  max-width: 100%; /* Cho phép kéo dài đến hết trang */
+  margin: 0;
+  padding: 20px 20px 20px 20px; /* Thêm padding bottom để có khoảng cách với bottom navigation */
+  display: flex;
+  flex-direction: column; /* Đổi thành column để biểu đồ nằm dưới card */
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 60px; /* Tăng khoảng cách giữa card và biểu đồ */
+}
+
+
+/* Thu nhỏ toàn bộ nội dung bên trong home-content khoảng 20% */
+.home-content-inner {
+  transform: scale(0.65); /* 0.8 (lần trước) * 0.7 (nhỏ thêm ~30%) ≈ 0.56 */
+  transform-origin: top left;
+  /* Tính toán margin-bottom: (1 - scale) * chiều cao ước tính ≈ (1 - 0.65) * 600px = 210px */
+  margin-bottom: -210px; /* Tăng margin-bottom âm để bù lại khoảng trắng do transform scale */
+}
+
+.top-chart {
+  margin-top: 0; /* Bỏ margin-top vì đã dùng gap trong home-content */
+  width: 100%;
+  max-width: 100%; /* Kéo dài hết container */
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  padding: 14px 16px 16px 16px;
+}
+
+.top-chart-title {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #d32f2f;
+  text-align: center; /* Căn giữa tiêu đề */
+}
+
+.top-chart-note {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  color: #666;
+  text-align: center; /* Căn giữa chú thích */
+}
+
+.top-chart-subtitle {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  color: #666;
+}
+
+.top-chart-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.top-chart-bar {
+  display: grid;
+  grid-template-columns: 40px 1fr 0px 0px; /* Bỏ cột bar-name và bar-score, chỉ giữ rank và track */
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.bar-rank {
+  font-weight: 700;
+  color: #1976d2;
+}
+
+.bar-track {
+  position: relative;
+  height: 10px;
+  background: #e3f2fd;
+  border-radius: 5px;
+  overflow: visible; /* Cho phép icon hiển thị ngoài track */
+  width: 100%; /* Kéo dài đến hết chart */
+  flex: 1; /* Chiếm toàn bộ không gian còn lại */
+}
+
+.bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: -4px;
+}
+
+.bar-icon {
+  font-size: 30px;
+  line-height: 1;
+  z-index: 5;
+  position: absolute;
+  right: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bar-finish {
+  position: absolute;
+  right: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 20px;
+  z-index: 10;
+}
+
+.bar-name {
+  font-size: 13px;
+  color: #333;
+  font-weight: 600;
+}
+
+.bar-score {
+  font-size: 13px;
+  color: #999;
+  text-align: right;
 }
 
 .welcome-section {

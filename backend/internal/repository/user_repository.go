@@ -15,13 +15,17 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 
 // Create tạo user mới
 func (r *UserRepository) Create(user *models.User) error {
+	// Set default role nếu chưa có
+	if user.Role == "" {
+		user.Role = "user"
+	}
 	query := `
-        INSERT INTO users (email, password, name) 
-        VALUES ($1, $2, $3) 
+        INSERT INTO users (email, password, name, role) 
+        VALUES ($1, $2, $3, $4) 
         RETURNING id, created_at, updated_at
     `
 	return r.db.QueryRow(
-		query, user.Email, user.Password, user.Name,
+		query, user.Email, user.Password, user.Name, user.Role,
 	).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
 }
 
@@ -29,12 +33,12 @@ func (r *UserRepository) Create(user *models.User) error {
 func (r *UserRepository) FindByID(id string) (*models.User, error) {
 	user := &models.User{}
 	query := `
-        SELECT id, email, password, name, created_at, updated_at 
+        SELECT id, email, password, name, role, created_at, updated_at 
         FROM users 
         WHERE id = $1
     `
 	err := r.db.QueryRow(query, id).Scan(
-		&user.ID, &user.Email, &user.Password, &user.Name,
+		&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
 		&user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
@@ -47,12 +51,12 @@ func (r *UserRepository) FindByID(id string) (*models.User, error) {
 func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 	user := &models.User{}
 	query := `
-        SELECT id, email, password, name, created_at, updated_at 
+        SELECT id, email, password, name, role, created_at, updated_at 
         FROM users 
         WHERE email = $1
     `
 	err := r.db.QueryRow(query, email).Scan(
-		&user.ID, &user.Email, &user.Password, &user.Name,
+		&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
 		&user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
@@ -64,7 +68,7 @@ func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 // FindByName tìm user theo Name (tìm kiếm gần đúng)
 func (r *UserRepository) FindByName(name string) ([]*models.User, error) {
 	query := `
-        SELECT id, email, password, name, created_at, updated_at 
+        SELECT id, email, password, name, role, created_at, updated_at 
         FROM users 
         WHERE name ILIKE $1
     `
@@ -78,7 +82,7 @@ func (r *UserRepository) FindByName(name string) ([]*models.User, error) {
 	for rows.Next() {
 		user := &models.User{}
 		err := rows.Scan(
-			&user.ID, &user.Email, &user.Password, &user.Name,
+			&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
 			&user.CreatedAt, &user.UpdatedAt,
 		)
 		if err != nil {
@@ -161,7 +165,7 @@ func (r *UserRepository) DeleteUser(id string) error {
 // GetAll lấy tất cả users (có phân trang)
 func (r *UserRepository) GetAll(limit, offset int) ([]*models.User, error) {
 	query := `
-        SELECT id, email, password, name, created_at, updated_at 
+        SELECT id, email, password, name, role, created_at, updated_at 
         FROM users 
         ORDER BY created_at DESC
         LIMIT $1 OFFSET $2
@@ -176,7 +180,7 @@ func (r *UserRepository) GetAll(limit, offset int) ([]*models.User, error) {
 	for rows.Next() {
 		user := &models.User{}
 		err := rows.Scan(
-			&user.ID, &user.Email, &user.Password, &user.Name,
+			&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
 			&user.CreatedAt, &user.UpdatedAt,
 		)
 		if err != nil {

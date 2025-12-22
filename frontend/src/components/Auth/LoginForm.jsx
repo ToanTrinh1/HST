@@ -27,8 +27,18 @@ const LoginForm = () => {
       console.log('Login result:', result);
 
       if (result.success) {
-        console.log('Login successful, navigating to home...');
-        navigate('/', { replace: true }); // Redirect to home page
+        console.log('Login successful, checking user role...');
+        // Lấy user từ localStorage để kiểm tra role
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        console.log('User role:', user.role);
+        
+        if (user.role === 'admin') {
+          console.log('Admin detected, redirecting to /admin');
+          navigate('/admin', { replace: true }); // Redirect admin to admin page
+        } else {
+          console.log('Regular user, redirecting to home');
+          navigate('/', { replace: true }); // Redirect regular user to home page
+        }
       } else {
         console.log('Login failed:', result.error);
         setError(result.error);
