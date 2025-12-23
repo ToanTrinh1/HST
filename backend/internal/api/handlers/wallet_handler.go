@@ -48,15 +48,25 @@ func (h *WalletHandler) GetAllWallets(c *gin.Context) {
 		return
 	}
 
+	// Tính tổng so_du_hien_tai_vnd
+	totalCurrentBalanceVND, err := h.walletService.GetTotalCurrentBalanceVND()
+	if err != nil {
+		log.Printf("⚠️ LỖI TÍNH TỔNG SD HIỆN TẠI: %v (tiếp tục trả về danh sách)", err)
+		// Vẫn trả về danh sách dù có lỗi tính tổng
+		totalCurrentBalanceVND = 0
+	}
+
 	log.Printf("✅ LẤY DANH SÁCH WALLETS THÀNH CÔNG - Số lượng: %d", len(results))
 	if len(results) > 0 {
 		log.Printf("👤 Tên người dùng đầu tiên (từ nd.ten): %s", results[0].User.Name)
 	}
+	log.Printf("💰 Tổng SD hiện tại: %.2f VND", totalCurrentBalanceVND)
 	log.Println("=== KẾT THÚC LẤY DANH SÁCH WALLETS ===")
 
 	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    results,
+		"success":                true,
+		"data":                   results,
+		"total_current_balance_vnd": totalCurrentBalanceVND,
 	})
 }
 

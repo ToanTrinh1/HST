@@ -92,10 +92,51 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.wallet-table {
-  width: 90%;
+/* Wallet table - override bet-list-table khi có cả 2 class */
+.wallet-table,
+table.bet-list-table.wallet-table {
+  width: 95% !important;
   margin: 0 auto;
-  font-size: 11px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12.6px !important;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.wallet-table th,
+table.bet-list-table.wallet-table th {
+  padding: 14px 21px !important;
+  text-align: center;
+  font-weight: 600;
+  border: 1px solid #e0e0e0;
+  background: linear-gradient(to bottom, #f8f9fa, #f1f3f5);
+  font-size: 12.6px !important;
+  white-space: nowrap;
+  color: #333;
+}
+
+.wallet-table td,
+table.bet-list-table.wallet-table td {
+  padding: 14px 21px !important;
+  border: 1px solid #e0e0e0;
+  text-align: center;
+  font-size: 12.6px !important;
+  color: #555;
+}
+
+.wallet-table tbody tr:nth-child(even) {
+  background: #fafafa;
+}
+
+.wallet-table tbody tr:hover {
+  background: #e8f4f8;
+  transition: background-color 0.2s ease;
+}
+
+.wallet-table tbody tr {
+  transition: background-color 0.2s ease;
 }
 
 .bet-list-table thead {
@@ -563,6 +604,7 @@ select.status-select.status-waiting-ref {
   border-bottom: 1px solid #e0e0e0;
   background: #f8f9fa;
   flex-shrink: 0;
+  position: relative;
 }
 
 .rut-tien-sub-tabs-left {
@@ -604,9 +646,36 @@ select.status-select.status-waiting-ref {
 .wallet-table td:nth-child(4),
 .wallet-table th:nth-child(5),
 .wallet-table td:nth-child(5) {
-  min-width: 130px;
-  width: 130px;
+  min-width: 210px;
+  width: 210px;
   text-align: center;
+}
+
+/* Tổng SD hiện tại ở giữa */
+.rut-tien-total-balance {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.total-balance-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+}
+
+.total-balance-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #667eea;
 }
 
 /* Nút Nạp tiền và Rút tiền */
@@ -655,19 +724,19 @@ select.status-select.status-waiting-ref {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Cột Tên trong bảng rút tiền - nhỏ lại */
+/* Cột Tên trong bảng rút tiền */
 .wallet-table th:nth-child(1),
 .wallet-table td:nth-child(1) {
-  min-width: 100px;
-  width: 100px;
+  min-width: 210px;
+  width: 210px;
   text-align: center;
 }
 
-/* Cột Tệ - thu nhỏ lại */
+/* Cột Tệ */
 .wallet-table th:nth-child(2),
 .wallet-table td:nth-child(2) {
-  min-width: 100px;
-  width: 100px;
+  min-width: 210px;
+  width: 210px;
   text-align: center;
 }
 

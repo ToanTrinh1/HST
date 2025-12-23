@@ -78,6 +78,7 @@ const AdminPage = () => {
 
   // Danh sách wallets từ API
   const [walletList, setWalletList] = useState([]);
+  const [totalCurrentBalanceVND, setTotalCurrentBalanceVND] = useState(0);
   const [isLoadingWallet, setIsLoadingWallet] = useState(false);
 
   // Danh sách lịch sử chỉnh sửa
@@ -282,13 +283,20 @@ const AdminPage = () => {
         console.log('✅ Wallet API Response thành công, số lượng:', response.data.length);
         console.log('📊 Wallet data mẫu:', response.data[0]);
         setWalletList(response.data);
+        // Lấy tổng SD hiện tại từ response
+        if (response.total_current_balance_vnd !== undefined) {
+          setTotalCurrentBalanceVND(response.total_current_balance_vnd);
+          console.log('💰 Tổng SD hiện tại:', response.total_current_balance_vnd);
+        }
       } else {
         console.error('❌ Lỗi khi lấy danh sách wallets:', response.error);
         setWalletList([]);
+        setTotalCurrentBalanceVND(0);
       }
     } catch (error) {
       console.error('❌ Exception khi fetch danh sách wallets:', error);
       setWalletList([]);
+      setTotalCurrentBalanceVND(0);
     } finally {
       setIsLoadingWallet(false);
     }
@@ -324,6 +332,14 @@ const AdminPage = () => {
       fetchWalletList();
     }
   }, [activeTab, activeRutTienTab]);
+
+  // Load danh sách lịch sử chỉnh sửa khi vào tab "Lịch sử chỉnh sửa"
+  useEffect(() => {
+    if (activeTab === 'danh-sach-keo' && activeTopTab === 'lich-su-chinh-sua') {
+      console.log('✅ activeTab là danh-sach-keo và activeTopTab là lich-su-chinh-sua, gọi fetchHistoryList');
+      fetchHistoryList();
+    }
+  }, [activeTab, activeTopTab]);
 
   // Load danh sách users khi mở modal tạo đơn hàng, chỉnh sửa đơn hàng, nạp tiền, hoặc rút tiền
   useEffect(() => {
@@ -385,6 +401,68 @@ const AdminPage = () => {
       minute: '2-digit',
       second: '2-digit',
     });
+  };
+
+  // Format số thành đơn vị triệu/tỷ (ví dụ: 18.500.000 → "18,5 triệu")
+  const formatBalanceToMillion = (num) => {
+    if (num === 0 || num === null || num === undefined) return '0';
+    
+    const numValue = typeof num === 'string' ? parseFloat(num) : num;
+    if (isNaN(numValue)) return '0';
+    
+    // Nếu >= 1 tỷ (1.000.000.000)
+    if (numValue >= 1000000000) {
+      const ty = numValue / 1000000000;
+      // Làm tròn đến 1 chữ số thập phân
+      const tyRounded = Math.round(ty * 10) / 10;
+      // Nếu là số nguyên thì không hiển thị phần thập phân
+      if (tyRounded % 1 === 0) {
+        return `${tyRounded.toFixed(0)} tỷ`;
+      }
+      return `${tyRounded.toFixed(1).replace('.', ',')} tỷ`;
+    }
+    
+    // Nếu >= 1 triệu (1.000.000)
+    if (numValue >= 1000000) {
+      const trieu = numValue / 1000000;
+      // Làm tròn đến 1 chữ số thập phân
+      const trieuRounded = Math.round(trieu * 10) / 10;
+      // Nếu là số nguyên thì không hiển thị phần thập phân
+      if (trieuRounded % 1 === 0) {
+        return `${trieuRounded.toFixed(0)} triệu`;
+      }
+      return `${trieuRounded.toFixed(1).replace('.', ',')} triệu`;
+    }
+    
+    // Nếu < 1 triệu, hiển thị với dấu chấm phân cách hàng nghìn
+    const parts = numValue.toString().split('.');
+    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return parts.length > 1 ? `${integerPart}.${parts[1]}` : integerPart;
+  };
+
+  // Format số chi tiết với dấu chấm phân cách hàng nghìn (ví dụ: 1600000 → "1.600.000")
+  const formatBalanceDetail = (num) => {
+    if (num === 0 || num === null || num === undefined) return '0';
+    
+    const numValue = typeof num === 'string' ? parseFloat(num) : num;
+    if (isNaN(numValue)) return '0';
+    
+    // Làm tròn về số nguyên
+    const rounded = Math.round(numValue);
+    // Format với dấu chấm phân cách hàng nghìn
+    return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
+  // Format tổng SD hiện tại: số chi tiết ~ số đã format (ví dụ: "1.600.000 ~ 1,6 triệu VND")
+  const formatTotalBalance = (num) => {
+    if (num === 0 || num === null || num === undefined) return '0 ~ 0 VND';
+    
+    const numValue = typeof num === 'string' ? parseFloat(num) : num;
+    if (isNaN(numValue)) return '0 ~ 0 VND';
+    
+    const detail = formatBalanceDetail(numValue);
+    const formatted = formatBalanceToMillion(numValue);
+    return `${detail} ~ ${formatted} VND`;
   };
 
   // Filter users khi gõ
@@ -919,6 +997,19 @@ const AdminPage = () => {
     if (activeTopTab === 'lich-su-chinh-sua' && activeTab === 'danh-sach-keo') {
       return (
         <div className="admin-tab-content">
+          {/* Tiêu đề "Thông tin chỉnh sửa" */}
+          <div className="rut-tien-sub-tabs" style={{ justifyContent: 'center', marginBottom: '10px' }}>
+            <h2 style={{ 
+              margin: 0, 
+              padding: '8px 16px', 
+              fontSize: '16px', 
+              fontWeight: '600',
+              color: '#333',
+              textAlign: 'center'
+            }}>
+              Thông tin chỉnh sửa
+            </h2>
+          </div>
           <div className="bet-list-table-wrapper">
             {isLoadingHistory ? (
               <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
@@ -934,7 +1025,7 @@ const AdminPage = () => {
                   <tr>
                     <th>STT</th>
                     <th>Thời gian</th>
-                    <th>ID đơn hàng</th>
+                    <th>Mã đơn hàng</th>
                     <th>Hành động</th>
                     <th>Người thực hiện</th>
                     <th>Mô tả</th>
@@ -942,42 +1033,66 @@ const AdminPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {historyList.map((history, index) => (
-                    <tr key={history.id}>
-                      <td>{index + 1}</td>
-                      <td>{formatDateTime(history.created_at)}</td>
-                      <td style={{ fontFamily: 'monospace', fontSize: '10px' }}>
-                        {history.bet_receipt_id.substring(0, 8)}...
-                      </td>
-                      <td>
-                        <span
-                          className={`status-badge ${
-                            history.action === 'UPDATE' ? 'history-update' : 'history-delete'
-                          }`}
-                        >
-                          {history.action}
-                        </span>
-                      </td>
-                      <td>{history.performed_by_name || 'N/A'}</td>
-                      <td>{history.description || '-'}</td>
-                      <td>
-                        <button
-                          onClick={() => handleViewHistoryDetail(history)}
-                          style={{
-                            padding: '4px 8px',
-                            background: '#667eea',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '10px',
-                          }}
-                        >
-                          Chi tiết
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {historyList.map((history, index) => {
+                    // Lấy mã đơn hàng (order_code) từ old_data hoặc new_data
+                    // Backend serialize BetReceipt với key "order_code" (từ json tag)
+                    let orderCode = '';
+                    try {
+                      // Ưu tiên lấy từ new_data (dữ liệu sau khi sửa)
+                      if (history.new_data) {
+                        const newData = typeof history.new_data === 'string' ? JSON.parse(history.new_data) : history.new_data;
+                        orderCode = newData.order_code || '';
+                      }
+                      // Nếu không có, lấy từ old_data (dữ liệu trước khi sửa)
+                      if (!orderCode && history.old_data) {
+                        const oldData = typeof history.old_data === 'string' ? JSON.parse(history.old_data) : history.old_data;
+                        orderCode = oldData.order_code || '';
+                      }
+                    } catch (e) {
+                      console.error('Error parsing order_code from history:', e);
+                    }
+                    
+                    // Chỉ hiển thị order_code, không fallback về bet_receipt_id
+                    // Nếu order_code trống, hiển thị "(Trống)"
+                    const displayValue = orderCode || '(Trống)';
+                    
+                    return (
+                      <tr key={history.id}>
+                        <td>{index + 1}</td>
+                        <td>{formatDateTime(history.created_at)}</td>
+                        <td style={{ fontSize: '10px' }}>
+                          {displayValue}
+                        </td>
+                        <td>
+                          <span
+                            className={`status-badge ${
+                              history.action === 'UPDATE' ? 'history-update' : 'history-delete'
+                            }`}
+                          >
+                            {history.action}
+                          </span>
+                        </td>
+                        <td>{history.performed_by_name || 'N/A'}</td>
+                        <td>{history.description || '-'}</td>
+                        <td>
+                          <button
+                            onClick={() => handleViewHistoryDetail(history)}
+                            style={{
+                              padding: '4px 8px',
+                              background: '#667eea',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '10px',
+                            }}
+                          >
+                            Chi tiết
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
@@ -1453,6 +1568,12 @@ const AdminPage = () => {
                 >
                   Lịch sử
                 </button>
+              </div>
+              <div className="rut-tien-total-balance">
+                <span className="total-balance-label">Tổng SD hiện tại:</span>
+                <span className="total-balance-value">
+                  {formatTotalBalance(totalCurrentBalanceVND)}
+                </span>
               </div>
               <div className="wallet-action-buttons">
                 <button className="btn-nap-tien" onClick={() => {
@@ -2296,9 +2417,36 @@ const AdminPage = () => {
                   {selectedHistory.action}
                 </span>
               </div>
-              <div style={{ marginBottom: '10px' }}>
-                <strong>ID đơn hàng:</strong> {selectedHistory.bet_receipt_id}
-              </div>
+              {(() => {
+                try {
+                  // Lấy mã đơn hàng (order_code) từ old_data hoặc new_data
+                  // Backend serialize BetReceipt với key "order_code" (từ json tag)
+                  let orderCode = '';
+                  if (selectedHistory.new_data) {
+                    const newData = typeof selectedHistory.new_data === 'string' ? JSON.parse(selectedHistory.new_data) : selectedHistory.new_data;
+                    orderCode = newData.order_code || '';
+                  }
+                  if (!orderCode && selectedHistory.old_data) {
+                    const oldData = typeof selectedHistory.old_data === 'string' ? JSON.parse(selectedHistory.old_data) : selectedHistory.old_data;
+                    orderCode = oldData.order_code || '';
+                  }
+                  // Chỉ hiển thị order_code, không fallback về bet_receipt_id
+                  // Nếu order_code trống, hiển thị "(Trống)"
+                  const displayValue = orderCode || '(Trống)';
+                  return (
+                    <div style={{ marginBottom: '10px' }}>
+                      <strong>Mã đơn hàng:</strong> {displayValue}
+                    </div>
+                  );
+                } catch (e) {
+                  console.error('Error parsing order_code in detail modal:', e);
+                  return (
+                    <div style={{ marginBottom: '10px' }}>
+                      <strong>Mã đơn hàng:</strong> (Trống)
+                    </div>
+                  );
+                }
+              })()}
               <div style={{ marginBottom: '10px' }}>
                 <strong>Thời gian:</strong> {formatDateTime(selectedHistory.created_at)}
               </div>
@@ -2311,97 +2459,274 @@ const AdminPage = () => {
                 </div>
               )}
 
-              {selectedHistory.action === 'DELETE' && selectedHistory.old_data && (
+              {selectedHistory.action === 'UPDATE' && (selectedHistory.old_data || selectedHistory.new_data) && (
                 <div style={{ marginTop: '20px' }}>
-                  <h3 style={{ marginBottom: '10px', color: '#f44336' }}>Thông tin đơn hàng đã bị xóa:</h3>
-                  <div style={{ 
-                    background: '#ffebee', 
-                    padding: '15px', 
-                    borderRadius: '8px',
-                    border: '1px solid #f44336',
-                    maxHeight: '400px',
-                    overflowY: 'auto'
-                  }}>
-                    <pre style={{ margin: 0, fontSize: '12px', whiteSpace: 'pre-wrap' }}>
-                      {JSON.stringify(JSON.parse(selectedHistory.old_data), null, 2)}
-                    </pre>
-                  </div>
-                </div>
-              )}
-
-              {selectedHistory.action === 'UPDATE' && selectedHistory.changed_fields && (
-                <div style={{ marginTop: '20px' }}>
-                  <h3 style={{ marginBottom: '10px' }}>Các thay đổi:</h3>
+                  <h3 style={{ marginBottom: '15px' }}>Chi tiết chỉnh sửa:</h3>
                   <div style={{ 
                     background: '#f5f5f5', 
                     padding: '15px', 
                     borderRadius: '8px',
-                    maxHeight: '400px',
+                    maxHeight: '500px',
+                    overflowX: 'auto',
                     overflowY: 'auto'
                   }}>
                     {(() => {
                       try {
-                        const changedFields = JSON.parse(selectedHistory.changed_fields);
+                        const oldData = selectedHistory.old_data ? JSON.parse(selectedHistory.old_data) : {};
+                        const newData = selectedHistory.new_data ? JSON.parse(selectedHistory.new_data) : {};
+                        const changedFields = selectedHistory.changed_fields ? JSON.parse(selectedHistory.changed_fields) : {};
+                        
+                        // Danh sách các trường đã thay đổi
+                        const changedFieldKeys = Object.keys(changedFields);
+                        
+                        // Helper function để map dữ liệu sang format giống bet
+                        const mapToBetFormat = (data) => ({
+                          stt: data.stt || '',
+                          name: data.user_name || '',
+                          receivedAt: data.received_at || '',
+                          completedHours: data.completed_hours || '',
+                          task: data.task_code || '',
+                          betType: data.bet_type || '',
+                          webBet: data.web_bet_amount_cny || 0,
+                          orderCode: data.order_code || '',
+                          note: data.notes || '',
+                          timeRemainingFormatted: data.time_remaining_formatted || '',
+                          timeRemainingHours: data.time_remaining_hours || '',
+                          status: data.status || '',
+                          actualReceived: data.actual_received_cny || 0,
+                          compensation: data.compensation_cny || 0,
+                          actualAmount: data.actual_amount_cny || 0,
+                        });
+                        
+                        const oldBet = mapToBetFormat(oldData);
+                        const newBet = mapToBetFormat(newData);
+                        
+                        // Helper function để check xem trường có bị thay đổi không
+                        const isChanged = (fieldKey) => {
+                          // Map tên trường từ format bet sang format database
+                          const fieldMapping = {
+                            'stt': 'stt',
+                            'name': 'user_name',
+                            'receivedAt': 'received_at',
+                            'completedHours': 'completed_hours',
+                            'task': 'task_code',
+                            'betType': 'bet_type',
+                            'webBet': 'web_bet_amount_cny',
+                            'orderCode': 'order_code',
+                            'note': 'notes',
+                            'timeRemainingFormatted': 'time_remaining_formatted',
+                            'timeRemainingHours': 'time_remaining_hours',
+                            'status': 'status',
+                            'actualReceived': 'actual_received_cny',
+                            'compensation': 'compensation_cny',
+                            'actualAmount': 'actual_amount_cny',
+                          };
+                          return changedFieldKeys.includes(fieldMapping[fieldKey] || fieldKey);
+                        };
+                        
+                        // Helper function để format cell value
+                        const formatCellValue = (value, isDate = false) => {
+                          if (value === null || value === undefined || value === '') return '';
+                          if (isDate && value) {
+                            return new Date(value).toLocaleString('vi-VN');
+                          }
+                          return String(value);
+                        };
+                        
                         return (
                           <div>
-                            {Object.keys(changedFields).map((key) => {
-                              const change = changedFields[key];
-                              return (
-                                <div key={key} style={{ marginBottom: '10px', padding: '8px', background: 'white', borderRadius: '4px' }}>
-                                  <strong>{key}:</strong>
-                                  <div style={{ marginLeft: '15px', color: '#666', fontSize: '12px' }}>
-                                    <div style={{ color: '#f44336' }}>Cũ: {JSON.stringify(change.old)}</div>
-                                    <div style={{ color: '#4caf50' }}>Mới: {JSON.stringify(change.new)}</div>
-                                  </div>
-                                </div>
-                              );
-                            })}
+                            {/* Hàng "Trước khi sửa" */}
+                            <div style={{ marginBottom: '20px' }}>
+                              <h4 style={{ marginBottom: '10px', color: '#f44336', fontSize: '14px', fontWeight: '600' }}>
+                                Trước khi sửa:
+                              </h4>
+                              <table className="bet-list-table" style={{ width: '100%', fontSize: '11px' }}>
+                                <thead>
+                                  <tr>
+                                    <th>STT</th>
+                                    <th>Tên</th>
+                                    <th>Thời gian nhận kèo</th>
+                                    <th>Thời gian hoàn thành</th>
+                                    <th>Nhiệm vụ</th>
+                                    <th>Loại kèo</th>
+                                    <th>Tiền kèo web</th>
+                                    <th>Mã đơn hàng</th>
+                                    <th>Ghi chú</th>
+                                    <th>Thời gian còn lại</th>
+                                    <th>Tiến độ hoàn thành</th>
+                                    <th>Tiền kèo thực nhận</th>
+                                    <th>Tiền đền</th>
+                                    <th>Công thực nhận</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <tr>
+                                    <td style={{ color: isChanged('stt') ? '#f44336' : 'inherit', fontWeight: isChanged('stt') ? '600' : 'normal' }}>{oldBet.stt}</td>
+                                    <td style={{ color: isChanged('name') ? '#f44336' : 'inherit', fontWeight: isChanged('name') ? '600' : 'normal' }}>{oldBet.name}</td>
+                                    <td style={{ color: isChanged('receivedAt') ? '#f44336' : 'inherit', fontWeight: isChanged('receivedAt') ? '600' : 'normal' }}>{formatCellValue(oldBet.receivedAt, true)}</td>
+                                    <td style={{ color: isChanged('completedHours') ? '#f44336' : 'inherit', fontWeight: isChanged('completedHours') ? '600' : 'normal' }}>{oldBet.completedHours || ''}</td>
+                                    <td style={{ color: isChanged('task') ? '#f44336' : 'inherit', fontWeight: isChanged('task') ? '600' : 'normal' }}>{oldBet.task}</td>
+                                    <td style={{ color: isChanged('betType') ? '#f44336' : 'inherit', fontWeight: isChanged('betType') ? '600' : 'normal' }}>{oldBet.betType}</td>
+                                    <td style={{ color: isChanged('webBet') ? '#f44336' : 'inherit', fontWeight: isChanged('webBet') ? '600' : 'normal' }}>{oldBet.webBet}</td>
+                                    <td style={{ color: isChanged('orderCode') ? '#f44336' : 'inherit', fontWeight: isChanged('orderCode') ? '600' : 'normal' }}>{oldBet.orderCode || ''}</td>
+                                    <td style={{ color: isChanged('note') ? '#f44336' : 'inherit', fontWeight: isChanged('note') ? '600' : 'normal' }}>{oldBet.note}</td>
+                                    <td style={{ color: isChanged('timeRemainingFormatted') || isChanged('timeRemainingHours') ? '#f44336' : 'inherit', fontWeight: (isChanged('timeRemainingFormatted') || isChanged('timeRemainingHours')) ? '600' : 'normal' }}>{oldBet.status !== 'DONE' ? (oldBet.timeRemainingFormatted || oldBet.timeRemainingHours || '') : ''}</td>
+                                    <td>
+                                      <span className={`status-badge ${getStatusClass(oldBet.status)}`} style={{ color: isChanged('status') ? '#f44336' : 'inherit', fontWeight: isChanged('status') ? '600' : 'normal' }}>
+                                        {oldBet.status}
+                                      </span>
+                                    </td>
+                                    <td style={{ color: isChanged('actualReceived') ? '#f44336' : 'inherit', fontWeight: isChanged('actualReceived') ? '600' : 'normal' }}>{oldBet.actualReceived || ''}</td>
+                                    <td style={{ color: isChanged('compensation') ? '#f44336' : 'inherit', fontWeight: isChanged('compensation') ? '600' : 'normal' }}>{oldBet.compensation || ''}</td>
+                                    <td style={{ color: isChanged('actualAmount') ? '#f44336' : 'inherit', fontWeight: isChanged('actualAmount') ? '600' : 'normal' }}>{((oldBet.status === 'DONE' || oldBet.status === 'HỦY BỎ' || oldBet.status === 'ĐỀN') && oldBet.actualAmount) ? oldBet.actualAmount.toString() : ''}</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                            
+                            {/* Hàng "Sau khi sửa" */}
+                            <div>
+                              <h4 style={{ marginBottom: '10px', color: '#4caf50', fontSize: '14px', fontWeight: '600' }}>
+                                Sau khi sửa:
+                              </h4>
+                              <table className="bet-list-table" style={{ width: '100%', fontSize: '11px' }}>
+                                <thead>
+                                  <tr>
+                                    <th>STT</th>
+                                    <th>Tên</th>
+                                    <th>Thời gian nhận kèo</th>
+                                    <th>Thời gian hoàn thành</th>
+                                    <th>Nhiệm vụ</th>
+                                    <th>Loại kèo</th>
+                                    <th>Tiền kèo web</th>
+                                    <th>Mã đơn hàng</th>
+                                    <th>Ghi chú</th>
+                                    <th>Thời gian còn lại</th>
+                                    <th>Tiến độ hoàn thành</th>
+                                    <th>Tiền kèo thực nhận</th>
+                                    <th>Tiền đền</th>
+                                    <th>Công thực nhận</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <tr>
+                                    <td style={{ color: isChanged('stt') ? '#f44336' : 'inherit', fontWeight: isChanged('stt') ? '600' : 'normal' }}>{newBet.stt}</td>
+                                    <td style={{ color: isChanged('name') ? '#f44336' : 'inherit', fontWeight: isChanged('name') ? '600' : 'normal' }}>{newBet.name}</td>
+                                    <td style={{ color: isChanged('receivedAt') ? '#f44336' : 'inherit', fontWeight: isChanged('receivedAt') ? '600' : 'normal' }}>{formatCellValue(newBet.receivedAt, true)}</td>
+                                    <td style={{ color: isChanged('completedHours') ? '#f44336' : 'inherit', fontWeight: isChanged('completedHours') ? '600' : 'normal' }}>{newBet.completedHours || ''}</td>
+                                    <td style={{ color: isChanged('task') ? '#f44336' : 'inherit', fontWeight: isChanged('task') ? '600' : 'normal' }}>{newBet.task}</td>
+                                    <td style={{ color: isChanged('betType') ? '#f44336' : 'inherit', fontWeight: isChanged('betType') ? '600' : 'normal' }}>{newBet.betType}</td>
+                                    <td style={{ color: isChanged('webBet') ? '#f44336' : 'inherit', fontWeight: isChanged('webBet') ? '600' : 'normal' }}>{newBet.webBet}</td>
+                                    <td style={{ color: isChanged('orderCode') ? '#f44336' : 'inherit', fontWeight: isChanged('orderCode') ? '600' : 'normal' }}>{newBet.orderCode || ''}</td>
+                                    <td style={{ color: isChanged('note') ? '#f44336' : 'inherit', fontWeight: isChanged('note') ? '600' : 'normal' }}>{newBet.note}</td>
+                                    <td style={{ color: isChanged('timeRemainingFormatted') || isChanged('timeRemainingHours') ? '#f44336' : 'inherit', fontWeight: (isChanged('timeRemainingFormatted') || isChanged('timeRemainingHours')) ? '600' : 'normal' }}>{newBet.status !== 'DONE' ? (newBet.timeRemainingFormatted || newBet.timeRemainingHours || '') : ''}</td>
+                                    <td>
+                                      <span className={`status-badge ${getStatusClass(newBet.status)}`} style={{ color: isChanged('status') ? '#f44336' : 'inherit', fontWeight: isChanged('status') ? '600' : 'normal' }}>
+                                        {newBet.status}
+                                      </span>
+                                    </td>
+                                    <td style={{ color: isChanged('actualReceived') ? '#f44336' : 'inherit', fontWeight: isChanged('actualReceived') ? '600' : 'normal' }}>{newBet.actualReceived || ''}</td>
+                                    <td style={{ color: isChanged('compensation') ? '#f44336' : 'inherit', fontWeight: isChanged('compensation') ? '600' : 'normal' }}>{newBet.compensation || ''}</td>
+                                    <td style={{ color: isChanged('actualAmount') ? '#f44336' : 'inherit', fontWeight: isChanged('actualAmount') ? '600' : 'normal' }}>{((newBet.status === 'DONE' || newBet.status === 'HỦY BỎ' || newBet.status === 'ĐỀN') && newBet.actualAmount) ? newBet.actualAmount.toString() : ''}</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
                         );
                       } catch (e) {
-                        return <pre style={{ margin: 0, fontSize: '12px' }}>{selectedHistory.changed_fields}</pre>;
+                        console.error('Error parsing history data:', e);
+                        return <div style={{ color: '#666', fontSize: '13px', padding: '20px', textAlign: 'center' }}>Không thể hiển thị thông tin chỉnh sửa</div>;
                       }
                     })()}
                   </div>
                 </div>
               )}
 
-              {selectedHistory.action === 'UPDATE' && (selectedHistory.old_data || selectedHistory.new_data) && (
-                <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  {selectedHistory.old_data && (
-                    <div style={{ flex: 1, minWidth: '300px' }}>
-                      <h4 style={{ marginBottom: '10px' }}>Dữ liệu cũ:</h4>
-                      <div style={{ 
-                        background: '#fff3e0', 
-                        padding: '15px', 
-                        borderRadius: '8px',
-                        border: '1px solid #ff9800',
-                        maxHeight: '300px',
-                        overflowY: 'auto'
-                      }}>
-                        <pre style={{ margin: 0, fontSize: '11px', whiteSpace: 'pre-wrap' }}>
-                          {JSON.stringify(JSON.parse(selectedHistory.old_data), null, 2)}
-                        </pre>
-                      </div>
-                    </div>
-                  )}
-                  {selectedHistory.new_data && (
-                    <div style={{ flex: 1, minWidth: '300px' }}>
-                      <h4 style={{ marginBottom: '10px' }}>Dữ liệu mới:</h4>
-                      <div style={{ 
-                        background: '#e8f5e9', 
-                        padding: '15px', 
-                        borderRadius: '8px',
-                        border: '1px solid #4caf50',
-                        maxHeight: '300px',
-                        overflowY: 'auto'
-                      }}>
-                        <pre style={{ margin: 0, fontSize: '11px', whiteSpace: 'pre-wrap' }}>
-                          {JSON.stringify(JSON.parse(selectedHistory.new_data), null, 2)}
-                        </pre>
-                      </div>
-                    </div>
-                  )}
+              {selectedHistory.action === 'DELETE' && selectedHistory.old_data && (
+                <div style={{ marginTop: '20px' }}>
+                  <h3 style={{ marginBottom: '15px', color: '#f44336' }}>Thông tin đơn hàng đã bị xóa:</h3>
+                  <div style={{ 
+                    background: '#ffebee', 
+                    padding: '15px', 
+                    borderRadius: '8px',
+                    border: '1px solid #f44336',
+                    maxHeight: '500px',
+                    overflowX: 'auto',
+                    overflowY: 'auto'
+                  }}>
+                    {(() => {
+                      try {
+                        const oldData = JSON.parse(selectedHistory.old_data);
+                        
+                        // Map dữ liệu từ old_data sang format giống bet trong danh sách
+                        const deletedBet = {
+                          stt: oldData.stt || '',
+                          name: oldData.user_name || '',
+                          receivedAt: oldData.received_at || '',
+                          completedHours: oldData.completed_hours || '',
+                          task: oldData.task_code || '',
+                          betType: oldData.bet_type || '',
+                          webBet: oldData.web_bet_amount_cny || 0,
+                          orderCode: oldData.order_code || '',
+                          note: oldData.notes || '',
+                          timeRemainingFormatted: oldData.time_remaining_formatted || '',
+                          timeRemainingHours: oldData.time_remaining_hours || '',
+                          status: oldData.status || '',
+                          actualReceived: oldData.actual_received_cny || 0,
+                          compensation: oldData.compensation_cny || 0,
+                          actualAmount: oldData.actual_amount_cny || 0,
+                        };
+                        
+                        return (
+                          <table className="bet-list-table" style={{ width: '100%', fontSize: '11px' }}>
+                            <thead>
+                              <tr>
+                                <th>STT</th>
+                                <th>Tên</th>
+                                <th>Thời gian nhận kèo</th>
+                                <th>Thời gian hoàn thành</th>
+                                <th>Nhiệm vụ</th>
+                                <th>Loại kèo</th>
+                                <th>Tiền kèo web</th>
+                                <th>Mã đơn hàng</th>
+                                <th>Ghi chú</th>
+                                <th>Thời gian còn lại</th>
+                                <th>Tiến độ hoàn thành</th>
+                                <th>Tiền kèo thực nhận</th>
+                                <th>Tiền đền</th>
+                                <th>Công thực nhận</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                <td>{deletedBet.stt}</td>
+                                <td>{deletedBet.name}</td>
+                                <td>{deletedBet.receivedAt ? new Date(deletedBet.receivedAt).toLocaleString('vi-VN') : ''}</td>
+                                <td>{deletedBet.completedHours || ''}</td>
+                                <td>{deletedBet.task}</td>
+                                <td>{deletedBet.betType}</td>
+                                <td>{deletedBet.webBet}</td>
+                                <td>{deletedBet.orderCode || ''}</td>
+                                <td>{deletedBet.note}</td>
+                                <td>{deletedBet.status !== 'DONE' ? (deletedBet.timeRemainingFormatted || deletedBet.timeRemainingHours || '') : ''}</td>
+                                <td>
+                                  <span className={`status-badge ${getStatusClass(deletedBet.status)}`}>
+                                    {deletedBet.status}
+                                  </span>
+                                </td>
+                                <td>{deletedBet.actualReceived || ''}</td>
+                                <td>{deletedBet.compensation || ''}</td>
+                                <td>{((deletedBet.status === 'DONE' || deletedBet.status === 'HỦY BỎ' || deletedBet.status === 'ĐỀN') && deletedBet.actualAmount) ? deletedBet.actualAmount.toString() : ''}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        );
+                      } catch (e) {
+                        return <div style={{ color: '#666', fontSize: '13px', padding: '20px', textAlign: 'center' }}>Không thể hiển thị thông tin đơn hàng</div>;
+                      }
+                    })()}
+                  </div>
                 </div>
               )}
             </div>

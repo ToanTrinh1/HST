@@ -208,6 +208,69 @@ func (r *BetReceiptHistoryRepository) GetByBetReceiptID(betReceiptID string) ([]
 	return histories, nil
 }
 
+// GetByID lấy một history record theo ID
+func (r *BetReceiptHistoryRepository) GetByID(id string) (*models.BetReceiptHistory, error) {
+	query := `
+		SELECT 
+			h.id,
+			h.bet_receipt_id,
+			h.action,
+			h.performed_by,
+			u.ten as performed_by_name,
+			COALESCE(h.old_data::text, ''),
+			COALESCE(h.new_data::text, ''),
+			COALESCE(h.changed_fields::text, ''),
+			COALESCE(h.description, ''),
+			h.created_at
+		FROM bet_receipt_history h
+		LEFT JOIN nguoi_dung u ON h.performed_by = u.id
+		WHERE h.id = $1
+	`
+
+	var h models.BetReceiptHistory
+	var performedBy sql.NullString
+	var performedByName sql.NullString
+	var oldData, newData, changedFields sql.NullString
+
+	err := r.db.QueryRow(query, id).Scan(
+		&h.ID,
+		&h.BetReceiptID,
+		&h.Action,
+		&performedBy,
+		&performedByName,
+		&oldData,
+		&newData,
+		&changedFields,
+		&h.Description,
+		&h.CreatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil // Không tìm thấy
+		}
+		log.Printf("Repository - ❌ Lỗi lấy history theo ID: %v", err)
+		return nil, err
+	}
+
+	if performedBy.Valid {
+		h.PerformedBy = &performedBy.String
+	}
+	if performedByName.Valid {
+		h.PerformedByName = performedByName.String
+	}
+	if oldData.Valid {
+		h.OldData = oldData.String
+	}
+	if newData.Valid {
+		h.NewData = newData.String
+	}
+	if changedFields.Valid {
+		h.ChangedFields = changedFields.String
+	}
+
+	return &h, nil
+}
+
 // Helper function để convert BetReceipt sang JSON
 func BetReceiptToJSON(betReceipt *models.BetReceipt) (string, error) {
 	data, err := json.Marshal(betReceipt)

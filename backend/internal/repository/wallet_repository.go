@@ -445,3 +445,22 @@ func (r *WalletRepository) RecalculateWallet(userID string, exchangeRate float64
 	_, err = r.db.Exec(updateQuery, totalReceivedCNY, totalReceivedVND, totalDepositVND, totalWithdrawnVND, currentBalanceVND, userID)
 	return err
 }
+
+// GetTotalCurrentBalanceVND tính tổng so_du_hien_tai_vnd từ tất cả wallets
+// Chỉ tính cho users có vai_tro = 'user'
+func (r *WalletRepository) GetTotalCurrentBalanceVND() (float64, error) {
+	query := `
+		SELECT COALESCE(SUM(COALESCE(tk.so_du_hien_tai_vnd, 0)), 0) as total_current_balance_vnd
+		FROM nguoi_dung nd
+		LEFT JOIN tien_keo tk ON tk.id_nguoi_dung = nd.id
+		WHERE nd.vai_tro = 'user'
+	`
+
+	var total float64
+	err := r.db.QueryRow(query).Scan(&total)
+	if err != nil {
+		return 0, err
+	}
+
+	return total, nil
+}

@@ -43,6 +43,11 @@ func (s *WalletService) GetAllWallets(limit, offset int) ([]*WalletWithUserRespo
 	return results, nil
 }
 
+// GetTotalCurrentBalanceVND lấy tổng so_du_hien_tai_vnd từ tất cả wallets
+func (s *WalletService) GetTotalCurrentBalanceVND() (float64, error) {
+	return s.walletRepo.GetTotalCurrentBalanceVND()
+}
+
 // RecalculateWallet tính toán lại wallet từ dữ liệu thực tế trong database
 // exchangeRate: Tỷ giá VND/CNY (mặc định 3550)
 func (s *WalletService) RecalculateWallet(userID string, exchangeRate float64) error {

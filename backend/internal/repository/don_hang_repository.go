@@ -16,6 +16,11 @@ func NewBetReceiptRepository(db *sql.DB) *BetReceiptRepository {
 	return &BetReceiptRepository{db: db}
 }
 
+// GetDB trả về database connection (để sử dụng trong service)
+func (r *BetReceiptRepository) GetDB() *sql.DB {
+	return r.db
+}
+
 // Create tạo đơn hàng (thông tin nhận kèo) mới
 func (r *BetReceiptRepository) Create(betReceipt *models.BetReceipt) error {
 	// Lấy số thứ tự tiếp theo (số lượng đơn hàng hiện tại + 1)
