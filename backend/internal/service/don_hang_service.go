@@ -357,9 +357,12 @@ func (s *BetReceiptService) UpdateBetReceiptStatus(id string, req *models.Update
 				actualReceivedCNY, actualAmountCNY, id)
 		}
 	} else if req.Status == models.BetReceiptStatusCompensation {
-		// Status = "ĐỀN": Yêu cầu nhập CompensationCNY (bắt buộc phải > 0)
+		// Status = "ĐỀN": Yêu cầu nhập CompensationCNY và CancelReason (lý do đền)
 		if req.CompensationCNY == nil {
 			return nil, errors.New("Khi chọn status 'Đền', phải nhập 'Tiền đền' (CompensationCNY)")
+		}
+		if req.CancelReason == nil || *req.CancelReason == "" {
+			return nil, errors.New("Khi chọn status 'Đền', phải nhập 'Lý do đền' (CancelReason)")
 		}
 
 		compensationCNY := *req.CompensationCNY
@@ -369,18 +372,21 @@ func (s *BetReceiptService) UpdateBetReceiptStatus(id string, req *models.Update
 		}
 
 		betReceipt.CompensationCNY = compensationCNY
+		betReceipt.CancelReason = *req.CancelReason
 		// KHÔNG thay đổi WebBetAmountCNY và ActualReceivedCNY (giữ nguyên giá trị)
 
 		// ActualAmountCNY = -CompensationCNY (nhập bao nhiêu trừ bấy nhiêu, không dùng công thức)
 		betReceipt.ActualAmountCNY = -compensationCNY // Giá trị ÂM để trừ tiền
 		log.Printf("Service - ✅ Status = ĐỀN, CompensationCNY = %.2f, ActualAmountCNY (âm): %.2f cho đơn hàng ID: %s",
 			compensationCNY, betReceipt.ActualAmountCNY, id)
+		log.Printf("Service - ✅ Status = ĐỀN, Lý do đền: %s cho đơn hàng ID: %s", betReceipt.CancelReason, id)
 	} else {
 		// Khi status không phải "DONE", "HỦY BỎ", hoặc "ĐỀN"
-		// Nếu đổi từ "DONE" hoặc "HỦY BỎ" sang status khác, reset ActualReceivedCNY về 0
+		// Nếu đổi từ "DONE" hoặc "HỦY BỎ" sang status khác, reset ActualReceivedCNY về 0 và xóa lý do hủy
 		if oldStatus == models.BetReceiptStatusDone || oldStatus == models.BetReceiptStatusCancelled {
 			betReceipt.ActualReceivedCNY = 0
-			log.Printf("Service - ℹ️ Đổi từ %s sang %s, reset ActualReceivedCNY = 0 cho đơn hàng ID: %s", oldStatus, req.Status, id)
+			betReceipt.CancelReason = "" // Xóa lý do hủy khi đổi sang status khác
+			log.Printf("Service - ℹ️ Đổi từ %s sang %s, reset ActualReceivedCNY = 0 và xóa lý do hủy cho đơn hàng ID: %s", oldStatus, req.Status, id)
 		}
 		// Nếu đổi từ "ĐỀN" sang status khác, reset CompensationCNY về 0
 		if oldStatus == models.BetReceiptStatusCompensation {

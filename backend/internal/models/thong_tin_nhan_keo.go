@@ -14,6 +14,7 @@ type BetReceipt struct {
 	OrderCode         string  `json:"order_code" db:"ma_don_hang"`                        // Mã đơn hàng
 	Notes             string  `json:"notes" db:"ghi_chu"`                                 // Ghi chú
 	Status            string  `json:"status" db:"tien_do_hoan_thanh"`                     // Tiến độ: "ĐANG THỰC HIỆN", "DONE", "CHỜ CHẤP NHẬN", "HỦY BỎ", "ĐỀN", "ĐANG QUÉT MÃ", "CHỜ TRỌNG TÀI"
+	CancelReason      string  `json:"cancel_reason" db:"ly_do_huy"`                       // Lý do hủy bỏ (chỉ có giá trị khi status = HỦY BỎ)
 	ActualReceivedCNY float64 `json:"actual_received_cny" db:"tien_keo_web_thuc_nhan_te"` // Tiền kèo Web thực nhận (tệ)
 	CompensationCNY   float64 `json:"compensation_cny" db:"tien_den_te"`                  // Tiền đền (tệ)
 
@@ -64,6 +65,7 @@ type UpdateBetReceiptStatusRequest struct {
 	Status            string     `json:"status" binding:"required"`
 	ActualReceivedCNY *float64   `json:"actual_received_cny"`
 	CompensationCNY   *float64   `json:"compensation_cny"`
+	CancelReason      *string    `json:"cancel_reason"` // Lý do hủy bỏ hoặc lý do đền (bắt buộc khi status = ĐỀN)
 	CompletedAt       *time.Time `json:"completed_at"`
 	// TODO: Khi update tien_do_hoan_thanh sang "DONE", cần tính cong_thuc_nhan_te
 	// cong_thuc_nhan_te sẽ được tính tự động dựa trên công thức

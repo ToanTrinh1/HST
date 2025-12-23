@@ -66,7 +66,7 @@ func (r *BetReceiptRepository) GetAll(limit, offset int) ([]*models.BetReceipt, 
             ttnk.ma_nhiem_vu, ttnk.loai_keo, ttnk.tien_keo_web_te,
             ttnk.ma_don_hang, ttnk.ghi_chu, ttnk.tien_do_hoan_thanh, 
             ttnk.tien_keo_web_thuc_nhan_te, ttnk.tien_den_te, ttnk.cong_thuc_nhan_te,
-            ttnk.thoi_gian_nhan_keo, ttnk.thoi_gian_hoan_thanh,
+            ttnk.ly_do_huy, ttnk.thoi_gian_nhan_keo, ttnk.thoi_gian_hoan_thanh,
             ttnk.thoi_gian_con_lai_gio, ttnk.thoi_gian_cap_nhat
         FROM thong_tin_nhan_keo ttnk
         LEFT JOIN nguoi_dung nd ON ttnk.id_nguoi_dung = nd.id
@@ -96,6 +96,7 @@ func (r *BetReceiptRepository) GetAll(limit, offset int) ([]*models.BetReceipt, 
 		var completedAt sql.NullTime
 		var timeRemainingHours sql.NullInt64
 		var userName sql.NullString
+		var cancelReason sql.NullString
 
 		err := rows.Scan(
 			&betReceipt.ID,
@@ -111,6 +112,7 @@ func (r *BetReceiptRepository) GetAll(limit, offset int) ([]*models.BetReceipt, 
 			&betReceipt.ActualReceivedCNY,
 			&betReceipt.CompensationCNY,
 			&betReceipt.ActualAmountCNY,
+			&cancelReason,
 			&betReceipt.ReceivedAt,
 			&completedAt,
 			&timeRemainingHours,
@@ -127,6 +129,10 @@ func (r *BetReceiptRepository) GetAll(limit, offset int) ([]*models.BetReceipt, 
 			// Nếu không tìm thấy tên trong DB (JOIN không match), hiển thị thông báo
 			betReceipt.UserName = "không có trong db"
 			log.Printf("Repository - ⚠️ BetReceipt ID: %s, UserID: %s, UserName: NULL (không tìm thấy trong DB)", betReceipt.ID, betReceipt.UserID)
+		}
+
+		if cancelReason.Valid {
+			betReceipt.CancelReason = cancelReason.String
 		}
 
 		if completedAt.Valid {
@@ -181,11 +187,12 @@ func (r *BetReceiptRepository) FindByID(id string) (*models.BetReceipt, error) {
         SELECT 
             id, stt, id_nguoi_dung, ma_nhiem_vu, loai_keo, tien_keo_web_te,
             ma_don_hang, ghi_chu, tien_do_hoan_thanh, tien_keo_web_thuc_nhan_te,
-            tien_den_te, cong_thuc_nhan_te, thoi_gian_nhan_keo, thoi_gian_hoan_thanh,
+            tien_den_te, cong_thuc_nhan_te, ly_do_huy, thoi_gian_nhan_keo, thoi_gian_hoan_thanh,
             thoi_gian_con_lai_gio, thoi_gian_cap_nhat
         FROM thong_tin_nhan_keo 
         WHERE id = $1
     `
+	var cancelReason sql.NullString
 	err := r.db.QueryRow(query, id).Scan(
 		&betReceipt.ID,
 		&betReceipt.STT,
@@ -199,6 +206,7 @@ func (r *BetReceiptRepository) FindByID(id string) (*models.BetReceipt, error) {
 		&betReceipt.ActualReceivedCNY,
 		&betReceipt.CompensationCNY,
 		&betReceipt.ActualAmountCNY,
+		&cancelReason,
 		&betReceipt.ReceivedAt,
 		&completedAt,
 		&timeRemainingHours,
@@ -206,6 +214,10 @@ func (r *BetReceiptRepository) FindByID(id string) (*models.BetReceipt, error) {
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	if cancelReason.Valid {
+		betReceipt.CancelReason = cancelReason.String
 	}
 
 	if completedAt.Valid {
@@ -230,8 +242,9 @@ func (r *BetReceiptRepository) UpdateStatus(betReceipt *models.BetReceipt) error
 			tien_den_te = $4,
 			tien_keo_web_te = $5,
 			thoi_gian_hoan_thanh = $6,
+			ly_do_huy = $7,
 			thoi_gian_cap_nhat = NOW()
-		WHERE id = $7
+		WHERE id = $8
 	`
 
 	var completedAt interface{}
@@ -239,6 +252,13 @@ func (r *BetReceiptRepository) UpdateStatus(betReceipt *models.BetReceipt) error
 		completedAt = *betReceipt.CompletedAt
 	} else {
 		completedAt = nil
+	}
+
+	var cancelReason interface{}
+	if betReceipt.CancelReason != "" {
+		cancelReason = betReceipt.CancelReason
+	} else {
+		cancelReason = nil
 	}
 
 	_, err := r.db.Exec(
@@ -249,6 +269,7 @@ func (r *BetReceiptRepository) UpdateStatus(betReceipt *models.BetReceipt) error
 		betReceipt.CompensationCNY,   // tien_den_te
 		betReceipt.WebBetAmountCNY,   // tien_keo_web_te (có thể được cập nhật khi status = HỦY BỎ)
 		completedAt,                  // thoi_gian_hoan_thanh
+		cancelReason,                 // ly_do_huy
 		betReceipt.ID,
 	)
 

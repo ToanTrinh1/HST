@@ -160,6 +160,22 @@ const HomePage = () => {
             })}
           </div>
         </div>
+
+        {/* Khu vực cá nhân: 3 box */}
+        <div className="personal-section">
+          <div className="personal-card personal-card-left">
+            <h4>Nhiệm vụ đã hoàn thành</h4>
+            <div className="personal-card-body">Chưa có dữ liệu</div>
+          </div>
+          <div className="personal-card personal-card-center">
+            <h4>Nhiệm vụ cần làm</h4>
+            <div className="personal-card-body">Chưa có dữ liệu</div>
+          </div>
+          <div className="personal-card personal-card-right">
+            <h4>Tài chính</h4>
+            <div className="personal-card-body">Chưa có dữ liệu</div>
+          </div>
+        </div>
       </div>
       <BottomNavigation />
     </div>

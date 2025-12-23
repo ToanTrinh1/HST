@@ -38,7 +38,7 @@ const AdminPage = () => {
     notes: '',
   });
   
-  // Modal nhập ActualReceivedCNY khi chọn status "Hủy bỏ"
+  // Modal nhập ActualReceivedCNY + lý do khi chọn status "Hủy bỏ"
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelModalData, setCancelModalData] = useState({
     betId: '',
@@ -52,6 +52,7 @@ const AdminPage = () => {
     betId: '',
     oldStatus: '',
     compensationCNY: '',
+    cancelReason: '',
   });
   
   // Modal chỉnh sửa đơn hàng
@@ -854,13 +855,19 @@ const AdminPage = () => {
         return;
       }
       
+      if (!compensationModalData.cancelReason || compensationModalData.cancelReason.trim() === '') {
+        alert('Vui lòng nhập lý do đền');
+        return;
+      }
+      
       const betId = compensationModalData.betId;
 
       // Gọi API để cập nhật status trên backend
-      console.log('📡 Cập nhật status cho đơn hàng ID:', betId, 'Status mới: ĐỀN', 'CompensationCNY:', amountValue);
+      console.log('📡 Cập nhật status cho đơn hàng ID:', betId, 'Status mới: ĐỀN', 'CompensationCNY:', amountValue, 'Lý do:', compensationModalData.cancelReason);
       const response = await donHangAPI.capNhatStatusDonHang(betId, {
         status: 'ĐỀN',
-        compensation_cny: amountValue
+        compensation_cny: amountValue,
+        cancel_reason: compensationModalData.cancelReason.trim(),
       });
 
       if (response.success && response.data) {
@@ -888,12 +895,22 @@ const AdminPage = () => {
           fetchDonHangList();
         }, 500);
 
+        // Dispatch event để ProfilePage cập nhật danh sách nhiệm vụ đã hoàn thành
+        // Dispatch sau một chút để đảm bảo backend đã cập nhật xong
+        setTimeout(() => {
+          console.log('📢 AdminPage - Dispatch event bet-receipt-status-changed cho ĐỀN');
+          window.dispatchEvent(new CustomEvent('bet-receipt-status-changed', {
+            detail: { id: betId, status: 'ĐỀN' }
+          }));
+        }, 600);
+
         // Đóng modal
         setShowCompensationModal(false);
         setCompensationModalData({
           betId: '',
           oldStatus: '',
           compensationCNY: '',
+          cancelReason: '',
         });
       } else {
         console.error('❌ Lỗi cập nhật status:', response.error);
@@ -936,14 +953,19 @@ const AdminPage = () => {
         alert('Vui lòng nhập số tiền hợp lệ (≥ 0)');
         return;
       }
+      if (!cancelModalData.cancelReason || cancelModalData.cancelReason.trim() === '') {
+        alert('Vui lòng nhập lý do hủy bỏ');
+        return;
+      }
       
       const betId = cancelModalData.betId;
 
       // Gọi API để cập nhật status trên backend
-      console.log('📡 Cập nhật status cho đơn hàng ID:', betId, 'Status mới: HỦY BỎ', 'ActualReceivedCNY:', amountValue);
+      console.log('📡 Cập nhật status cho đơn hàng ID:', betId, 'Status mới: HỦY BỎ', 'ActualReceivedCNY:', amountValue, 'Lý do:', cancelModalData.cancelReason);
       const response = await donHangAPI.capNhatStatusDonHang(betId, {
         status: 'HỦY BỎ',
-        actual_received_cny: amountValue
+        actual_received_cny: amountValue,
+        cancel_reason: cancelModalData.cancelReason.trim(),
       });
 
       if (response.success && response.data) {
@@ -971,12 +993,22 @@ const AdminPage = () => {
           fetchDonHangList();
         }, 500);
 
+        // Dispatch event để ProfilePage cập nhật danh sách nhiệm vụ đã hoàn thành
+        // Dispatch sau một chút để đảm bảo backend đã cập nhật xong
+        setTimeout(() => {
+          console.log('📢 AdminPage - Dispatch event bet-receipt-status-changed cho HỦY BỎ');
+          window.dispatchEvent(new CustomEvent('bet-receipt-status-changed', {
+            detail: { id: betId, status: 'HỦY BỎ' }
+          }));
+        }, 600);
+
         // Đóng modal
         setShowCancelModal(false);
         setCancelModalData({
           betId: '',
           oldStatus: '',
           actualReceivedCNY: '',
+          cancelReason: '',
         });
       } else {
         console.error('❌ Lỗi cập nhật status:', response.error);
@@ -1602,12 +1634,13 @@ const AdminPage = () => {
                                 return;
                               }
                               
-                              // Nếu chọn status "ĐỀN", hiển thị modal để nhập CompensationCNY
+                              // Nếu chọn status "ĐỀN", hiển thị modal để nhập CompensationCNY và lý do đền
                               if (newStatus === 'ĐỀN') {
                                 setCompensationModalData({
                                   betId: betId,
                                   oldStatus: bet.status,
                                   compensationCNY: '',
+                                  cancelReason: '',
                                 });
                                 setShowCompensationModal(true);
                                 // Không cập nhật state, select sẽ tự động giữ giá trị cũ (controlled component)
@@ -1669,6 +1702,17 @@ const AdminPage = () => {
                                     fetchWalletList();
                                     fetchDonHangList(); // Reload danh sách đơn hàng để cập nhật tab
                                   }, 500); // Delay 500ms để đảm bảo backend đã cập nhật xong
+
+                                  // Thông báo cho các trang khác (ví dụ trang cá nhân) cập nhật ngay
+                                  // Dispatch sau một chút để đảm bảo backend đã cập nhật xong
+                                  setTimeout(() => {
+                                    console.log('📢 AdminPage - Dispatch event bet-receipt-status-changed cho status:', newStatus);
+                                    window.dispatchEvent(
+                                      new CustomEvent('bet-receipt-status-changed', {
+                                        detail: { id: betId, status: newStatus },
+                                      })
+                                    );
+                                  }, 600);
                                 } else {
                                   console.error('❌ Lỗi cập nhật status:', response.error);
                                   alert('Lỗi: ' + (response.error || 'Không thể cập nhật status'));
@@ -2960,15 +3004,31 @@ const AdminPage = () => {
         </div>
       )}
 
-      {/* Modal nhập ActualReceivedCNY khi chọn status "Hủy bỏ" */}
+      {/* Modal nhập ActualReceivedCNY và lý do hủy bỏ khi chọn status "Hủy bỏ" */}
       {showCancelModal && (
-        <div className="modal-overlay" onClick={() => setShowCancelModal(false)}>
+        <div className="modal-overlay" onClick={() => {
+          setShowCancelModal(false);
+          setCancelModalData({
+            betId: '',
+            oldStatus: '',
+            actualReceivedCNY: '',
+            cancelReason: '',
+          });
+        }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Hủy bỏ đơn hàng</h2>
               <button
                 className="modal-close"
-                onClick={() => setShowCancelModal(false)}
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setCancelModalData({
+                    betId: '',
+                    oldStatus: '',
+                    actualReceivedCNY: '',
+                    cancelReason: '',
+                  });
+                }}
               >
                 ×
               </button>
@@ -3010,11 +3070,39 @@ const AdminPage = () => {
                 </div>
               </div>
 
+              <div className="form-group">
+                <label htmlFor="cancel-reason">
+                  Lý do hủy bỏ <span className="required">*</span>
+                </label>
+                <textarea
+                  id="cancel-reason"
+                  value={cancelModalData.cancelReason}
+                  onChange={(e) =>
+                    setCancelModalData({
+                      ...cancelModalData,
+                      cancelReason: e.target.value,
+                    })
+                  }
+                  placeholder="Nhập lý do hủy bỏ đơn hàng"
+                  rows="3"
+                  required
+                  style={{ width: '100%', resize: 'vertical' }}
+                />
+              </div>
+
               <div className="form-actions">
                 <button
                   type="button"
                   className="btn-cancel"
-                  onClick={() => setShowCancelModal(false)}
+                  onClick={() => {
+                    setShowCancelModal(false);
+                    setCancelModalData({
+                      betId: '',
+                      oldStatus: '',
+                      actualReceivedCNY: '',
+                      cancelReason: '',
+                    });
+                  }}
                 >
                   Hủy
                 </button>
@@ -3030,15 +3118,31 @@ const AdminPage = () => {
         </div>
       )}
 
-      {/* Modal nhập CompensationCNY khi chọn status "Đền" */}
+      {/* Modal nhập CompensationCNY và lý do đền khi chọn status "Đền" */}
       {showCompensationModal && (
-        <div className="modal-overlay" onClick={() => setShowCompensationModal(false)}>
+        <div className="modal-overlay" onClick={() => {
+          setShowCompensationModal(false);
+          setCompensationModalData({
+            betId: '',
+            oldStatus: '',
+            compensationCNY: '',
+            cancelReason: '',
+          });
+        }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Đền đơn hàng</h2>
               <button
                 className="modal-close"
-                onClick={() => setShowCompensationModal(false)}
+                onClick={() => {
+                  setShowCompensationModal(false);
+                  setCompensationModalData({
+                    betId: '',
+                    oldStatus: '',
+                    compensationCNY: '',
+                    cancelReason: '',
+                  });
+                }}
               >
                 ×
               </button>
@@ -3080,11 +3184,39 @@ const AdminPage = () => {
                 </div>
               </div>
 
+              <div className="form-group">
+                <label htmlFor="compensation-reason">
+                  Lý do đền <span className="required">*</span>
+                </label>
+                <textarea
+                  id="compensation-reason"
+                  value={compensationModalData.cancelReason}
+                  onChange={(e) =>
+                    setCompensationModalData({
+                      ...compensationModalData,
+                      cancelReason: e.target.value,
+                    })
+                  }
+                  placeholder="Nhập lý do đền đơn hàng"
+                  rows="3"
+                  required
+                  style={{ width: '100%', resize: 'vertical' }}
+                />
+              </div>
+
               <div className="form-actions">
                 <button
                   type="button"
                   className="btn-cancel"
-                  onClick={() => setShowCompensationModal(false)}
+                  onClick={() => {
+                    setShowCompensationModal(false);
+                    setCompensationModalData({
+                      betId: '',
+                      oldStatus: '',
+                      compensationCNY: '',
+                      cancelReason: '',
+                    });
+                  }}
                 >
                   Hủy
                 </button>
