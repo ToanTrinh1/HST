@@ -128,7 +128,7 @@ func (h *BetReceiptHandler) GetAllBetReceipts(c *gin.Context) {
 
 	log.Printf("✅ LẤY DANH SÁCH ĐƠN HÀNG THÀNH CÔNG - Số lượng: %d", len(betReceipts))
 	if len(betReceipts) > 0 {
-		log.Printf("🔍 Mẫu dữ liệu đầu tiên - ID: %s, STT: %d, UserID: %s, UserName: %s", 
+		log.Printf("🔍 Mẫu dữ liệu đầu tiên - ID: %s, STT: %d, UserID: %s, UserName: %s",
 			betReceipts[0].ID, betReceipts[0].STT, betReceipts[0].UserID, betReceipts[0].UserName)
 	}
 	log.Println("=== KẾT THÚC LẤY DANH SÁCH ĐƠN HÀNG ===\n")
@@ -163,3 +163,76 @@ func (h *BetReceiptHandler) GetBetReceiptByID(c *gin.Context) {
 	})
 }
 
+// UpdateBetReceiptStatus cập nhật status của đơn hàng
+// Khi status = "DONE", tự động tính "Công thực nhận" (ActualAmountCNY)
+func (h *BetReceiptHandler) UpdateBetReceiptStatus(c *gin.Context) {
+	id := c.Param("id")
+	log.Printf("=== BẮT ĐẦU CẬP NHẬT STATUS ĐƠN HÀNG ID: %s ===", id)
+
+	var req models.UpdateBetReceiptStatusRequest
+
+	// Parse request body
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("❌ VALIDATION LỖI: Dữ liệu không hợp lệ - %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Dữ liệu không hợp lệ: " + err.Error(),
+		})
+		return
+	}
+
+	log.Printf("📝 Cập nhật status - ID: %s, Status mới: %s", id, req.Status)
+
+	// Kiểm tra quyền admin (từ JWT token)
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Yêu cầu xác thực",
+		})
+		return
+	}
+
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	if tokenString == authHeader {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Định dạng token không hợp lệ",
+		})
+		return
+	}
+
+	claims, err := utils.ValidateJWT(tokenString, h.jwtSecret)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Token không hợp lệ hoặc đã hết hạn",
+		})
+		return
+	}
+
+	log.Printf("🔍 Người cập nhật status - User ID: %s", claims.UserID)
+
+	// Gọi service để xử lý logic
+	betReceipt, err := h.betReceiptService.UpdateBetReceiptStatus(id, &req)
+	if err != nil {
+		errorMsg := err.Error()
+		log.Printf("❌ CẬP NHẬT STATUS THẤT BẠI: %s", errorMsg)
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   errorMsg,
+		})
+		return
+	}
+
+	log.Printf("✅ CẬP NHẬT STATUS THÀNH CÔNG - ID: %s, Status: %s, Công thực nhận: %.2f",
+		betReceipt.ID, betReceipt.Status, betReceipt.ActualAmountCNY)
+	log.Println("=== KẾT THÚC CẬP NHẬT STATUS ===\n")
+
+	// Trả response thành công
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    betReceipt,
+	})
+}

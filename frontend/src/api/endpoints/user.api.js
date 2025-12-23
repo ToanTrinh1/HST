@@ -31,6 +31,22 @@ export const userAPI = {
       return { success: false, error: error.message };
     }
   },
+
+  // Lấy danh sách tất cả users (role = 'user')
+  getAllUsers: async (limit = 1000, offset = 0) => {
+    try {
+      const response = await axiosInstance.get('/auth/users', {
+        params: { limit, offset }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('userAPI - ❌ GetAllUsers error:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Lấy danh sách users thất bại',
+      };
+    }
+  },
 };
 
 export default userAPI;

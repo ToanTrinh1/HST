@@ -113,3 +113,16 @@ func (s *AuthService) GetCurrentUser(userID string) (*models.User, error) {
 	user.Password = ""
 	return user, nil
 }
+
+// GetAllUsers - Lấy tất cả users (chỉ role = 'user', có phân trang)
+func (s *AuthService) GetAllUsers(limit, offset int) ([]*models.User, error) {
+	users, err := s.userRepo.GetAllUsers(limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	// Không trả password
+	for _, user := range users {
+		user.Password = ""
+	}
+	return users, nil
+}

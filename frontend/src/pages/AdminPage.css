@@ -346,6 +346,49 @@ select.status-select.status-waiting-ref {
   color: #999;
 }
 
+/* Autocomplete styles */
+.autocomplete-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #fef7ff;
+  border: 1px solid #f5e1f5;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+  margin-top: 4px;
+}
+
+.autocomplete-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #555;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid #f8ebf8;
+}
+
+.autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.autocomplete-item:hover {
+  background: #fdf2fd;
+  color: #555;
+}
+
+.autocomplete-item:active {
+  background: #fce9fc;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
@@ -395,5 +438,122 @@ select.status-select.status-waiting-ref {
 .btn-submit:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Sub-tabs cho Rút tiền */
+.rut-tien-sub-tabs {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #f8f9fa;
+}
+
+.rut-tien-sub-tabs-left {
+  display: flex;
+  gap: 0;
+}
+
+.rut-tien-sub-tab {
+  padding: 10px 24px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #666;
+}
+
+.rut-tien-sub-tab:hover {
+  background: #f0f0f0;
+  border-color: #667eea;
+}
+
+.rut-tien-sub-tab.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.rut-tien-sub-tab.active:hover {
+  background: #5568d3;
+}
+
+/* Bảng rút tiền - Các cột VND có độ rộng bằng nhau */
+.wallet-table th:nth-child(3),
+.wallet-table td:nth-child(3),
+.wallet-table th:nth-child(4),
+.wallet-table td:nth-child(4),
+.wallet-table th:nth-child(5),
+.wallet-table td:nth-child(5) {
+  min-width: 130px;
+  width: 130px;
+  text-align: center;
+}
+
+/* Nút Nạp tiền và Rút tiền */
+.wallet-action-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-nap-tien,
+.btn-rut-tien {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-nap-tien {
+  background: #4caf50;
+  color: white;
+}
+
+.btn-nap-tien:hover {
+  background: #45a049;
+  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-rut-tien {
+  background: #f44336;
+  color: white;
+}
+
+.btn-rut-tien:hover {
+  background: #da190b;
+  box-shadow: 0 4px 8px rgba(244, 67, 54, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-nap-tien:active,
+.btn-rut-tien:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Cột Tên trong bảng rút tiền - nhỏ lại */
+.wallet-table th:nth-child(1),
+.wallet-table td:nth-child(1) {
+  min-width: 100px;
+  width: 100px;
+  text-align: center;
+}
+
+/* Cột Tệ - thu nhỏ lại */
+.wallet-table th:nth-child(2),
+.wallet-table td:nth-child(2) {
+  min-width: 100px;
+  width: 100px;
+  text-align: center;
 }
 

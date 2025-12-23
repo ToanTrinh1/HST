@@ -191,3 +191,34 @@ func (r *UserRepository) GetAll(limit, offset int) ([]*models.User, error) {
 
 	return users, nil
 }
+
+// GetAllUsers lấy tất cả users có role = 'user' (có phân trang, sắp xếp theo tên)
+func (r *UserRepository) GetAllUsers(limit, offset int) ([]*models.User, error) {
+	query := `
+        SELECT id, email, mat_khau, ten, vai_tro, thoi_gian_tao, thoi_gian_cap_nhat 
+        FROM nguoi_dung 
+        WHERE vai_tro = 'user'
+        ORDER BY ten ASC
+        LIMIT $1 OFFSET $2
+    `
+	rows, err := r.db.Query(query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	users := []*models.User{}
+	for rows.Next() {
+		user := &models.User{}
+		err := rows.Scan(
+			&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
+			&user.CreatedAt, &user.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+
+	return users, nil
+}

@@ -16,15 +16,16 @@ type Withdrawal struct {
 
 // Request DTOs
 type CreateWithdrawalRequest struct {
-	UserID    string   `json:"user_id" binding:"required"`
-	AmountCNY *float64 `json:"amount_cny"` // Optional
-	AmountVND float64  `json:"amount_vnd" binding:"required"`
-	Notes     string   `json:"notes"`
-	// TODO: Validation: Kiểm tra số dư (so_du_hien_tai_vnd) trước khi cho phép rút
-	// Nếu so_tien_rut_vnd > so_du_hien_tai_vnd thì reject
+	UserName  string   `json:"user_name" binding:"required"`  // Tên người dùng (từ cột ten trong nguoi_dung)
+	AmountCNY *float64 `json:"amount_cny"`                    // Optional
+	AmountVND float64  `json:"amount_vnd" binding:"required"` // Số tiền VND cần rút
+	Notes     string   `json:"notes"`                         // Ghi chú
+	// TODO: Khi tạo withdrawal, cần update tien_keo:
+	// tong_da_rut_vnd += so_tien_rut_vnd
+	// so_du_hien_tai_vnd -= so_tien_rut_vnd (hoặc tính lại)
+	// Validation: Kiểm tra so_du_hien_tai_vnd >= amount_vnd trước khi cho phép rút
 }
 
 // TODO: Query helper để lấy withdrawals theo tháng
 // Có thể tạo method hoặc repository function để query theo thang_rut
 // Ví dụ: GetWithdrawalsByMonth(userID, month) -> []Withdrawal
-

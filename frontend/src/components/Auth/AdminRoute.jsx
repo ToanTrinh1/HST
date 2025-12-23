@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { authAPI } from '../../api';
@@ -6,14 +6,17 @@ import { authAPI } from '../../api';
 const AdminRoute = ({ children }) => {
   const { user, isAuthenticated, loading, updateUser } = useAuth();
   const [checkingRole, setCheckingRole] = useState(true);
+  const hasRefreshedRef = useRef(false); // Track xem đã refresh chưa
 
   // Refresh user info từ server khi vào AdminRoute để đảm bảo có vai_tro mới nhất
+  // CHỈ refresh MỘT LẦN khi component mount và user đã authenticated
   useEffect(() => {
     const refreshUserInfo = async () => {
-      if (isAuthenticated) {
+      // Chỉ refresh một lần và khi đã authenticated
+      if (isAuthenticated && !hasRefreshedRef.current) {
+        hasRefreshedRef.current = true; // Đánh dấu đã refresh
         try {
           console.log('AdminRoute - Refreshing user info from server...');
-          console.log('AdminRoute - Current user:', user);
           const response = await authAPI.getCurrentUser();
           console.log('AdminRoute - API response:', response);
           if (response.success && response.data) {
@@ -28,12 +31,14 @@ const AdminRoute = ({ children }) => {
       setCheckingRole(false);
     };
 
-    if (!loading && isAuthenticated) {
-      refreshUserInfo();
-    } else if (!loading) {
-      setCheckingRole(false);
+    if (!loading) {
+      if (isAuthenticated) {
+        refreshUserInfo();
+      } else {
+        setCheckingRole(false);
+      }
     }
-  }, [isAuthenticated, loading, updateUser, user]);
+  }, [isAuthenticated, loading]); // Loại bỏ updateUser và user khỏi dependency array
 
   if (loading || checkingRole) {
     return (

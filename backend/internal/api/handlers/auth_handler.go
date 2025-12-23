@@ -7,6 +7,7 @@ import (
 	"fullstack-backend/pkg/utils"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -160,5 +161,36 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    user,
+	})
+}
+
+// GetAllUsers lấy danh sách tất cả users (chỉ role = 'user')
+func (h *AuthHandler) GetAllUsers(c *gin.Context) {
+	limitStr := c.DefaultQuery("limit", "1000")
+	offsetStr := c.DefaultQuery("offset", "0")
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit < 1 {
+		limit = 1000
+	}
+
+	offset, err := strconv.Atoi(offsetStr)
+	if err != nil || offset < 0 {
+		offset = 0
+	}
+
+	users, err := h.authService.GetAllUsers(limit, offset)
+	if err != nil {
+		log.Printf("❌ Lỗi khi lấy danh sách users: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Lỗi khi lấy danh sách users",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    users,
 	})
 }

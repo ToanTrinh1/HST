@@ -213,3 +213,43 @@ func (r *BetReceiptRepository) FindByID(id string) (*models.BetReceipt, error) {
 
 	return betReceipt, nil
 }
+
+// UpdateStatus cập nhật status và các trường liên quan của đơn hàng
+func (r *BetReceiptRepository) UpdateStatus(betReceipt *models.BetReceipt) error {
+	query := `
+		UPDATE thong_tin_nhan_keo
+		SET 
+			tien_do_hoan_thanh = $1,
+			cong_thuc_nhan_te = $2,
+			tien_keo_web_thuc_nhan_te = $3,
+			tien_den_te = $4,
+			thoi_gian_hoan_thanh = $5,
+			thoi_gian_cap_nhat = NOW()
+		WHERE id = $6
+	`
+
+	var completedAt interface{}
+	if betReceipt.CompletedAt != nil {
+		completedAt = *betReceipt.CompletedAt
+	} else {
+		completedAt = nil
+	}
+
+	_, err := r.db.Exec(
+		query,
+		betReceipt.Status,
+		betReceipt.ActualAmountCNY,   // cong_thuc_nhan_te
+		betReceipt.ActualReceivedCNY, // tien_keo_web_thuc_nhan_te
+		betReceipt.CompensationCNY,   // tien_den_te
+		completedAt,                  // thoi_gian_hoan_thanh
+		betReceipt.ID,
+	)
+
+	if err != nil {
+		log.Printf("Repository - ❌ Lỗi cập nhật status: %v", err)
+		return err
+	}
+
+	log.Printf("Repository - ✅ Đã cập nhật status thành công cho đơn hàng ID: %s", betReceipt.ID)
+	return nil
+}

@@ -108,6 +108,45 @@ export const donHangAPI = {
       };
     }
   },
+
+  // Cập nhật status đơn hàng
+  capNhatStatusDonHang: async (id, statusData) => {
+    try {
+      console.log('donHangAPI - 📡 Gửi PATCH request đến /bet-receipts/' + id + '/status');
+      console.log('donHangAPI - Data gửi đi:', statusData);
+      
+      const response = await axiosInstance.patch(`/bet-receipts/${id}/status`, statusData);
+      console.log('donHangAPI - ✅ PATCH /bet-receipts/' + id + '/status response:', response.data);
+      
+      if (!response.data) {
+        console.error('donHangAPI - ❌ response.data is null or undefined');
+        return {
+          success: false,
+          error: 'Không nhận được dữ liệu từ server',
+        };
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('donHangAPI - ❌ UpdateStatus error:', error);
+      console.error('donHangAPI - Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      
+      let errorMsg = 'Cập nhật status đơn hàng thất bại';
+      
+      if (error.response) {
+        errorMsg = error.response.data?.error || errorMsg;
+      }
+      
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  },
 };
 
 export default donHangAPI;

@@ -1,0 +1,104 @@
+package service
+
+import (
+	"fmt"
+	"fullstack-backend/internal/models"
+	"fullstack-backend/internal/repository"
+	"log"
+)
+
+type WithdrawalService struct {
+	withdrawalRepo *repository.WithdrawalRepository
+	userRepo       *repository.UserRepository
+	walletRepo     *repository.WalletRepository
+}
+
+func NewWithdrawalService(withdrawalRepo *repository.WithdrawalRepository, userRepo *repository.UserRepository, walletRepo *repository.WalletRepository) *WithdrawalService {
+	return &WithdrawalService{
+		withdrawalRepo: withdrawalRepo,
+		userRepo:       userRepo,
+		walletRepo:     walletRepo,
+	}
+}
+
+// CreateWithdrawal tạo record rút tiền và cập nhật wallet
+// req.UserName: tên người dùng (từ cột ten trong nguoi_dung)
+// req.AmountVND: số tiền VND cần rút
+// Validation: Kiểm tra current_balance_vnd >= amount_vnd trước khi cho phép rút
+func (s *WithdrawalService) CreateWithdrawal(req *models.CreateWithdrawalRequest) (*models.Withdrawal, error) {
+	log.Printf("Service - Rút tiền cho user_name: %s, AmountVND: %.2f", req.UserName, req.AmountVND)
+
+	// 1. Tìm người dùng theo tên
+	users, err := s.userRepo.FindByName(req.UserName)
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi khi tìm người dùng: %v", err)
+		return nil, fmt.Errorf("Lỗi khi tìm kiếm người dùng: %w", err)
+	}
+
+	// Lọc để tìm user có tên chính xác
+	var foundUser *models.User
+	for _, u := range users {
+		if u.Name == req.UserName {
+			foundUser = u
+			break
+		}
+	}
+
+	if foundUser == nil {
+		log.Printf("Service - ❌ Không tìm thấy người dùng với tên: %s", req.UserName)
+		return nil, fmt.Errorf("Tên người dùng '%s' không có trong hệ thống", req.UserName)
+	}
+
+	log.Printf("Service - ✅ Tìm thấy người dùng: %s (%s), ID: %s", foundUser.Name, foundUser.Email, foundUser.ID)
+
+	// 2. Kiểm tra số dư hiện tại
+	wallet, err := s.walletRepo.GetWalletByUserID(foundUser.ID)
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi khi lấy wallet: %v", err)
+		return nil, fmt.Errorf("Lỗi khi lấy thông tin ví: %w", err)
+	}
+
+	if wallet == nil {
+		log.Printf("Service - ❌ Wallet không tồn tại cho user ID: %s", foundUser.ID)
+		return nil, fmt.Errorf("Ví không tồn tại, không thể rút tiền")
+	}
+
+	// Validation: Kiểm tra số dư
+	if wallet.CurrentBalanceVND < req.AmountVND {
+		log.Printf("Service - ❌ Số dư không đủ: %.2f < %.2f", wallet.CurrentBalanceVND, req.AmountVND)
+		return nil, fmt.Errorf("Số dư không đủ. Số dư hiện tại: %.2f VND", wallet.CurrentBalanceVND)
+	}
+
+	log.Printf("Service - ✅ Số dư đủ: %.2f >= %.2f", wallet.CurrentBalanceVND, req.AmountVND)
+
+	// 3. Tạo withdrawal record
+	var amountCNY float64
+	if req.AmountCNY != nil {
+		amountCNY = *req.AmountCNY
+	}
+
+	withdrawal := &models.Withdrawal{
+		UserID:    foundUser.ID,
+		AmountCNY: amountCNY,
+		AmountVND: req.AmountVND,
+		Notes:     req.Notes,
+	}
+
+	if err := s.withdrawalRepo.Create(withdrawal); err != nil {
+		log.Printf("Service - ❌ Lỗi tạo withdrawal: %v", err)
+		return nil, fmt.Errorf("Lỗi khi tạo withdrawal: %w", err)
+	}
+
+	// 4. Cập nhật wallet: cộng amountVND vào tong_da_rut_vnd và tính lại so_du_hien_tai_vnd
+	if err := s.walletRepo.AddToTotalWithdrawnVND(foundUser.ID, req.AmountVND); err != nil {
+		log.Printf("Service - ❌ Lỗi cập nhật wallet: %v", err)
+		return nil, fmt.Errorf("Lỗi khi cập nhật wallet: %w", err)
+	}
+
+	log.Printf("Service - ✅ Đã rút tiền thành công cho user ID: %s, AmountVND: %.2f",
+		foundUser.ID, req.AmountVND)
+	log.Printf("Service - 💰 Số dư mới: %.2f VND", wallet.CurrentBalanceVND-req.AmountVND)
+
+	return withdrawal, nil
+}
+
