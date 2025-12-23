@@ -78,7 +78,7 @@ func (r *BetReceiptHistoryRepository) GetAll(limit, offset int) ([]*models.BetRe
 			h.created_at
 		FROM bet_receipt_history h
 		LEFT JOIN nguoi_dung u ON h.performed_by = u.id
-		ORDER BY h.created_at DESC
+		ORDER BY h.created_at ASC
 		LIMIT $1 OFFSET $2
 	`
 
@@ -152,7 +152,7 @@ func (r *BetReceiptHistoryRepository) GetByBetReceiptID(betReceiptID string) ([]
 		FROM bet_receipt_history h
 		LEFT JOIN nguoi_dung u ON h.performed_by = u.id
 		WHERE h.bet_receipt_id = $1
-		ORDER BY h.created_at DESC
+		ORDER BY h.created_at ASC
 	`
 
 	rows, err := r.db.Query(query, betReceiptID)

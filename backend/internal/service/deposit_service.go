@@ -74,3 +74,17 @@ func (s *DepositService) CreateDeposit(req *models.CreateDepositRequest) (*model
 	return deposit, nil
 }
 
+// GetAllDeposits lấy tất cả lịch sử nạp tiền
+func (s *DepositService) GetAllDeposits() ([]repository.DepositWithUser, error) {
+	log.Printf("Service - Lấy tất cả lịch sử nạp tiền")
+	
+	deposits, err := s.depositRepo.GetAll()
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi lấy danh sách deposits: %v", err)
+		return nil, err
+	}
+	
+	log.Printf("Service - ✅ Đã lấy %d deposits", len(deposits))
+	return deposits, nil
+}
+

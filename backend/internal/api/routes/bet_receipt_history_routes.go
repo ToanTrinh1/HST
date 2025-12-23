@@ -13,3 +13,4 @@ func SetupBetReceiptHistoryRoutes(router *gin.RouterGroup, historyHandler *handl
 	}
 }
 
+

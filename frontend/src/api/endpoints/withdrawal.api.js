@@ -40,6 +40,44 @@ export const withdrawalAPI = {
       };
     }
   },
+
+  // Lấy tất cả lịch sử rút tiền
+  layTatCaLichSu: async () => {
+    try {
+      console.log('withdrawalAPI - 📡 Gửi GET request đến /withdrawals');
+      
+      const response = await axiosInstance.get('/withdrawals');
+      console.log('withdrawalAPI - ✅ Backend response:', response.data);
+      
+      if (!response.data) {
+        console.error('withdrawalAPI - Response.data is null or undefined');
+        return {
+          success: false,
+          error: 'Không nhận được dữ liệu từ server',
+        };
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('withdrawalAPI - ❌ Get all error:', error);
+      console.error('withdrawalAPI - Error response:', error.response?.data);
+      
+      let errorMsg = 'Lấy lịch sử rút tiền thất bại';
+      
+      if (error.response) {
+        errorMsg = error.response.data?.error || error.response.data?.message || errorMsg;
+      } else if (error.request) {
+        errorMsg = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.';
+      } else {
+        errorMsg = error.message || errorMsg;
+      }
+      
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  },
 };
 
 export default withdrawalAPI;

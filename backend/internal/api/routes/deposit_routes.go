@@ -11,7 +11,8 @@ func setupDepositRoutes(api *gin.RouterGroup, handler *handlers.DepositHandler) 
 	deposits := api.Group("/deposits")
 	{
 		// Protected routes - cần JWT token
-		deposits.POST("", handler.CreateDeposit) // Nạp tiền
+		deposits.POST("", handler.CreateDeposit)        // Nạp tiền
+		deposits.GET("", handler.GetAllDeposits)        // Lấy tất cả lịch sử nạp tiền
 	}
 }
 

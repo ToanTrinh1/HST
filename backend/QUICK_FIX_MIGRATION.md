@@ -116,3 +116,4 @@ WHERE constraint_type = 'FOREIGN KEY'
 **Ngay bây giờ**: Chạy migration thủ công bằng DBeaver (Cách 1) - nhanh nhất!
 
 **Lần sau**: Khi start app, migration sẽ tự động chạy (nếu chưa chạy rồi).
+

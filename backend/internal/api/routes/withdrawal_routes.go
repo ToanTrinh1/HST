@@ -11,7 +11,8 @@ func setupWithdrawalRoutes(api *gin.RouterGroup, handler *handlers.WithdrawalHan
 	withdrawals := api.Group("/withdrawals")
 	{
 		// Protected routes - cần JWT token
-		withdrawals.POST("", handler.CreateWithdrawal) // Rút tiền
+		withdrawals.POST("", handler.CreateWithdrawal)  // Rút tiền
+		withdrawals.GET("", handler.GetAllWithdrawals)  // Lấy tất cả lịch sử rút tiền
 	}
 }
 

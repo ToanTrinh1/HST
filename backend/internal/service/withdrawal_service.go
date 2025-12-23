@@ -102,3 +102,17 @@ func (s *WithdrawalService) CreateWithdrawal(req *models.CreateWithdrawalRequest
 	return withdrawal, nil
 }
 
+// GetAllWithdrawals lấy tất cả lịch sử rút tiền
+func (s *WithdrawalService) GetAllWithdrawals() ([]repository.WithdrawalWithUser, error) {
+	log.Printf("Service - Lấy tất cả lịch sử rút tiền")
+	
+	withdrawals, err := s.withdrawalRepo.GetAll()
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi lấy danh sách withdrawals: %v", err)
+		return nil, err
+	}
+	
+	log.Printf("Service - ✅ Đã lấy %d withdrawals", len(withdrawals))
+	return withdrawals, nil
+}
+

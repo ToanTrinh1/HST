@@ -16,7 +16,7 @@ const AdminPage = () => {
   const [activeTopTab, setActiveTopTab] = useState('trang-thong-tin'); // Tab phía trên footer
   const [activeTab, setActiveTab] = useState('danh-sach-keo');
   const [activeDonHangTab, setActiveDonHangTab] = useState('tong-hop'); // Sub-tab trong tab danh sách kèo
-  const [activeRutTienTab, setActiveRutTienTab] = useState('danh-sach'); // Sub-tab trong tab rút tiền
+  const [activeRutTienTab, setActiveRutTienTab] = useState('danh-sach'); // Sub-tab trong tab rút tiền: 'danh-sach', 'lich-su-rut', 'lich-su-nap'
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   
@@ -26,6 +26,7 @@ const AdminPage = () => {
   const [napTienFormData, setNapTienFormData] = useState({
     user_name: '',
     amount_vnd: '',
+    notes: '',
   });
   
   // Modal rút tiền
@@ -34,6 +35,7 @@ const AdminPage = () => {
   const [rutTienFormData, setRutTienFormData] = useState({
     user_name: '',
     amount_vnd: '',
+    notes: '',
   });
   
   // Modal nhập ActualReceivedCNY khi chọn status "Hủy bỏ"
@@ -80,6 +82,92 @@ const AdminPage = () => {
   const [walletList, setWalletList] = useState([]);
   const [totalCurrentBalanceVND, setTotalCurrentBalanceVND] = useState(0);
   const [isLoadingWallet, setIsLoadingWallet] = useState(false);
+
+  // Danh sách lịch sử nạp/rút tiền
+  const [depositHistory, setDepositHistory] = useState([]);
+  const [withdrawalHistory, setWithdrawalHistory] = useState([]);
+  const [isLoadingHistoryNapRut, setIsLoadingHistoryNapRut] = useState(false);
+
+  // Bộ lọc lịch sử nạp/rút tiền
+  const [depositFilters, setDepositFilters] = useState({
+    name: '',
+    month: '',
+    minAmount: '',
+  });
+  const [withdrawalFilters, setWithdrawalFilters] = useState({
+    name: '',
+    month: '',
+    minAmount: '',
+  });
+  const [showWithdrawalFilterInputs, setShowWithdrawalFilterInputs] = useState({
+    name: false,
+    month: false,
+    minAmount: false,
+  });
+  const [showDepositFilterInputs, setShowDepositFilterInputs] = useState({
+    name: false,
+    month: false,
+    minAmount: false,
+  });
+
+  // Options cho dropdown gợi ý (tự động lấy từ dữ liệu hiện có)
+  const withdrawalNameOptions = Array.from(
+    new Set(withdrawalHistory.map((h) => (h.user_name || '').trim()).filter(Boolean))
+  );
+  const withdrawalMonthOptions = Array.from(
+    new Set(
+      withdrawalHistory
+        .map((h) => {
+          const d = new Date(h.created_at);
+          if (isNaN(d.getTime())) return '';
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        })
+        .filter(Boolean)
+    )
+  );
+  const withdrawalAmountOptions = Array.from(
+    new Set(withdrawalHistory.map((h) => h.amount_vnd).filter((v) => !isNaN(v)))
+  )
+    .sort((a, b) => a - b)
+    .slice(0, 10);
+
+  const depositNameOptions = Array.from(
+    new Set(depositHistory.map((h) => (h.user_name || '').trim()).filter(Boolean))
+  );
+  const depositMonthOptions = Array.from(
+    new Set(
+      depositHistory
+        .map((h) => {
+          const d = new Date(h.created_at);
+          if (isNaN(d.getTime())) return '';
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        })
+        .filter(Boolean)
+    )
+  );
+  const depositAmountOptions = Array.from(
+    new Set(depositHistory.map((h) => h.amount_vnd).filter((v) => !isNaN(v)))
+  )
+    .sort((a, b) => a - b)
+    .slice(0, 10);
+
+  // Gợi ý cho bảng danh sách kèo
+  const betNameOptions = Array.from(new Set(betList.map((b) => (b.name || '').trim()).filter(Boolean)));
+  const betOrderCodeOptions = Array.from(
+    new Set(betList.map((b) => (b.orderCode || '').trim()).filter(Boolean))
+  );
+  const betWebBetOptions = Array.from(
+    new Set(
+      betList
+        .map((b) => {
+          const val = typeof b.webBet === 'number' ? b.webBet : parseFloat(b.webBet);
+          return isNaN(val) ? null : val;
+        })
+        .filter((v) => v !== null)
+    )
+  )
+    .sort((a, b) => a - b)
+    .slice(0, 10);
 
   // Danh sách lịch sử chỉnh sửa
   const [historyList, setHistoryList] = useState([]);
@@ -330,6 +418,62 @@ const AdminPage = () => {
     if (activeTab === 'rut-tien' && activeRutTienTab === 'danh-sach') {
       console.log('✅ activeTab là rut-tien và activeRutTienTab là danh-sach, gọi fetchWalletList');
       fetchWalletList();
+    }
+  }, [activeTab, activeRutTienTab]);
+
+  // Fetch lịch sử rút tiền
+  const fetchHistoryRut = async () => {
+    setIsLoadingHistoryNapRut(true);
+    try {
+      const withdrawalResponse = await withdrawalAPI.layTatCaLichSu();
+      if (withdrawalResponse.success && withdrawalResponse.data) {
+        console.log('✅ Lấy lịch sử rút tiền thành công:', withdrawalResponse.data.length, 'records');
+        setWithdrawalHistory(withdrawalResponse.data);
+      } else {
+        console.error('❌ Lỗi khi lấy lịch sử rút tiền:', withdrawalResponse.error);
+        setWithdrawalHistory([]);
+      }
+    } catch (error) {
+      console.error('❌ Exception khi fetch lịch sử rút tiền:', error);
+      setWithdrawalHistory([]);
+    } finally {
+      setIsLoadingHistoryNapRut(false);
+    }
+  };
+
+  // Fetch lịch sử nạp tiền
+  const fetchHistoryNap = async () => {
+    setIsLoadingHistoryNapRut(true);
+    try {
+      const depositResponse = await depositAPI.layTatCaLichSu();
+      if (depositResponse.success && depositResponse.data) {
+        console.log('✅ Lấy lịch sử nạp tiền thành công:', depositResponse.data.length, 'records');
+        setDepositHistory(depositResponse.data);
+      } else {
+        console.error('❌ Lỗi khi lấy lịch sử nạp tiền:', depositResponse.error);
+        setDepositHistory([]);
+      }
+    } catch (error) {
+      console.error('❌ Exception khi fetch lịch sử nạp tiền:', error);
+      setDepositHistory([]);
+    } finally {
+      setIsLoadingHistoryNapRut(false);
+    }
+  };
+
+  // Load lịch sử rút tiền khi vào sub-tab "Lịch sử rút"
+  useEffect(() => {
+    if (activeTab === 'rut-tien' && activeRutTienTab === 'lich-su-rut') {
+      console.log('✅ activeTab là rut-tien và activeRutTienTab là lich-su-rut, gọi fetchHistoryRut');
+      fetchHistoryRut();
+    }
+  }, [activeTab, activeRutTienTab]);
+
+  // Load lịch sử nạp tiền khi vào sub-tab "Lịch sử nạp"
+  useEffect(() => {
+    if (activeTab === 'rut-tien' && activeRutTienTab === 'lich-su-nap') {
+      console.log('✅ activeTab là rut-tien và activeRutTienTab là lich-su-nap, gọi fetchHistoryNap');
+      fetchHistoryNap();
     }
   }, [activeTab, activeRutTienTab]);
 
@@ -627,6 +771,7 @@ const AdminPage = () => {
       const dataToSend = {
         user_name: napTienFormData.user_name,
         amount_vnd: amountValue,
+        notes: napTienFormData.notes || '',
       };
 
       const response = await depositAPI.napTien(dataToSend);
@@ -634,9 +779,13 @@ const AdminPage = () => {
       if (response.success) {
         alert('Nạp tiền thành công!');
         setShowNapTienModal(false);
-        setNapTienFormData({ user_name: '', amount_vnd: '' });
+        setNapTienFormData({ user_name: '', amount_vnd: '', notes: '' });
         // Reload danh sách wallet
         fetchWalletList();
+        // Reload lịch sử nếu đang ở tab "Lịch sử nạp"
+        if (activeRutTienTab === 'lich-su-nap') {
+          fetchHistoryNap();
+        }
       } else {
         alert('Lỗi: ' + (response.error || 'Không thể nạp tiền'));
       }
@@ -666,6 +815,7 @@ const AdminPage = () => {
       const dataToSend = {
         user_name: rutTienFormData.user_name,
         amount_vnd: amountValue,
+        notes: rutTienFormData.notes || '',
       };
 
       const response = await withdrawalAPI.rutTien(dataToSend);
@@ -673,9 +823,13 @@ const AdminPage = () => {
       if (response.success) {
         alert('Rút tiền thành công!');
         setShowRutTienModal(false);
-        setRutTienFormData({ user_name: '', amount_vnd: '' });
+        setRutTienFormData({ user_name: '', amount_vnd: '', notes: '' });
         // Reload danh sách wallet
         fetchWalletList();
+        // Reload lịch sử nếu đang ở tab "Lịch sử rút"
+        if (activeRutTienTab === 'lich-su-rut') {
+          fetchHistoryRut();
+        }
       } else {
         alert('Lỗi: ' + (response.error || 'Không thể rút tiền'));
       }
@@ -1020,7 +1174,7 @@ const AdminPage = () => {
                 Chưa có lịch sử chỉnh sửa
               </div>
             ) : (
-              <table className="bet-list-table">
+              <table className="bet-list-table history-edit-table">
                 <thead>
                   <tr>
                     <th>STT</th>
@@ -1192,6 +1346,22 @@ const AdminPage = () => {
                             onClick={(e) => e.stopPropagation()}
                           />
                         )}
+                        {showFilterInputs.name && betNameOptions.length > 0 && (
+                          <div className="inline-suggestions">
+                            {betNameOptions.map((opt) => (
+                              <div
+                                key={opt}
+                                className="inline-suggestion-item"
+                                onMouseDown={() => {
+                                  setFilters({ ...filters, name: opt });
+                                  setShowFilterInputs({ ...showFilterInputs, name: false });
+                                }}
+                              >
+                                {opt}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </th>
                     <th>Thời gian nhận kèo</th>
@@ -1294,6 +1464,22 @@ const AdminPage = () => {
                             onClick={(e) => e.stopPropagation()}
                           />
                         )}
+                        {showFilterInputs.webBet && betWebBetOptions.length > 0 && (
+                          <div className="inline-suggestions">
+                            {betWebBetOptions.map((opt) => (
+                              <div
+                                key={opt}
+                                className="inline-suggestion-item"
+                                onMouseDown={() => {
+                                  setFilters({ ...filters, webBet: opt.toString() });
+                                  setShowFilterInputs({ ...showFilterInputs, webBet: false });
+                                }}
+                              >
+                                {opt}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </th>
                     <th>
@@ -1342,6 +1528,22 @@ const AdminPage = () => {
                             autoFocus
                             onClick={(e) => e.stopPropagation()}
                           />
+                        )}
+                        {showFilterInputs.orderCode && betOrderCodeOptions.length > 0 && (
+                          <div className="inline-suggestions">
+                            {betOrderCodeOptions.map((opt) => (
+                              <div
+                                key={opt}
+                                className="inline-suggestion-item"
+                                onMouseDown={() => {
+                                  setFilters({ ...filters, orderCode: opt });
+                                  setShowFilterInputs({ ...showFilterInputs, orderCode: false });
+                                }}
+                              >
+                                {opt}
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
                     </th>
@@ -1563,10 +1765,16 @@ const AdminPage = () => {
                   Danh sách
                 </button>
                 <button
-                  className={`rut-tien-sub-tab ${activeRutTienTab === 'lich-su' ? 'active' : ''}`}
-                  onClick={() => setActiveRutTienTab('lich-su')}
+                  className={`rut-tien-sub-tab ${activeRutTienTab === 'lich-su-rut' ? 'active' : ''}`}
+                  onClick={() => setActiveRutTienTab('lich-su-rut')}
                 >
-                  Lịch sử
+                  Lịch sử rút
+                </button>
+                <button
+                  className={`rut-tien-sub-tab ${activeRutTienTab === 'lich-su-nap' ? 'active' : ''}`}
+                  onClick={() => setActiveRutTienTab('lich-su-nap')}
+                >
+                  Lịch sử nạp
                 </button>
               </div>
               <div className="rut-tien-total-balance">
@@ -1650,11 +1858,482 @@ const AdminPage = () => {
                   </tbody>
                 </table>
               </div>
-            ) : (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-                <h3>Đang cập nhật</h3>
+            ) : activeRutTienTab === 'lich-su-rut' ? (
+              <div className="bet-list-table-wrapper">
+                {isLoadingHistoryNapRut ? (
+                  <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                    Đang tải lịch sử...
+                  </div>
+                ) : (
+                  <table className="bet-list-table wallet-table">
+                    <thead>
+                      <tr>
+                        <th>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span>Thời gian</span>
+                              <button
+                                className="filter-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowWithdrawalFilterInputs((prev) => ({ ...prev, month: !prev.month }));
+                                }}
+                                title="Lọc theo tháng"
+                              >
+                                🔍
+                              </button>
+                            </div>
+                            {showWithdrawalFilterInputs.month && (
+                              <input
+                                type="month"
+                                value={withdrawalFilters.month}
+                                onChange={(e) =>
+                                  setWithdrawalFilters({ ...withdrawalFilters, month: e.target.value })
+                                }
+                                onBlur={() =>
+                                  setTimeout(
+                                    () =>
+                                      setShowWithdrawalFilterInputs((prev) => ({ ...prev, month: false })),
+                                    150
+                                  )
+                                }
+                                placeholder="Chọn tháng"
+                                className="inline-filter-input"
+                                autoFocus
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            )}
+                            {showWithdrawalFilterInputs.month && withdrawalMonthOptions.length > 0 && (
+                              <div className="inline-suggestions">
+                                {withdrawalMonthOptions.map((opt) => (
+                                  <div
+                                    key={opt}
+                                    className="inline-suggestion-item"
+                                    onMouseDown={() => {
+                                      setWithdrawalFilters({ ...withdrawalFilters, month: opt });
+                                      setShowWithdrawalFilterInputs((prev) => ({ ...prev, month: false }));
+                                    }}
+                                  >
+                                    {opt}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </th>
+                        <th>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span>Tên người rút</span>
+                              <button
+                                className="filter-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowWithdrawalFilterInputs((prev) => ({ ...prev, name: !prev.name }));
+                                }}
+                                title="Lọc theo tên"
+                              >
+                                🔍
+                              </button>
+                            </div>
+                            {showWithdrawalFilterInputs.name && (
+                              <input
+                                type="text"
+                                value={withdrawalFilters.name}
+                                onChange={(e) =>
+                                  setWithdrawalFilters({ ...withdrawalFilters, name: e.target.value })
+                                }
+                                onBlur={() =>
+                                  setTimeout(
+                                    () =>
+                                      setShowWithdrawalFilterInputs((prev) => ({ ...prev, name: false })),
+                                    150
+                                  )
+                                }
+                                placeholder="Nhập tên"
+                                className="inline-filter-input"
+                                autoFocus
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            )}
+                            {showWithdrawalFilterInputs.name && withdrawalNameOptions.length > 0 && (
+                              <div className="inline-suggestions">
+                                {withdrawalNameOptions.map((opt) => (
+                                  <div
+                                    key={opt}
+                                    className="inline-suggestion-item"
+                                    onMouseDown={() => {
+                                      setWithdrawalFilters({ ...withdrawalFilters, name: opt });
+                                      setShowWithdrawalFilterInputs((prev) => ({ ...prev, name: false }));
+                                    }}
+                                  >
+                                    {opt}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </th>
+                        <th>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span>Số tiền (VND)</span>
+                              <button
+                                className="filter-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowWithdrawalFilterInputs((prev) => ({
+                                    ...prev,
+                                    minAmount: !prev.minAmount,
+                                  }));
+                                }}
+                                title="Lọc theo số tiền"
+                              >
+                                🔍
+                              </button>
+                            </div>
+                            {showWithdrawalFilterInputs.minAmount && (
+                              <input
+                                type="number"
+                                min="0"
+                                value={withdrawalFilters.minAmount}
+                                onChange={(e) =>
+                                  setWithdrawalFilters({ ...withdrawalFilters, minAmount: e.target.value })
+                                }
+                                onBlur={() =>
+                                  setTimeout(
+                                    () =>
+                                      setShowWithdrawalFilterInputs((prev) => ({ ...prev, minAmount: false })),
+                                    150
+                                  )
+                                }
+                                placeholder="≥ số tiền"
+                                className="inline-filter-input"
+                                autoFocus
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            )}
+                            {showWithdrawalFilterInputs.minAmount && withdrawalAmountOptions.length > 0 && (
+                              <div className="inline-suggestions">
+                                {withdrawalAmountOptions.map((opt) => (
+                                  <div
+                                    key={opt}
+                                    className="inline-suggestion-item"
+                                    onMouseDown={() => {
+                                      setWithdrawalFilters({ ...withdrawalFilters, minAmount: opt.toString() });
+                                      setShowWithdrawalFilterInputs((prev) => ({ ...prev, minAmount: false }));
+                                    }}
+                                  >
+                                    {opt}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </th>
+                        <th>Ghi chú</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                        {withdrawalHistory
+                          .filter((withdrawal) => {
+                            // Lọc theo tên
+                            if (
+                              withdrawalFilters.name &&
+                              !(withdrawal.user_name || '')
+                                .toLowerCase()
+                                .includes(withdrawalFilters.name.toLowerCase())
+                            ) {
+                              return false;
+                            }
+
+                            // Lọc theo tháng (YYYY-MM từ created_at)
+                            if (withdrawalFilters.month) {
+                              const d = new Date(withdrawal.created_at);
+                              if (!isNaN(d.getTime())) {
+                                const monthKey = `${d.getFullYear()}-${String(
+                                  d.getMonth() + 1
+                                ).padStart(2, '0')}`;
+                                if (monthKey !== withdrawalFilters.month) {
+                                  return false;
+                                }
+                              }
+                            }
+
+                            // Lọc theo minAmount
+                            if (withdrawalFilters.minAmount) {
+                              const minVal = parseFloat(withdrawalFilters.minAmount);
+                              if (!isNaN(minVal) && withdrawal.amount_vnd < minVal) {
+                                return false;
+                              }
+                            }
+
+                            return true;
+                          })
+                          .map((withdrawal) => {
+                            const formatNumber = (num) => {
+                              if (num === 0 || num === null || num === undefined) return '0';
+                              const parts = num.toString().split('.');
+                              const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                              return parts.length > 1 ? `${integerPart}.${parts[1]}` : integerPart;
+                            };
+                            
+                            return (
+                              <tr key={withdrawal.id}>
+                                <td>{formatDateTime(withdrawal.created_at)}</td>
+                                <td>{withdrawal.user_name || 'N/A'}</td>
+                                <td>{formatNumber(withdrawal.amount_vnd)}</td>
+                                <td>{withdrawal.notes || '-'}</td>
+                              </tr>
+                            );
+                          })}
+                        {withdrawalHistory.length === 0 && (
+                          <tr>
+                            <td colSpan="4" style={{ textAlign: 'center', padding: '20px' }}>
+                              Chưa có lịch sử rút tiền
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                )}
               </div>
-            )}
+            ) : activeRutTienTab === 'lich-su-nap' ? (
+              <div className="bet-list-table-wrapper">
+                {isLoadingHistoryNapRut ? (
+                  <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                    Đang tải lịch sử...
+                  </div>
+                ) : (
+                  <table className="bet-list-table wallet-table">
+                    <thead>
+                      <tr>
+                        <th>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span>Thời gian</span>
+                              <button
+                                className="filter-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowDepositFilterInputs((prev) => ({ ...prev, month: !prev.month }));
+                                }}
+                                title="Lọc theo tháng"
+                              >
+                                🔍
+                              </button>
+                            </div>
+                            {showDepositFilterInputs.month && (
+                              <input
+                                type="month"
+                                value={depositFilters.month}
+                                onChange={(e) =>
+                                  setDepositFilters({ ...depositFilters, month: e.target.value })
+                                }
+                                onBlur={() =>
+                                  setTimeout(
+                                    () => setShowDepositFilterInputs((prev) => ({ ...prev, month: false })),
+                                    150
+                                  )
+                                }
+                                placeholder="Chọn tháng"
+                                className="inline-filter-input"
+                                autoFocus
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            )}
+                            {showDepositFilterInputs.month && depositMonthOptions.length > 0 && (
+                              <div className="inline-suggestions">
+                                {depositMonthOptions.map((opt) => (
+                                  <div
+                                    key={opt}
+                                    className="inline-suggestion-item"
+                                    onMouseDown={() => {
+                                      setDepositFilters({ ...depositFilters, month: opt });
+                                      setShowDepositFilterInputs((prev) => ({ ...prev, month: false }));
+                                    }}
+                                  >
+                                    {opt}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </th>
+                        <th>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span>Tên người nạp</span>
+                              <button
+                                className="filter-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowDepositFilterInputs((prev) => ({ ...prev, name: !prev.name }));
+                                }}
+                                title="Lọc theo tên"
+                              >
+                                🔍
+                              </button>
+                            </div>
+                            {showDepositFilterInputs.name && (
+                              <input
+                                type="text"
+                                value={depositFilters.name}
+                                onChange={(e) =>
+                                  setDepositFilters({ ...depositFilters, name: e.target.value })
+                                }
+                                onBlur={() =>
+                                  setTimeout(
+                                    () => setShowDepositFilterInputs((prev) => ({ ...prev, name: false })),
+                                    150
+                                  )
+                                }
+                                placeholder="Nhập tên"
+                                className="inline-filter-input"
+                                autoFocus
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            )}
+                            {showDepositFilterInputs.name && depositNameOptions.length > 0 && (
+                              <div className="inline-suggestions">
+                                {depositNameOptions.map((opt) => (
+                                  <div
+                                    key={opt}
+                                    className="inline-suggestion-item"
+                                    onMouseDown={() => {
+                                      setDepositFilters({ ...depositFilters, name: opt });
+                                      setShowDepositFilterInputs((prev) => ({ ...prev, name: false }));
+                                    }}
+                                  >
+                                    {opt}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </th>
+                        <th>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span>Số tiền (VND)</span>
+                              <button
+                                className="filter-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowDepositFilterInputs((prev) => ({ ...prev, minAmount: !prev.minAmount }));
+                                }}
+                                title="Lọc theo số tiền"
+                              >
+                                🔍
+                              </button>
+                            </div>
+                            {showDepositFilterInputs.minAmount && (
+                              <input
+                                type="number"
+                                min="0"
+                                value={depositFilters.minAmount}
+                                onChange={(e) =>
+                                  setDepositFilters({ ...depositFilters, minAmount: e.target.value })
+                                }
+                                onBlur={() =>
+                                  setTimeout(
+                                    () =>
+                                      setShowDepositFilterInputs((prev) => ({ ...prev, minAmount: false })),
+                                    150
+                                  )
+                                }
+                                placeholder="≥ số tiền"
+                                className="inline-filter-input"
+                                autoFocus
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            )}
+                            {showDepositFilterInputs.minAmount && depositAmountOptions.length > 0 && (
+                              <div className="inline-suggestions">
+                                {depositAmountOptions.map((opt) => (
+                                  <div
+                                    key={opt}
+                                    className="inline-suggestion-item"
+                                    onMouseDown={() => {
+                                      setDepositFilters({ ...depositFilters, minAmount: opt.toString() });
+                                      setShowDepositFilterInputs((prev) => ({ ...prev, minAmount: false }));
+                                    }}
+                                  >
+                                    {opt}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </th>
+                        <th>Ghi chú</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                        {depositHistory
+                          .filter((deposit) => {
+                            // Lọc theo tên
+                            if (
+                              depositFilters.name &&
+                              !(deposit.user_name || '')
+                                .toLowerCase()
+                                .includes(depositFilters.name.toLowerCase())
+                            ) {
+                              return false;
+                            }
+
+                            // Lọc theo tháng (YYYY-MM từ created_at)
+                            if (depositFilters.month) {
+                              const d = new Date(deposit.created_at);
+                              if (!isNaN(d.getTime())) {
+                                const monthKey = `${d.getFullYear()}-${String(
+                                  d.getMonth() + 1
+                                ).padStart(2, '0')}`;
+                                if (monthKey !== depositFilters.month) {
+                                  return false;
+                                }
+                              }
+                            }
+
+                            // Lọc theo minAmount
+                            if (depositFilters.minAmount) {
+                              const minVal = parseFloat(depositFilters.minAmount);
+                              if (!isNaN(minVal) && deposit.amount_vnd < minVal) {
+                                return false;
+                              }
+                            }
+
+                            return true;
+                          })
+                          .map((deposit) => {
+                            const formatNumber = (num) => {
+                              if (num === 0 || num === null || num === undefined) return '0';
+                              const parts = num.toString().split('.');
+                              const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                              return parts.length > 1 ? `${integerPart}.${parts[1]}` : integerPart;
+                            };
+                            
+                            return (
+                              <tr key={deposit.id}>
+                                <td>{formatDateTime(deposit.created_at)}</td>
+                                <td>{deposit.user_name || 'N/A'}</td>
+                                <td>{formatNumber(deposit.amount_vnd)}</td>
+                                <td>{deposit.notes || '-'}</td>
+                              </tr>
+                            );
+                          })}
+                        {depositHistory.length === 0 && (
+                          <tr>
+                            <td colSpan="4" style={{ textAlign: 'center', padding: '20px' }}>
+                              Chưa có lịch sử nạp tiền
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                )}
+              </div>
+            ) : null}
           </div>
         );
       case 'loi-nhuan':
@@ -2144,6 +2823,18 @@ const AdminPage = () => {
                 )}
               </div>
 
+              <div className="form-group">
+                <label htmlFor="nap-tien-notes">Ghi chú</label>
+                <textarea
+                  id="nap-tien-notes"
+                  value={napTienFormData.notes}
+                  onChange={(e) =>
+                    setNapTienFormData({ ...napTienFormData, notes: e.target.value })
+                  }
+                  rows={3}
+                />
+              </div>
+
               <div className="form-actions">
                 <button
                   type="button"
@@ -2233,6 +2924,18 @@ const AdminPage = () => {
                     ≈ {formatNumberAbbr(rutTienFormData.amount_vnd)}
                   </div>
                 )}
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="rut-tien-notes">Ghi chú</label>
+                <textarea
+                  id="rut-tien-notes"
+                  value={rutTienFormData.notes}
+                  onChange={(e) =>
+                    setRutTienFormData({ ...rutTienFormData, notes: e.target.value })
+                  }
+                  rows={3}
+                />
               </div>
 
               <div className="form-actions">

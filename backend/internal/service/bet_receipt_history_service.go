@@ -77,4 +77,3 @@ func (s *BetReceiptHistoryService) GetAllHistories(limit, offset int) ([]*models
 func (s *BetReceiptHistoryService) GetHistoriesByBetReceiptID(betReceiptID string) ([]*models.BetReceiptHistory, error) {
 	return s.historyRepo.GetByBetReceiptID(betReceiptID)
 }
-

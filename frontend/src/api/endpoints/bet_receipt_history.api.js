@@ -43,3 +43,4 @@ const betReceiptHistoryAPI = {
 
 export default betReceiptHistoryAPI;
 
+

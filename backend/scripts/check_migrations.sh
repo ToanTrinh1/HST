@@ -79,3 +79,4 @@ echo ""
 echo -e "${BLUE}💡 Tip: If tables are missing, restart the backend to run migrations automatically${NC}"
 echo -e "${YELLOW}   Or run: cd backend && go run cmd/api/main.go${NC}"
 
+

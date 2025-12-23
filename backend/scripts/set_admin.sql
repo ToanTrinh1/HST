@@ -14,3 +14,4 @@ SELECT id, email, ten, vai_tro, thoi_gian_cap_nhat
 FROM nguoi_dung 
 WHERE email = 'ukt40g412345@gmail.com';
 
+

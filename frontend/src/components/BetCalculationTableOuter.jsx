@@ -67,3 +67,4 @@ const BetCalculationTableOuter = () => {
 export default BetCalculationTableOuter;
 
 
+

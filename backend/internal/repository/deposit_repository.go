@@ -47,3 +47,60 @@ func (r *DepositRepository) Create(deposit *models.Deposit) error {
 	return nil
 }
 
+// DepositWithUser chứa thông tin deposit kèm tên người dùng
+type DepositWithUser struct {
+	models.Deposit
+	UserName string `json:"user_name" db:"user_name"`
+}
+
+// GetAll lấy tất cả lịch sử nạp tiền kèm tên người dùng, sắp xếp theo thời gian mới nhất
+func (r *DepositRepository) GetAll() ([]DepositWithUser, error) {
+	query := `
+		SELECT 
+			d.id,
+			d.id_nguoi_dung,
+			d.so_tien_coc_vnd,
+			d.thang_nop,
+			d.ghi_chu,
+			d.thoi_gian_tao,
+			COALESCE(u.ten, 'N/A') as user_name
+		FROM lich_su_nop_tien d
+		LEFT JOIN nguoi_dung u ON d.id_nguoi_dung = u.id
+		ORDER BY d.thoi_gian_tao DESC
+	`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		log.Printf("Repository - ❌ Lỗi lấy danh sách deposits: %v", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var deposits []DepositWithUser
+	for rows.Next() {
+		var d DepositWithUser
+		err := rows.Scan(
+			&d.ID,
+			&d.UserID,
+			&d.AmountVND,
+			&d.DepositMonth,
+			&d.Notes,
+			&d.CreatedAt,
+			&d.UserName,
+		)
+		if err != nil {
+			log.Printf("Repository - ❌ Lỗi scan deposit: %v", err)
+			continue
+		}
+		deposits = append(deposits, d)
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Printf("Repository - ❌ Lỗi khi iterate deposits: %v", err)
+		return nil, err
+	}
+
+	log.Printf("Repository - ✅ Đã lấy %d deposits", len(deposits))
+	return deposits, nil
+}
+
