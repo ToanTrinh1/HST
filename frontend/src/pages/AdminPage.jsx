@@ -6,13 +6,16 @@ import { walletAPI } from '../api/endpoints/wallet.api';
 import { depositAPI } from '../api/endpoints/deposit.api';
 import { withdrawalAPI } from '../api/endpoints/withdrawal.api';
 import { userAPI } from '../api/endpoints/user.api';
+import betReceiptHistoryAPI from '../api/endpoints/bet_receipt_history.api';
 import './HomePage.css';
 import './AdminPage.css';
 
 const AdminPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [activeTopTab, setActiveTopTab] = useState('trang-thong-tin'); // Tab phía trên footer
   const [activeTab, setActiveTab] = useState('danh-sach-keo');
+  const [activeDonHangTab, setActiveDonHangTab] = useState('tong-hop'); // Sub-tab trong tab danh sách kèo
   const [activeRutTienTab, setActiveRutTienTab] = useState('danh-sach'); // Sub-tab trong tab rút tiền
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -32,6 +35,28 @@ const AdminPage = () => {
     user_name: '',
     amount_vnd: '',
   });
+  
+  // Modal nhập ActualReceivedCNY khi chọn status "Hủy bỏ"
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelModalData, setCancelModalData] = useState({
+    betId: '',
+    oldStatus: '',
+    actualReceivedCNY: '',
+  });
+  
+  // Modal nhập CompensationCNY khi chọn status "Đền"
+  const [showCompensationModal, setShowCompensationModal] = useState(false);
+  const [compensationModalData, setCompensationModalData] = useState({
+    betId: '',
+    oldStatus: '',
+    compensationCNY: '',
+  });
+  
+  // Modal chỉnh sửa đơn hàng
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingBetId, setEditingBetId] = useState(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
@@ -54,6 +79,12 @@ const AdminPage = () => {
   // Danh sách wallets từ API
   const [walletList, setWalletList] = useState([]);
   const [isLoadingWallet, setIsLoadingWallet] = useState(false);
+
+  // Danh sách lịch sử chỉnh sửa
+  const [historyList, setHistoryList] = useState([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [showHistoryDetailModal, setShowHistoryDetailModal] = useState(false);
+  const [selectedHistory, setSelectedHistory] = useState(null);
 
   // Danh sách users để autocomplete
   const [userList, setUserList] = useState([]);
@@ -80,6 +111,8 @@ const AdminPage = () => {
     switch (status) {
       case 'DONE':
         return 'status-done';
+      case 'Đơn hàng mới':
+        return 'status-new';
       case 'ĐANG THỰC HIỆN':
         return 'status-in-progress';
       case 'ĐỀN':
@@ -96,6 +129,64 @@ const AdminPage = () => {
         return '';
     }
   };
+
+  // Danh sách các status để tạo tabs (thứ tự từ trái sang phải)
+  const statusTabs = [
+    { key: 'tong-hop', label: 'Tổng hợp', status: null }, // Tab tổng hợp - hiển thị tất cả
+    { key: 'don-hang-moi', label: 'Đơn hàng mới', status: 'Đơn hàng mới' },
+    { key: 'dang-quet-ma', label: 'Đang quét mã', status: 'ĐANG QUÉT MÃ' },
+    { key: 'dang-thuc-hien', label: 'Đang thực hiện', status: 'ĐANG THỰC HIỆN' },
+    { key: 'huy-bo', label: 'Hủy bỏ', status: 'HỦY BỎ' },
+    { key: 'cho-chap-nhan', label: 'Chờ chấp nhận', status: 'CHỜ CHẤP NHẬN' },
+    { key: 'done', label: 'DONE', status: 'DONE' },
+    { key: 'den', label: 'Đền', status: 'ĐỀN' },
+    { key: 'cho-trong-tai', label: 'Chờ trọng tài', status: 'CHỜ TRỌNG TÀI' },
+  ];
+
+  // Filter states
+  const [filters, setFilters] = useState({
+    name: '',
+    betType: '',
+    webBet: '',
+    orderCode: '',
+  });
+  const [showFilterInputs, setShowFilterInputs] = useState({
+    name: false,
+    betType: false,
+    webBet: false,
+    orderCode: false,
+  });
+
+  // Filter betList theo status và các filters
+  const filteredBetList = (activeDonHangTab === 'tong-hop'
+    ? betList // Tab tổng hợp - hiển thị tất cả
+    : betList.filter(bet => {
+        const selectedTab = statusTabs.find(tab => tab.key === activeDonHangTab);
+        return selectedTab && selectedTab.status ? bet.status === selectedTab.status : true;
+      })
+  ).filter(bet => {
+    // Filter theo Tên
+    if (filters.name && !bet.name?.toLowerCase().includes(filters.name.toLowerCase())) {
+      return false;
+    }
+    // Filter theo Loại kèo
+    if (filters.betType && bet.betType !== filters.betType) {
+      return false;
+    }
+    // Filter theo Tiền kèo web (tìm kiếm theo số, hỗ trợ phần nguyên)
+    if (filters.webBet) {
+      const filterValue = parseFloat(filters.webBet);
+      const betValue = typeof bet.webBet === 'number' ? bet.webBet : parseFloat(bet.webBet) || 0;
+      if (isNaN(filterValue) || betValue !== filterValue) {
+        return false;
+      }
+    }
+    // Filter theo Mã đơn hàng
+    if (filters.orderCode && !bet.orderCode?.toLowerCase().includes(filters.orderCode.toLowerCase())) {
+      return false;
+    }
+    return true;
+  });
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -203,6 +294,19 @@ const AdminPage = () => {
     }
   };
 
+  // Disable scroll cho body khi component mount
+  useEffect(() => {
+    // Disable scroll cho body
+    document.body.style.overflow = 'hidden';
+    document.body.style.height = '100vh';
+    
+    // Cleanup: restore scroll khi component unmount
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.height = '';
+    };
+  }, []);
+
   // Load danh sách đơn hàng khi component mount và khi activeTab thay đổi
   useEffect(() => {
     console.log('🔄 useEffect được gọi, activeTab hiện tại:', activeTab);
@@ -221,12 +325,12 @@ const AdminPage = () => {
     }
   }, [activeTab, activeRutTienTab]);
 
-  // Load danh sách users khi mở modal tạo đơn hàng, nạp tiền, hoặc rút tiền
+  // Load danh sách users khi mở modal tạo đơn hàng, chỉnh sửa đơn hàng, nạp tiền, hoặc rút tiền
   useEffect(() => {
-    if (showCreateModal || showNapTienModal || showRutTienModal) {
+    if (showCreateModal || showEditModal || showNapTienModal || showRutTienModal) {
       fetchUserList();
     }
-  }, [showCreateModal, showNapTienModal, showRutTienModal]);
+  }, [showCreateModal, showEditModal, showNapTienModal, showRutTienModal]);
 
   // Fetch danh sách users từ API
   const fetchUserList = async () => {
@@ -241,6 +345,46 @@ const AdminPage = () => {
     } catch (error) {
       console.error('❌ Lỗi khi lấy danh sách users:', error);
     }
+  };
+
+  // Fetch danh sách lịch sử chỉnh sửa
+  const fetchHistoryList = async () => {
+    setIsLoadingHistory(true);
+    try {
+      const response = await betReceiptHistoryAPI.layTatCaLichSu(200, 0);
+      if (response.success && response.data) {
+        console.log('✅ Lấy danh sách lịch sử thành công:', response.data.length, 'records');
+        setHistoryList(response.data);
+      } else {
+        console.error('❌ Lỗi khi lấy danh sách lịch sử:', response.error);
+        setHistoryList([]);
+      }
+    } catch (error) {
+      console.error('❌ Exception khi fetch lịch sử:', error);
+      setHistoryList([]);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  // Xem chi tiết lịch sử
+  const handleViewHistoryDetail = (history) => {
+    setSelectedHistory(history);
+    setShowHistoryDetailModal(true);
+  };
+
+  // Format thời gian
+  const formatDateTime = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
   };
 
   // Filter users khi gõ
@@ -465,6 +609,256 @@ const AdminPage = () => {
     }
   };
 
+  // Handler xác nhận đền (nhập CompensationCNY)
+  const handleCompensationStatus = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const numericAmount = compensationModalData.compensationCNY.replace(/[^\d.]/g, '');
+      const amountValue = parseFloat(numericAmount);
+      
+      if (numericAmount === '' || isNaN(amountValue) || amountValue <= 0) {
+        alert('Tiền đền phải lớn hơn 0');
+        return;
+      }
+      
+      const betId = compensationModalData.betId;
+
+      // Gọi API để cập nhật status trên backend
+      console.log('📡 Cập nhật status cho đơn hàng ID:', betId, 'Status mới: ĐỀN', 'CompensationCNY:', amountValue);
+      const response = await donHangAPI.capNhatStatusDonHang(betId, {
+        status: 'ĐỀN',
+        compensation_cny: amountValue
+      });
+
+      if (response.success && response.data) {
+        console.log('✅ Cập nhật status thành công:', response.data);
+        
+        // Cập nhật lại state với dữ liệu từ backend
+        setBetList(prevList => 
+          prevList.map(item => {
+            if (item.id === betId) {
+              return {
+                ...item,
+                status: 'ĐỀN',
+                compensation: response.data.compensation_cny !== undefined ? response.data.compensation_cny : amountValue,
+                actualAmount: response.data.actual_amount_cny !== undefined ? response.data.actual_amount_cny : 0, // Sẽ là giá trị âm
+              };
+            }
+            return item;
+          })
+        );
+
+        // Reload lại danh sách wallet và đơn hàng
+        console.log('💰 Status đã thay đổi, reload lại danh sách wallet và đơn hàng...');
+        setTimeout(() => {
+          fetchWalletList();
+          fetchDonHangList();
+        }, 500);
+
+        // Đóng modal
+        setShowCompensationModal(false);
+        setCompensationModalData({
+          betId: '',
+          oldStatus: '',
+          compensationCNY: '',
+        });
+      } else {
+        console.error('❌ Lỗi cập nhật status:', response.error);
+        alert('Lỗi: ' + (response.error || 'Không thể cập nhật status'));
+        // Revert lại status cũ
+        setBetList(prevList => 
+          prevList.map(item => {
+            if (item.id === betId) {
+              return { ...item, status: compensationModalData.oldStatus };
+            }
+            return item;
+          })
+        );
+      }
+    } catch (error) {
+      console.error('❌ Lỗi khi gọi API cập nhật status:', error);
+      alert('Có lỗi xảy ra khi cập nhật status');
+      // Revert lại status cũ
+      const betId = compensationModalData.betId;
+      setBetList(prevList => 
+        prevList.map(item => {
+          if (item.id === betId) {
+            return { ...item, status: compensationModalData.oldStatus };
+          }
+          return item;
+        })
+      );
+    }
+  };
+
+  // Handler xác nhận hủy bỏ (nhập ActualReceivedCNY)
+  const handleCancelStatus = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const numericAmount = cancelModalData.actualReceivedCNY.replace(/[^\d.]/g, '');
+      const amountValue = parseFloat(numericAmount);
+      
+      if (numericAmount === '' || isNaN(amountValue) || amountValue < 0) {
+        alert('Vui lòng nhập số tiền hợp lệ (≥ 0)');
+        return;
+      }
+      
+      const betId = cancelModalData.betId;
+
+      // Gọi API để cập nhật status trên backend
+      console.log('📡 Cập nhật status cho đơn hàng ID:', betId, 'Status mới: HỦY BỎ', 'ActualReceivedCNY:', amountValue);
+      const response = await donHangAPI.capNhatStatusDonHang(betId, {
+        status: 'HỦY BỎ',
+        actual_received_cny: amountValue
+      });
+
+      if (response.success && response.data) {
+        console.log('✅ Cập nhật status thành công:', response.data);
+        
+        // Cập nhật lại state với dữ liệu từ backend
+        setBetList(prevList => 
+          prevList.map(item => {
+            if (item.id === betId) {
+              return {
+                ...item,
+                status: 'HỦY BỎ',
+                actualReceived: response.data.actual_received_cny !== undefined ? response.data.actual_received_cny : amountValue,
+                actualAmount: response.data.actual_amount_cny !== undefined ? response.data.actual_amount_cny : 0,
+              };
+            }
+            return item;
+          })
+        );
+
+        // Reload lại danh sách wallet và đơn hàng
+        console.log('💰 Status đã thay đổi, reload lại danh sách wallet và đơn hàng...');
+        setTimeout(() => {
+          fetchWalletList();
+          fetchDonHangList();
+        }, 500);
+
+        // Đóng modal
+        setShowCancelModal(false);
+        setCancelModalData({
+          betId: '',
+          oldStatus: '',
+          actualReceivedCNY: '',
+        });
+      } else {
+        console.error('❌ Lỗi cập nhật status:', response.error);
+        alert('Lỗi: ' + (response.error || 'Không thể cập nhật status'));
+        // Revert lại status cũ
+        setBetList(prevList => 
+          prevList.map(item => {
+            if (item.id === betId) {
+              return { ...item, status: cancelModalData.oldStatus };
+            }
+            return item;
+          })
+        );
+      }
+    } catch (error) {
+      console.error('❌ Lỗi khi gọi API cập nhật status:', error);
+      alert('Có lỗi xảy ra khi cập nhật status');
+      // Revert lại status cũ
+      const betId = cancelModalData.betId;
+      setBetList(prevList => 
+        prevList.map(item => {
+          if (item.id === betId) {
+            return { ...item, status: cancelModalData.oldStatus };
+          }
+          return item;
+        })
+      );
+    }
+  };
+
+  // Xử lý mở modal chỉnh sửa
+  const handleEditBet = (bet) => {
+    setEditingBetId(bet.id);
+    setFormData({
+      user_name: bet.name || '',
+      task_code: bet.task || '',
+      bet_type: bet.betType || 'web',
+      web_bet_amount_cny: bet.webBet?.toString() || '',
+      order_code: bet.orderCode || '',
+      notes: bet.note || '',
+      completed_hours: bet.timeRemainingHours?.toString() || bet.completedHours?.toString() || '',
+    });
+    setShowEditModal(true);
+  };
+
+  // Xử lý cập nhật đơn hàng
+  const handleUpdateDonHang = async (e) => {
+    e.preventDefault();
+    if (!editingBetId) return;
+    
+    setIsUpdating(true);
+    try {
+      const dataToSend = {};
+      if (formData.user_name) dataToSend.user_name = formData.user_name;
+      if (formData.task_code) dataToSend.task_code = formData.task_code;
+      if (formData.bet_type) dataToSend.bet_type = formData.bet_type;
+      if (formData.web_bet_amount_cny) dataToSend.web_bet_amount_cny = parseFloat(formData.web_bet_amount_cny);
+      if (formData.order_code !== undefined) dataToSend.order_code = formData.order_code || null;
+      if (formData.notes !== undefined) dataToSend.notes = formData.notes || null;
+      if (formData.completed_hours) dataToSend.completed_hours = parseInt(formData.completed_hours);
+
+      const response = await donHangAPI.capNhatDonHang(editingBetId, dataToSend);
+
+      if (response.success) {
+        alert('Cập nhật đơn hàng thành công!');
+        setShowEditModal(false);
+        setEditingBetId(null);
+        // Reset form
+        setFormData({
+          user_name: '',
+          task_code: '',
+          bet_type: 'web',
+          web_bet_amount_cny: '',
+          order_code: '',
+          notes: '',
+          completed_hours: '',
+        });
+        // Reload danh sách đơn hàng
+        fetchDonHangList();
+      } else {
+        alert('Lỗi: ' + (response.error || 'Không thể cập nhật đơn hàng'));
+      }
+    } catch (error) {
+      console.error('Lỗi khi cập nhật đơn hàng:', error);
+      alert('Có lỗi xảy ra khi cập nhật đơn hàng');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Xử lý xóa đơn hàng
+  const handleDeleteBet = async (betId) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa đơn hàng này?')) {
+      return;
+    }
+
+    try {
+      const response = await donHangAPI.xoaDonHang(betId);
+
+      if (response.success) {
+        alert('Xóa đơn hàng thành công!');
+        // Reload danh sách đơn hàng
+        fetchDonHangList();
+        // Reload danh sách wallet nếu cần
+        fetchWalletList();
+      } else {
+        alert('Lỗi: ' + (response.error || 'Không thể xóa đơn hàng'));
+      }
+    } catch (error) {
+      console.error('Lỗi khi xóa đơn hàng:', error);
+      alert('Có lỗi xảy ra khi xóa đơn hàng');
+    }
+  };
+
   // Xử lý tạo đơn hàng
   const handleCreateDonHang = async (e) => {
     e.preventDefault();
@@ -521,53 +915,345 @@ const AdminPage = () => {
   }, [showCreateModal]);
 
   const renderTabContent = () => {
+    // Nếu đang ở tab "Lịch sử chỉnh sửa" và đang ở tab "Danh sách kèo", hiển thị bảng lịch sử
+    if (activeTopTab === 'lich-su-chinh-sua' && activeTab === 'danh-sach-keo') {
+      return (
+        <div className="admin-tab-content">
+          <div className="bet-list-table-wrapper">
+            {isLoadingHistory ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                Đang tải lịch sử...
+              </div>
+            ) : historyList.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                Chưa có lịch sử chỉnh sửa
+              </div>
+            ) : (
+              <table className="bet-list-table">
+                <thead>
+                  <tr>
+                    <th>STT</th>
+                    <th>Thời gian</th>
+                    <th>ID đơn hàng</th>
+                    <th>Hành động</th>
+                    <th>Người thực hiện</th>
+                    <th>Mô tả</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyList.map((history, index) => (
+                    <tr key={history.id}>
+                      <td>{index + 1}</td>
+                      <td>{formatDateTime(history.created_at)}</td>
+                      <td style={{ fontFamily: 'monospace', fontSize: '10px' }}>
+                        {history.bet_receipt_id.substring(0, 8)}...
+                      </td>
+                      <td>
+                        <span
+                          className={`status-badge ${
+                            history.action === 'UPDATE' ? 'history-update' : 'history-delete'
+                          }`}
+                        >
+                          {history.action}
+                        </span>
+                      </td>
+                      <td>{history.performed_by_name || 'N/A'}</td>
+                      <td>{history.description || '-'}</td>
+                      <td>
+                        <button
+                          onClick={() => handleViewHistoryDetail(history)}
+                          style={{
+                            padding: '4px 8px',
+                            background: '#667eea',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '10px',
+                          }}
+                        >
+                          Chi tiết
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Tab "Trang thông tin" - hiển thị nội dung "Danh sách kèo"
+    // (chỉ khi activeTopTab === 'trang-thong-tin' hoặc không phải 'lich-su-chinh-sua')
     switch (activeTab) {
       case 'danh-sach-keo':
         return (
           <div className="admin-tab-content">
-            <div className="admin-action-bar">
-              <button 
-                className="btn-create-don-hang"
-                onClick={() => setShowCreateModal(true)}
-              >
-                ➕ Tạo đơn hàng
-              </button>
+            {/* Sub-tabs cho Danh sách kèo */}
+            <div className="rut-tien-sub-tabs">
+              <div className="rut-tien-sub-tabs-left">
+                {statusTabs.map((tab) => (
+                  <button
+                    key={tab.key}
+                    className={`rut-tien-sub-tab ${activeDonHangTab === tab.key ? 'active' : ''}`}
+                    onClick={() => setActiveDonHangTab(tab.key)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              <div className="wallet-action-buttons">
+                <button 
+                  className="btn-create-don-hang"
+                  onClick={() => setShowCreateModal(true)}
+                  style={{
+                    padding: '10px 20px',
+                    background: '#667eea',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'background 0.3s ease'
+                  }}
+                >
+                  ➕ Tạo đơn hàng
+                </button>
+              </div>
             </div>
             <div className="bet-list-table-wrapper">
               <table className="bet-list-table">
                 <thead>
                   <tr>
                     <th>STT</th>
-                    <th>Tên</th>
+                    <th>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span>Tên</span>
+                          <button
+                            onClick={() => setShowFilterInputs({ ...showFilterInputs, name: !showFilterInputs.name })}
+                            style={{
+                              background: filters.name ? '#667eea' : 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '16px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                            title="Lọc theo tên"
+                          >
+                            🔍
+                          </button>
+                        </div>
+                        {showFilterInputs.name && (
+                          <input
+                            type="text"
+                            value={filters.name}
+                            onChange={(e) => setFilters({ ...filters, name: e.target.value })}
+                            onBlur={() => {
+                              // Đóng filter input khi mất focus sau một chút để cho phép click vào button
+                              setTimeout(() => {
+                                setShowFilterInputs({ ...showFilterInputs, name: false });
+                              }, 200);
+                            }}
+                            placeholder="Lọc tên..."
+                            style={{
+                              marginTop: '4px',
+                              padding: '4px 8px',
+                              width: 'calc(100% - 16px)',
+                              fontSize: '11px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              boxSizing: 'border-box',
+                            }}
+                            autoFocus
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                      </div>
+                    </th>
                     <th>Thời gian nhận kèo</th>
                     <th>Thời gian hoàn thành</th>
                     <th>Nhiệm vụ</th>
-                    <th>Loại kèo</th>
-                    <th>Tiền kèo web</th>
-                    <th>Mã đơn hàng</th>
+                    <th>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span>Loại kèo</span>
+                          <button
+                            onClick={() => setShowFilterInputs({ ...showFilterInputs, betType: !showFilterInputs.betType })}
+                            style={{
+                              background: filters.betType ? '#667eea' : 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '16px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                            title="Lọc theo loại kèo"
+                          >
+                            🔍
+                          </button>
+                        </div>
+                        {showFilterInputs.betType && (
+                          <select
+                            value={filters.betType}
+                            onChange={(e) => setFilters({ ...filters, betType: e.target.value })}
+                            onBlur={() => {
+                              // Đóng filter input khi mất focus sau một chút để cho phép click vào button
+                              setTimeout(() => {
+                                setShowFilterInputs({ ...showFilterInputs, betType: false });
+                              }, 200);
+                            }}
+                            style={{
+                              marginTop: '4px',
+                              padding: '4px 8px',
+                              width: 'calc(100% - 16px)',
+                              fontSize: '11px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              boxSizing: 'border-box',
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <option value="">Tất cả</option>
+                            <option value="web">web</option>
+                            <option value="Kèo ngoài">Kèo ngoài</option>
+                          </select>
+                        )}
+                      </div>
+                    </th>
+                    <th>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span>Tiền kèo web</span>
+                          <button
+                            onClick={() => setShowFilterInputs({ ...showFilterInputs, webBet: !showFilterInputs.webBet })}
+                            style={{
+                              background: filters.webBet ? '#667eea' : 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '16px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                            title="Lọc theo tiền kèo web"
+                          >
+                            🔍
+                          </button>
+                        </div>
+                        {showFilterInputs.webBet && (
+                          <input
+                            type="text"
+                            value={filters.webBet}
+                            onChange={(e) => setFilters({ ...filters, webBet: e.target.value.replace(/[^\d.]/g, '') })}
+                            onBlur={() => {
+                              // Đóng filter input khi mất focus sau một chút để cho phép click vào button
+                              setTimeout(() => {
+                                setShowFilterInputs({ ...showFilterInputs, webBet: false });
+                              }, 200);
+                            }}
+                            placeholder="Lọc số tiền..."
+                            style={{
+                              marginTop: '4px',
+                              padding: '4px 8px',
+                              width: 'calc(100% - 16px)',
+                              fontSize: '11px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              boxSizing: 'border-box',
+                            }}
+                            autoFocus
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                      </div>
+                    </th>
+                    <th>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span>Mã đơn hàng</span>
+                          <button
+                            onClick={() => setShowFilterInputs({ ...showFilterInputs, orderCode: !showFilterInputs.orderCode })}
+                            style={{
+                              background: filters.orderCode ? '#667eea' : 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '16px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                            title="Lọc theo mã đơn hàng"
+                          >
+                            🔍
+                          </button>
+                        </div>
+                        {showFilterInputs.orderCode && (
+                          <input
+                            type="text"
+                            value={filters.orderCode}
+                            onChange={(e) => setFilters({ ...filters, orderCode: e.target.value })}
+                            onBlur={() => {
+                              // Đóng filter input khi mất focus sau một chút để cho phép click vào button
+                              setTimeout(() => {
+                                setShowFilterInputs({ ...showFilterInputs, orderCode: false });
+                              }, 200);
+                            }}
+                            placeholder="Lọc mã đơn hàng..."
+                            style={{
+                              marginTop: '4px',
+                              padding: '4px 8px',
+                              width: 'calc(100% - 16px)',
+                              fontSize: '11px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              boxSizing: 'border-box',
+                            }}
+                            autoFocus
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                      </div>
+                    </th>
                     <th>Ghi chú</th>
                     <th>Thời gian còn lại</th>
                     <th>Tiến độ hoàn thành</th>
                     <th>Tiền kèo thực nhận</th>
                     <th>Tiền đền</th>
                     <th>Công thực nhận</th>
+                    <th>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
                   {isLoadingDonHang ? (
                     <tr>
-                      <td colSpan="14" style={{ textAlign: 'center', padding: '20px' }}>
+                      <td colSpan="16" style={{ textAlign: 'center', padding: '20px' }}>
                         Đang tải...
                       </td>
                     </tr>
-                  ) : betList.length === 0 ? (
+                  ) : filteredBetList.length === 0 ? (
                     <tr>
-                      <td colSpan="14" style={{ textAlign: 'center', padding: '20px' }}>
+                      <td colSpan="16" style={{ textAlign: 'center', padding: '20px' }}>
                         Chưa có dữ liệu
                       </td>
                     </tr>
                   ) : (
-                    betList.map((bet) => (
+                    filteredBetList.map((bet) => (
                       <tr key={bet.id}>
                         <td>{bet.stt || bet.id}</td>
                         <td>{bet.name}</td>
@@ -587,6 +1273,30 @@ const AdminPage = () => {
                               const newStatus = e.target.value;
                               const betId = bet.id; // ID thực sự (UUID)
                               
+                              // Nếu chọn status "HỦY BỎ", hiển thị modal để nhập ActualReceivedCNY
+                              if (newStatus === 'HỦY BỎ') {
+                                setCancelModalData({
+                                  betId: betId,
+                                  oldStatus: bet.status,
+                                  actualReceivedCNY: '',
+                                });
+                                setShowCancelModal(true);
+                                // Không cập nhật state, select sẽ tự động giữ giá trị cũ (controlled component)
+                                return;
+                              }
+                              
+                              // Nếu chọn status "ĐỀN", hiển thị modal để nhập CompensationCNY
+                              if (newStatus === 'ĐỀN') {
+                                setCompensationModalData({
+                                  betId: betId,
+                                  oldStatus: bet.status,
+                                  compensationCNY: '',
+                                });
+                                setShowCompensationModal(true);
+                                // Không cập nhật state, select sẽ tự động giữ giá trị cũ (controlled component)
+                                return;
+                              }
+                              
                               // Cập nhật UI ngay lập tức (optimistic update)
                               setBetList(prevList => 
                                 prevList.map(item => 
@@ -605,13 +1315,15 @@ const AdminPage = () => {
                                   console.log('✅ Cập nhật status thành công:', response.data);
                                   
                                   const newStatus = response.data.status;
-                                  const actualAmount = newStatus === 'DONE' 
+                                  const actualAmount = (newStatus === 'DONE' || newStatus === 'HỦY BỎ' || newStatus === 'ĐỀN')
                                     ? (response.data.actual_amount_cny || 0)
                                     : 0;
                                   
                                   // Cập nhật lại state với dữ liệu từ backend
-                                  // Nếu status = DONE, lấy actualAmountCNY từ backend
-                                  // Nếu status ≠ DONE, set actualAmount = 0 (không hiển thị)
+                                  // - Nếu status = DONE: ActualReceivedCNY = WebBetAmountCNY (backend đã tự động set)
+                                  // - Nếu status = HỦY BỎ: ActualReceivedCNY là giá trị đã nhập
+                                  // - Nếu status = ĐỀN: CompensationCNY là giá trị đã nhập, ActualAmountCNY sẽ là âm (trừ tiền)
+                                  // - Nếu đổi từ DONE, HỦY BỎ, hoặc ĐỀN sang status khác: các giá trị sẽ được reset về 0 (backend đã reset)
                                   setBetList(prevList => 
                                     prevList.map(item => {
                                       if (item.id === betId) {
@@ -619,8 +1331,14 @@ const AdminPage = () => {
                                           ...item,
                                           status: newStatus,
                                           actualAmount: actualAmount,
-                                          actualReceived: response.data.actual_received_cny !== undefined ? response.data.actual_received_cny : item.actualReceived,
-                                          compensation: response.data.compensation_cny !== undefined ? response.data.compensation_cny : item.compensation,
+                                          // Luôn cập nhật actualReceived từ backend
+                                          // Backend sẽ tự động reset về 0 nếu đổi từ DONE hoặc HỦY BỎ sang status khác
+                                          actualReceived: response.data.actual_received_cny !== undefined 
+                                            ? response.data.actual_received_cny 
+                                            : (newStatus !== 'HỦY BỎ' && newStatus !== 'DONE' ? 0 : item.actualReceived),
+                                          compensation: response.data.compensation_cny !== undefined 
+                                            ? response.data.compensation_cny 
+                                            : (newStatus !== 'ĐỀN' ? 0 : item.compensation),
                                         };
                                       }
                                       return item;
@@ -628,11 +1346,11 @@ const AdminPage = () => {
                                   );
 
                                   // Wallet đã được cập nhật (cả khi DONE và khi đổi từ DONE sang khác)
-                                  // Reload lại danh sách wallet để hiển thị số tiền mới
-                                  // Thêm delay nhỏ để đảm bảo backend đã cập nhật xong
-                                  console.log('💰 Status đã thay đổi, reload lại danh sách wallet...');
+                                  // Reload lại danh sách wallet và đơn hàng để hiển thị số tiền mới và cập nhật tab
+                                  console.log('💰 Status đã thay đổi, reload lại danh sách wallet và đơn hàng...');
                                   setTimeout(() => {
                                     fetchWalletList();
+                                    fetchDonHangList(); // Reload danh sách đơn hàng để cập nhật tab
                                   }, 500); // Delay 500ms để đảm bảo backend đã cập nhật xong
                                 } else {
                                   console.error('❌ Lỗi cập nhật status:', response.error);
@@ -656,6 +1374,7 @@ const AdminPage = () => {
                               }
                             }}
                           >
+                            <option value="Đơn hàng mới">Đơn hàng mới</option>
                             <option value="ĐANG THỰC HIỆN">ĐANG THỰC HIỆN</option>
                             <option value="DONE">DONE</option>
                             <option value="CHỜ CHẤP NHẬN">CHỜ CHẤP NHẬN</option>
@@ -667,7 +1386,47 @@ const AdminPage = () => {
                         </td>
                         <td>{bet.actualReceived || ''}</td>
                         <td>{bet.compensation || ''}</td>
-                        <td>{bet.status === 'DONE' && bet.actualAmount ? bet.actualAmount.toString() : ''}</td>
+                        <td>{((bet.status === 'DONE' || bet.status === 'HỦY BỎ' || bet.status === 'ĐỀN') && bet.actualAmount) ? bet.actualAmount.toString() : ''}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                            <button
+                              onClick={() => handleEditBet(bet)}
+                              style={{
+                                padding: '6px 12px',
+                                background: '#667eea',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: '500',
+                                transition: 'background 0.2s ease'
+                              }}
+                              onMouseEnter={(e) => e.target.style.background = '#5568d3'}
+                              onMouseLeave={(e) => e.target.style.background = '#667eea'}
+                            >
+                              ✏️ Chỉnh sửa
+                            </button>
+                            <button
+                              onClick={() => handleDeleteBet(bet.id)}
+                              style={{
+                                padding: '6px 12px',
+                                background: '#f44336',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: '500',
+                                transition: 'background 0.2s ease'
+                              }}
+                              onMouseEnter={(e) => e.target.style.background = '#d32f2f'}
+                              onMouseLeave={(e) => e.target.style.background = '#f44336'}
+                            >
+                              🗑️ Xóa
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -743,18 +1502,14 @@ const AdminPage = () => {
                       </tr>
                     ) : (
                     walletList.map((item) => {
-                      // Map dữ liệu theo yêu cầu
-                      const userName = item.user?.name || ''; // Tên từ nd.ten trong database
-                      const totalReceivedCNY = item.wallet?.total_received_cny || 0; // Công thực nhận (Tệ)
-                      const totalDepositVND = item.wallet?.total_deposit_vnd || 0; // Đã nộp (VND)
-                      const totalWithdrawnVND = item.wallet?.total_withdrawn_vnd || 0; // Đã rút (VND)
-                      const currentBalanceVND = item.wallet?.current_balance_vnd || 0; // SD hiện tại (VND) - dùng current_balance_vnd
+                      const userName = item.user?.name || '';
+                      const totalReceivedCNY = item.wallet?.total_received_cny || 0;
+                      const totalDepositVND = item.wallet?.total_deposit_vnd || 0;
+                      const totalWithdrawnVND = item.wallet?.total_withdrawn_vnd || 0;
+                      const currentBalanceVND = item.wallet?.current_balance_vnd || 0;
                       
-                      // Format số với dấu chấm (.) - không thay đổi kiểu dữ liệu
-                      // Ví dụ: 10.9 giữ nguyên 10.9, 35550 hiển thị 35.550
                       const formatNumber = (num) => {
                         if (num === 0 || num === null || num === undefined) return '0';
-                        // Giữ nguyên số thập phân, chỉ format phần nguyên với dấu chấm phân cách hàng nghìn
                         const parts = num.toString().split('.');
                         const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
                         return parts.length > 1 ? `${integerPart}.${parts[1]}` : integerPart;
@@ -857,6 +1612,181 @@ const AdminPage = () => {
       <div className="admin-content">
         {renderTabContent()}
       </div>
+
+      {/* Modal chỉnh sửa đơn hàng */}
+      {showEditModal && (
+        <div className="modal-overlay" onClick={() => {
+          setShowEditModal(false);
+          setEditingBetId(null);
+        }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Chỉnh sửa đơn hàng</h2>
+              <button 
+                className="modal-close"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingBetId(null);
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleUpdateDonHang} className="create-don-hang-form">
+              <div className="form-group">
+                <label htmlFor="edit_user_name">Tên <span className="required">*</span></label>
+                <div className="autocomplete-wrapper" ref={userInputRef}>
+                  <input
+                    type="text"
+                    id="edit_user_name"
+                    name="user_name"
+                    value={formData.user_name}
+                    onChange={handleUserNameChange}
+                    onFocus={() => setShowUserDropdown(true)}
+                    required
+                    placeholder="Gõ để tìm kiếm tên người dùng"
+                    autoComplete="off"
+                  />
+                  {showUserDropdown && filteredUserList.length > 0 && (
+                    <div className="autocomplete-dropdown">
+                      {filteredUserList.map((user) => (
+                        <div
+                          key={user.id}
+                          className="autocomplete-item"
+                          onClick={() => handleUserSelect(user.name)}
+                        >
+                          {user.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="edit_task_code">Nhiệm vụ <span className="required">*</span></label>
+                <input
+                  type="text"
+                  id="edit_task_code"
+                  name="task_code"
+                  value={formData.task_code}
+                  onChange={handleFormChange}
+                  required
+                  placeholder="VD: kc4-96-ct, lb3-kc1"
+                  autoComplete="off"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="edit_bet_type">Loại kèo <span className="required">*</span></label>
+                <div className="autocomplete-wrapper" ref={betTypeInputRef}>
+                  <input
+                    type="text"
+                    id="edit_bet_type"
+                    name="bet_type"
+                    value={formData.bet_type}
+                    onFocus={() => setShowBetTypeDropdown(true)}
+                    onClick={() => setShowBetTypeDropdown(true)}
+                    readOnly
+                    required
+                    placeholder="Chọn loại kèo"
+                    style={{ cursor: 'pointer' }}
+                  />
+                  {showBetTypeDropdown && (
+                    <div className="autocomplete-dropdown">
+                      {betTypeOptions.map((option) => (
+                        <div
+                          key={option}
+                          className="autocomplete-item"
+                          onClick={() => handleBetTypeSelect(option)}
+                        >
+                          {option}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="edit_web_bet_amount_cny">Tiền kèo web ¥ <span className="required">*</span></label>
+                <input
+                  type="text"
+                  id="edit_web_bet_amount_cny"
+                  name="web_bet_amount_cny"
+                  value={formData.web_bet_amount_cny}
+                  onChange={handleFormChange}
+                  required
+                  placeholder="0.00"
+                  pattern="[0-9]*\.?[0-9]*"
+                  inputMode="decimal"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="edit_order_code">Mã đơn hàng</label>
+                <input
+                  type="text"
+                  id="edit_order_code"
+                  name="order_code"
+                  value={formData.order_code}
+                  onChange={handleFormChange}
+                  placeholder="Tùy chọn"
+                  autoComplete="off"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="edit_notes">Ghi chú</label>
+                <input
+                  type="text"
+                  id="edit_notes"
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleFormChange}
+                  placeholder="Tùy chọn"
+                  autoComplete="off"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="edit_completed_hours">Thời gian hoàn thành (giờ)</label>
+                <input
+                  type="text"
+                  id="edit_completed_hours"
+                  name="completed_hours"
+                  value={formData.completed_hours}
+                  onChange={handleFormChange}
+                  placeholder="Nhập số giờ để hoàn thành (ví dụ: 40)"
+                  pattern="[0-9]*"
+                  inputMode="numeric"
+                />
+              </div>
+
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="btn-cancel"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingBetId(null);
+                  }}
+                  disabled={isUpdating}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="btn-submit"
+                  disabled={isUpdating}
+                >
+                  {isUpdating ? 'Đang cập nhật...' : 'Xác nhận cập nhật'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal tạo đơn hàng */}
       {showCreateModal && (
@@ -1206,10 +2136,321 @@ const AdminPage = () => {
         </div>
       )}
 
+      {/* Modal nhập ActualReceivedCNY khi chọn status "Hủy bỏ" */}
+      {showCancelModal && (
+        <div className="modal-overlay" onClick={() => setShowCancelModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Hủy bỏ đơn hàng</h2>
+              <button
+                className="modal-close"
+                onClick={() => setShowCancelModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleCancelStatus} className="create-don-hang-form">
+              <div className="form-group">
+                <label htmlFor="cancel-actual-received-cny">
+                  Tiền kèo thực nhận ¥ <span className="required">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="cancel-actual-received-cny"
+                  value={cancelModalData.actualReceivedCNY}
+                  onChange={(e) => {
+                    // Cho phép số và dấu chấm (decimal)
+                    const value = e.target.value.replace(/[^\d.]/g, '');
+                    // Chỉ cho phép một dấu chấm
+                    const parts = value.split('.');
+                    const formatted = parts.length > 2 
+                      ? parts[0] + '.' + parts.slice(1).join('')
+                      : value;
+                    setCancelModalData({
+                      ...cancelModalData,
+                      actualReceivedCNY: formatted
+                    });
+                  }}
+                  required
+                  placeholder="Nhập số tiền thực nhận (ví dụ: 100.5 hoặc 0)"
+                  autoComplete="off"
+                  inputMode="decimal"
+                />
+                <div style={{ 
+                  marginTop: '4px', 
+                  fontSize: '12px', 
+                  color: '#666',
+                  fontStyle: 'italic'
+                }}>
+                  Nếu nhập 0, Công thực nhận sẽ là 0
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="btn-cancel"
+                  onClick={() => setShowCancelModal(false)}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="btn-submit"
+                >
+                  Xác nhận hủy bỏ
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal nhập CompensationCNY khi chọn status "Đền" */}
+      {showCompensationModal && (
+        <div className="modal-overlay" onClick={() => setShowCompensationModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Đền đơn hàng</h2>
+              <button
+                className="modal-close"
+                onClick={() => setShowCompensationModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleCompensationStatus} className="create-don-hang-form">
+              <div className="form-group">
+                <label htmlFor="compensation-cny">
+                  Tiền đền (CNY) <span className="required">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="compensation-cny"
+                  value={compensationModalData.compensationCNY}
+                  onChange={(e) => {
+                    // Cho phép số và dấu chấm (decimal)
+                    const value = e.target.value.replace(/[^\d.]/g, '');
+                    // Chỉ cho phép một dấu chấm
+                    const parts = value.split('.');
+                    const formatted = parts.length > 2 
+                      ? parts[0] + '.' + parts.slice(1).join('')
+                      : value;
+                    setCompensationModalData({
+                      ...compensationModalData,
+                      compensationCNY: formatted
+                    });
+                  }}
+                  required
+                  placeholder="Nhập số tiền đền (ví dụ: 100.5)"
+                  autoComplete="off"
+                  inputMode="decimal"
+                />
+                <div style={{ 
+                  marginTop: '4px', 
+                  fontSize: '12px', 
+                  color: '#666',
+                  fontStyle: 'italic'
+                }}>
+                  Tiền đền phải lớn hơn 0. Nhập bao nhiêu sẽ trừ bấy nhiêu từ wallet
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="btn-cancel"
+                  onClick={() => setShowCompensationModal(false)}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="btn-submit"
+                >
+                  Xác nhận đền
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal chi tiết lịch sử chỉnh sửa */}
+      {showHistoryDetailModal && selectedHistory && (
+        <div className="modal-overlay" onClick={() => setShowHistoryDetailModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div className="modal-header">
+              <h2>Chi tiết lịch sử chỉnh sửa</h2>
+              <button 
+                className="modal-close"
+                onClick={() => setShowHistoryDetailModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ padding: '20px' }}>
+              <div style={{ marginBottom: '20px' }}>
+                <strong>Hành động:</strong>{' '}
+                <span className={`status-badge ${selectedHistory.action === 'UPDATE' ? 'history-update' : 'history-delete'}`}>
+                  {selectedHistory.action}
+                </span>
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <strong>ID đơn hàng:</strong> {selectedHistory.bet_receipt_id}
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <strong>Thời gian:</strong> {formatDateTime(selectedHistory.created_at)}
+              </div>
+              <div style={{ marginBottom: '10px' }}>
+                <strong>Người thực hiện:</strong> {selectedHistory.performed_by_name || 'N/A'}
+              </div>
+              {selectedHistory.description && (
+                <div style={{ marginBottom: '20px' }}>
+                  <strong>Mô tả:</strong> {selectedHistory.description}
+                </div>
+              )}
+
+              {selectedHistory.action === 'DELETE' && selectedHistory.old_data && (
+                <div style={{ marginTop: '20px' }}>
+                  <h3 style={{ marginBottom: '10px', color: '#f44336' }}>Thông tin đơn hàng đã bị xóa:</h3>
+                  <div style={{ 
+                    background: '#ffebee', 
+                    padding: '15px', 
+                    borderRadius: '8px',
+                    border: '1px solid #f44336',
+                    maxHeight: '400px',
+                    overflowY: 'auto'
+                  }}>
+                    <pre style={{ margin: 0, fontSize: '12px', whiteSpace: 'pre-wrap' }}>
+                      {JSON.stringify(JSON.parse(selectedHistory.old_data), null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+
+              {selectedHistory.action === 'UPDATE' && selectedHistory.changed_fields && (
+                <div style={{ marginTop: '20px' }}>
+                  <h3 style={{ marginBottom: '10px' }}>Các thay đổi:</h3>
+                  <div style={{ 
+                    background: '#f5f5f5', 
+                    padding: '15px', 
+                    borderRadius: '8px',
+                    maxHeight: '400px',
+                    overflowY: 'auto'
+                  }}>
+                    {(() => {
+                      try {
+                        const changedFields = JSON.parse(selectedHistory.changed_fields);
+                        return (
+                          <div>
+                            {Object.keys(changedFields).map((key) => {
+                              const change = changedFields[key];
+                              return (
+                                <div key={key} style={{ marginBottom: '10px', padding: '8px', background: 'white', borderRadius: '4px' }}>
+                                  <strong>{key}:</strong>
+                                  <div style={{ marginLeft: '15px', color: '#666', fontSize: '12px' }}>
+                                    <div style={{ color: '#f44336' }}>Cũ: {JSON.stringify(change.old)}</div>
+                                    <div style={{ color: '#4caf50' }}>Mới: {JSON.stringify(change.new)}</div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      } catch (e) {
+                        return <pre style={{ margin: 0, fontSize: '12px' }}>{selectedHistory.changed_fields}</pre>;
+                      }
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {selectedHistory.action === 'UPDATE' && (selectedHistory.old_data || selectedHistory.new_data) && (
+                <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  {selectedHistory.old_data && (
+                    <div style={{ flex: 1, minWidth: '300px' }}>
+                      <h4 style={{ marginBottom: '10px' }}>Dữ liệu cũ:</h4>
+                      <div style={{ 
+                        background: '#fff3e0', 
+                        padding: '15px', 
+                        borderRadius: '8px',
+                        border: '1px solid #ff9800',
+                        maxHeight: '300px',
+                        overflowY: 'auto'
+                      }}>
+                        <pre style={{ margin: 0, fontSize: '11px', whiteSpace: 'pre-wrap' }}>
+                          {JSON.stringify(JSON.parse(selectedHistory.old_data), null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                  {selectedHistory.new_data && (
+                    <div style={{ flex: 1, minWidth: '300px' }}>
+                      <h4 style={{ marginBottom: '10px' }}>Dữ liệu mới:</h4>
+                      <div style={{ 
+                        background: '#e8f5e9', 
+                        padding: '15px', 
+                        borderRadius: '8px',
+                        border: '1px solid #4caf50',
+                        maxHeight: '300px',
+                        overflowY: 'auto'
+                      }}>
+                        <pre style={{ margin: 0, fontSize: '11px', whiteSpace: 'pre-wrap' }}>
+                          {JSON.stringify(JSON.parse(selectedHistory.new_data), null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div style={{ padding: '20px', borderTop: '1px solid #e0e0e0', textAlign: 'right' }}>
+              <button
+                onClick={() => setShowHistoryDetailModal(false)}
+                style={{
+                  padding: '8px 16px',
+                  background: '#667eea',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                }}
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Top tabs phía trên footer - chỉ hiển thị khi ở tab "Danh sách kèo" */}
+      {activeTab === 'danh-sach-keo' && (
+        <div className="admin-top-tabs">
+          <div className="admin-top-tabs-inner">
+            <button
+              className={`rut-tien-sub-tab ${activeTopTab === 'trang-thong-tin' ? 'active' : ''}`}
+              onClick={() => setActiveTopTab('trang-thong-tin')}
+            >
+              Trang thông tin
+            </button>
+            <button
+              className={`rut-tien-sub-tab ${activeTopTab === 'lich-su-chinh-sua' ? 'active' : ''}`}
+              onClick={() => setActiveTopTab('lich-su-chinh-sua')}
+            >
+              Lịch sử chỉnh sửa
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="admin-bottom-nav">
         <button
           className={`admin-nav-item ${activeTab === 'danh-sach-keo' ? 'active' : ''}`}
-          onClick={() => setActiveTab('danh-sach-keo')}
+          onClick={() => {
+            setActiveTab('danh-sach-keo');
+            setActiveTopTab('trang-thong-tin'); // Reset về trang thông tin khi vào Danh sách kèo
+          }}
         >
           <span className="admin-nav-icon">📋</span>
           <span className="admin-nav-label">Danh sách kèo</span>

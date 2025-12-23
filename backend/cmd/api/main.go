@@ -43,18 +43,21 @@ func main() {
 	walletRepo := repository.NewWalletRepository(db)
 	depositRepo := repository.NewDepositRepository(db)
 	withdrawalRepo := repository.NewWithdrawalRepository(db)
+	historyRepo := repository.NewBetReceiptHistoryRepository(db)
 
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
-	betReceiptService := service.NewBetReceiptService(betReceiptRepo, userRepo, walletRepo)
+	betReceiptService := service.NewBetReceiptService(betReceiptRepo, userRepo, walletRepo, historyRepo)
 	walletService := service.NewWalletService(walletRepo)
 	depositService := service.NewDepositService(depositRepo, userRepo, walletRepo)
 	withdrawalService := service.NewWithdrawalService(withdrawalRepo, userRepo, walletRepo)
+	historyService := service.NewBetReceiptHistoryService(historyRepo)
 
 	authHandler := handlers.NewAuthHandler(authService, cfg.JWTSecret)
 	betReceiptHandler := handlers.NewBetReceiptHandler(betReceiptService, cfg.JWTSecret)
 	walletHandler := handlers.NewWalletHandler(walletService)
 	depositHandler := handlers.NewDepositHandler(depositService, cfg.JWTSecret)
 	withdrawalHandler := handlers.NewWithdrawalHandler(withdrawalService, cfg.JWTSecret)
+	historyHandler := handlers.NewBetReceiptHistoryHandler(historyService)
 	log.Println("✅ Layers initialized")
 
 	// 4. Setup router
@@ -76,7 +79,7 @@ func main() {
 	})
 	log.Println("✅ CORS middleware enabled")
 
-	routes.SetupRoutes(router, authHandler, betReceiptHandler, walletHandler, depositHandler, withdrawalHandler)
+	routes.SetupRoutes(router, authHandler, betReceiptHandler, walletHandler, depositHandler, withdrawalHandler, historyHandler)
 	log.Println("✅ Routes configured")
 
 	// 5. Start server
@@ -86,14 +89,19 @@ func main() {
 	log.Println("   POST http://localhost:" + cfg.Port + "/api/auth/login")
 	log.Println("   GET  http://localhost:" + cfg.Port + "/api/auth/me")
 	log.Println("   GET  http://localhost:" + cfg.Port + "/api/auth/users")
-	log.Println("   POST http://localhost:" + cfg.Port + "/api/bet-receipts")
-	log.Println("   GET  http://localhost:" + cfg.Port + "/api/bet-receipts")
-	log.Println("   GET  http://localhost:" + cfg.Port + "/api/bet-receipts/:id")
+	log.Println("   POST   http://localhost:" + cfg.Port + "/api/bet-receipts")
+	log.Println("   GET    http://localhost:" + cfg.Port + "/api/bet-receipts")
+	log.Println("   GET    http://localhost:" + cfg.Port + "/api/bet-receipts/:id")
+	log.Println("   PUT    http://localhost:" + cfg.Port + "/api/bet-receipts/:id")
+	log.Println("   DELETE http://localhost:" + cfg.Port + "/api/bet-receipts/:id")
+	log.Println("   PATCH  http://localhost:" + cfg.Port + "/api/bet-receipts/:id/status")
 	log.Println("   GET  http://localhost:" + cfg.Port + "/api/wallets")
 	log.Println("   POST http://localhost:" + cfg.Port + "/api/wallets/recalculate-all")
 	log.Println("   POST http://localhost:" + cfg.Port + "/api/wallets/:user_id/recalculate")
 	log.Println("   POST http://localhost:" + cfg.Port + "/api/deposits")
 	log.Println("   POST http://localhost:" + cfg.Port + "/api/withdrawals")
+	log.Println("   GET  http://localhost:" + cfg.Port + "/api/bet-receipt-history")
+	log.Println("   GET  http://localhost:" + cfg.Port + "/api/bet-receipt-history/:id")
 
 	if err := router.Run(":" + cfg.Port); err != nil {
 		log.Fatal("❌ Failed to start server:", err)

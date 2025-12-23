@@ -223,9 +223,10 @@ func (r *BetReceiptRepository) UpdateStatus(betReceipt *models.BetReceipt) error
 			cong_thuc_nhan_te = $2,
 			tien_keo_web_thuc_nhan_te = $3,
 			tien_den_te = $4,
-			thoi_gian_hoan_thanh = $5,
+			tien_keo_web_te = $5,
+			thoi_gian_hoan_thanh = $6,
 			thoi_gian_cap_nhat = NOW()
-		WHERE id = $6
+		WHERE id = $7
 	`
 
 	var completedAt interface{}
@@ -241,6 +242,7 @@ func (r *BetReceiptRepository) UpdateStatus(betReceipt *models.BetReceipt) error
 		betReceipt.ActualAmountCNY,   // cong_thuc_nhan_te
 		betReceipt.ActualReceivedCNY, // tien_keo_web_thuc_nhan_te
 		betReceipt.CompensationCNY,   // tien_den_te
+		betReceipt.WebBetAmountCNY,   // tien_keo_web_te (có thể được cập nhật khi status = HỦY BỎ)
 		completedAt,                  // thoi_gian_hoan_thanh
 		betReceipt.ID,
 	)
@@ -251,5 +253,105 @@ func (r *BetReceiptRepository) UpdateStatus(betReceipt *models.BetReceipt) error
 	}
 
 	log.Printf("Repository - ✅ Đã cập nhật status thành công cho đơn hàng ID: %s", betReceipt.ID)
+	return nil
+}
+
+// Update cập nhật các trường thông thường của đơn hàng (không phải status)
+func (r *BetReceiptRepository) Update(id string, req *models.UpdateBetReceiptRequest) error {
+	// Lấy thông tin đơn hàng hiện tại
+	betReceipt, err := r.FindByID(id)
+	if err != nil {
+		return err
+	}
+
+	// Cập nhật các trường nếu được cung cấp
+	if req.UserName != nil {
+		// Tìm user theo tên (tìm chính xác)
+		userRepo := NewUserRepository(r.db)
+		users, err := userRepo.FindByName(*req.UserName)
+		if err != nil {
+			return fmt.Errorf("lỗi khi tìm user: %w", err)
+		}
+		if len(users) == 0 {
+			return fmt.Errorf("không tìm thấy người dùng với tên: %s", *req.UserName)
+		}
+		// Lấy user đầu tiên (FindByName tìm chính xác nên chỉ có 1 kết quả)
+		betReceipt.UserID = users[0].ID
+	}
+	if req.TaskCode != nil {
+		betReceipt.TaskCode = *req.TaskCode
+	}
+	if req.BetType != nil {
+		betReceipt.BetType = *req.BetType
+	}
+	if req.WebBetAmountCNY != nil {
+		betReceipt.WebBetAmountCNY = *req.WebBetAmountCNY
+	}
+	if req.OrderCode != nil {
+		betReceipt.OrderCode = *req.OrderCode
+	}
+	if req.Notes != nil {
+		betReceipt.Notes = *req.Notes
+	}
+	if req.CompletedHours != nil {
+		hours := *req.CompletedHours
+		betReceipt.TimeRemainingHours = &hours
+	}
+
+	// Update database
+	query := `
+		UPDATE thong_tin_nhan_keo
+		SET 
+			id_nguoi_dung = $1,
+			ma_nhiem_vu = $2,
+			loai_keo = $3,
+			tien_keo_web_te = $4,
+			ma_don_hang = $5,
+			ghi_chu = $6,
+			thoi_gian_con_lai_gio = $7,
+			thoi_gian_cap_nhat = NOW()
+		WHERE id = $8
+	`
+
+	_, err = r.db.Exec(
+		query,
+		betReceipt.UserID,
+		betReceipt.TaskCode,
+		betReceipt.BetType,
+		betReceipt.WebBetAmountCNY,
+		betReceipt.OrderCode,
+		betReceipt.Notes,
+		betReceipt.TimeRemainingHours,
+		id,
+	)
+
+	if err != nil {
+		log.Printf("Repository - ❌ Lỗi cập nhật đơn hàng: %v", err)
+		return err
+	}
+
+	log.Printf("Repository - ✅ Đã cập nhật đơn hàng thành công cho ID: %s", id)
+	return nil
+}
+
+// Delete xóa đơn hàng theo ID
+func (r *BetReceiptRepository) Delete(id string) error {
+	// Kiểm tra xem đơn hàng có tồn tại không
+	_, err := r.FindByID(id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("không tìm thấy đơn hàng với ID: %s", id)
+		}
+		return err
+	}
+
+	query := `DELETE FROM thong_tin_nhan_keo WHERE id = $1`
+	_, err = r.db.Exec(query, id)
+	if err != nil {
+		log.Printf("Repository - ❌ Lỗi xóa đơn hàng: %v", err)
+		return err
+	}
+
+	log.Printf("Repository - ✅ Đã xóa đơn hàng thành công cho ID: %s", id)
 	return nil
 }

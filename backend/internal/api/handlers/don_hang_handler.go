@@ -213,8 +213,8 @@ func (h *BetReceiptHandler) UpdateBetReceiptStatus(c *gin.Context) {
 
 	log.Printf("🔍 Người cập nhật status - User ID: %s", claims.UserID)
 
-	// Gọi service để xử lý logic
-	betReceipt, err := h.betReceiptService.UpdateBetReceiptStatus(id, &req)
+	// Gọi service để xử lý logic (truyền userID để ghi log)
+	betReceipt, err := h.betReceiptService.UpdateBetReceiptStatus(id, &req, &claims.UserID)
 	if err != nil {
 		errorMsg := err.Error()
 		log.Printf("❌ CẬP NHẬT STATUS THẤT BẠI: %s", errorMsg)
@@ -234,5 +234,135 @@ func (h *BetReceiptHandler) UpdateBetReceiptStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    betReceipt,
+	})
+}
+
+// UpdateBetReceipt cập nhật các trường thông thường của đơn hàng (không phải status)
+func (h *BetReceiptHandler) UpdateBetReceipt(c *gin.Context) {
+	id := c.Param("id")
+	log.Printf("=== BẮT ĐẦU CẬP NHẬT ĐƠN HÀNG ID: %s ===", id)
+
+	var req models.UpdateBetReceiptRequest
+
+	// Parse request body
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("❌ VALIDATION LỖI: Dữ liệu không hợp lệ - %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Dữ liệu không hợp lệ: " + err.Error(),
+		})
+		return
+	}
+
+	log.Printf("📝 Cập nhật đơn hàng - ID: %s", id)
+
+	// Kiểm tra quyền admin (từ JWT token)
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Yêu cầu xác thực",
+		})
+		return
+	}
+
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	if tokenString == authHeader {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Định dạng token không hợp lệ",
+		})
+		return
+	}
+
+	claims, err := utils.ValidateJWT(tokenString, h.jwtSecret)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Token không hợp lệ hoặc đã hết hạn",
+		})
+		return
+	}
+
+	log.Printf("🔍 Người cập nhật đơn hàng - User ID: %s", claims.UserID)
+
+	// Gọi service để xử lý logic (truyền userID để ghi log)
+	betReceipt, err := h.betReceiptService.UpdateBetReceipt(id, &req, &claims.UserID)
+	if err != nil {
+		errorMsg := err.Error()
+		log.Printf("❌ CẬP NHẬT ĐƠN HÀNG THẤT BẠI: %s", errorMsg)
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   errorMsg,
+		})
+		return
+	}
+
+	log.Printf("✅ CẬP NHẬT ĐƠN HÀNG THÀNH CÔNG - ID: %s", betReceipt.ID)
+	log.Println("=== KẾT THÚC CẬP NHẬT ĐƠN HÀNG ===\n")
+
+	// Trả response thành công
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    betReceipt,
+	})
+}
+
+// DeleteBetReceipt xóa đơn hàng
+func (h *BetReceiptHandler) DeleteBetReceipt(c *gin.Context) {
+	id := c.Param("id")
+	log.Printf("=== BẮT ĐẦU XÓA ĐƠN HÀNG ID: %s ===", id)
+
+	// Kiểm tra quyền admin (từ JWT token)
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Yêu cầu xác thực",
+		})
+		return
+	}
+
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	if tokenString == authHeader {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Định dạng token không hợp lệ",
+		})
+		return
+	}
+
+	claims, err := utils.ValidateJWT(tokenString, h.jwtSecret)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Token không hợp lệ hoặc đã hết hạn",
+		})
+		return
+	}
+
+	log.Printf("🔍 Người xóa đơn hàng - User ID: %s", claims.UserID)
+
+	// Gọi service để xử lý logic (truyền userID để ghi log)
+	err = h.betReceiptService.DeleteBetReceipt(id, &claims.UserID)
+	if err != nil {
+		errorMsg := err.Error()
+		log.Printf("❌ XÓA ĐƠN HÀNG THẤT BẠI: %s", errorMsg)
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   errorMsg,
+		})
+		return
+	}
+
+	log.Printf("✅ XÓA ĐƠN HÀNG THÀNH CÔNG - ID: %s", id)
+	log.Println("=== KẾT THÚC XÓA ĐƠN HÀNG ===\n")
+
+	// Trả response thành công
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Đã xóa đơn hàng thành công",
 	})
 }

@@ -33,6 +33,7 @@ type BetReceipt struct {
 
 // BetReceiptStatus constants
 const (
+	BetReceiptStatusNew          = "Đơn hàng mới"
 	BetReceiptStatusInProgress   = "ĐANG THỰC HIỆN"
 	BetReceiptStatusDone         = "DONE"
 	BetReceiptStatusPending      = "CHỜ CHẤP NHẬN"
@@ -66,4 +67,14 @@ type UpdateBetReceiptStatusRequest struct {
 	CompletedAt       *time.Time `json:"completed_at"`
 	// TODO: Khi update tien_do_hoan_thanh sang "DONE", cần tính cong_thuc_nhan_te
 	// cong_thuc_nhan_te sẽ được tính tự động dựa trên công thức
+}
+
+type UpdateBetReceiptRequest struct {
+	UserName        *string  `json:"user_name"`          // Tên người dùng (từ cột ten trong nguoi_dung)
+	TaskCode        *string  `json:"task_code"`          // Mã nhiệm vụ
+	BetType         *string  `json:"bet_type"`           // Loại kèo: "web" hoặc "Kèo ngoài"
+	WebBetAmountCNY *float64 `json:"web_bet_amount_cny"` // Tiền kèo web (tệ)
+	OrderCode       *string  `json:"order_code"`         // Mã đơn hàng
+	Notes           *string  `json:"notes"`              // Ghi chú
+	CompletedHours  *int     `json:"completed_hours"`    // Thời gian hoàn thành (số giờ)
 }

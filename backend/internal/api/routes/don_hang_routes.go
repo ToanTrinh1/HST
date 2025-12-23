@@ -15,9 +15,7 @@ func setupDonHangRoutes(api *gin.RouterGroup, handler *handlers.BetReceiptHandle
 		betReceipts.GET("", handler.GetAllBetReceipts)                   // Lấy danh sách đơn hàng
 		betReceipts.GET("/:id", handler.GetBetReceiptByID)               // Lấy thông tin đơn hàng theo ID
 		betReceipts.PATCH("/:id/status", handler.UpdateBetReceiptStatus) // Cập nhật status đơn hàng (tự động tính Công thực nhận khi DONE)
-
-		// TODO: Thêm các endpoints khác khi cần
-		// betReceipts.PUT("/:id", handler.UpdateBetReceipt)
-		// betReceipts.DELETE("/:id", handler.DeleteBetReceipt)
+		betReceipts.PUT("/:id", handler.UpdateBetReceipt)                // Cập nhật các trường thông thường của đơn hàng (không phải status)
+		betReceipts.DELETE("/:id", handler.DeleteBetReceipt)             // Xóa đơn hàng
 	}
 }

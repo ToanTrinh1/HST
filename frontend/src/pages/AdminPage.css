@@ -1,15 +1,33 @@
+/* Disable scroll cho trang Admin - chỉ áp dụng cho AdminPage */
+.page-with-bottom-nav {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .admin-content {
-  padding: 20px;
-  min-height: calc(100vh - 140px); /* Trừ đi chiều cao navbar và footer */
-  margin-bottom: 70px; /* Để không bị che bởi footer */
+  padding: 0;
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  margin-top: 0;
+  margin-bottom: 0;
+  /* Tính toán height để không bị che bởi header (khoảng 60px), top tabs (40px) và bottom nav (50px) */
+  max-height: calc(100vh - 150px);
 }
 
 .admin-tab-content {
   background: white;
-  border-radius: 12px;
+  border-radius: 0;
   padding: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
   overflow: hidden;
+  margin-top: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .admin-tab-content h3 {
@@ -27,21 +45,57 @@
 
 .bet-list-table-wrapper {
   width: 100%;
-  overflow-x: auto;
-  max-height: calc(100vh - 280px);
-  overflow-y: auto;
+  overflow-x: auto; /* Thanh cuộn ngang */
+  overflow-y: auto; /* Thanh cuộn dọc */
   border-radius: 12px;
+  position: relative;
+  flex: 1;
+  height: 0; /* Cho phép flex item shrink */
+  min-height: 0; /* Quan trọng cho flex item với overflow */
+  /* Đảm bảo không bị che bởi top tabs (40px) và bottom nav (50px) */
+  /* Giảm margin-bottom để bảng sát xuống gần với top tabs hơn */
+  margin-bottom: 5px;
+  /* Đảm bảo scrollbar hiển thị rõ ràng */
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e0 #f7fafc;
+}
+
+/* Custom scrollbar cho Chrome/Safari/Edge */
+.bet-list-table-wrapper::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.bet-list-table-wrapper::-webkit-scrollbar-track {
+  background: #f7fafc;
+  border-radius: 4px;
+}
+
+.bet-list-table-wrapper::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 4px;
+}
+
+.bet-list-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
 }
 
 .bet-list-table {
-  width: 100%;
+  width: 90%;
+  margin: 0 auto;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 13px;
+  font-size: 11px;
   background: white;
   border-radius: 8px;
-  overflow: hidden;
+  /* Removed overflow: hidden để sticky header hoạt động */
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.wallet-table {
+  width: 90%;
+  margin: 0 auto;
+  font-size: 11px;
 }
 
 .bet-list-table thead {
@@ -51,17 +105,26 @@
   background: #f5f5f5;
 }
 
+.bet-list-table thead th {
+  position: sticky;
+  top: 0; /* Sticky ở đầu scrolling container để không cuộn theo */
+  z-index: 11;
+  background: linear-gradient(to bottom, #f8f9fa, #f1f3f5) !important; /* Đảm bảo background để che nội dung cuộn */
+  box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1); /* Thêm shadow để tách biệt khi scroll */
+}
+
 .bet-list-table th {
-  padding: 12px 8px;
+  padding: 1.3px; /* Padding tất cả là 1.3px */
   text-align: center;
   font-weight: 600;
   border: 1px solid #e0e0e0;
   background: linear-gradient(to bottom, #f8f9fa, #f1f3f5);
-  font-size: 12px;
+  font-size: 11px;
   white-space: nowrap;
-  position: relative;
   color: #333;
 }
+
+/* Đã bỏ sticky cho cột Tên vì không còn cuộn ngang */
 
 /* Cột Tên (cột 2) - rộng ngang với cột Nhiệm vụ (cột 5) */
 .bet-list-table th:nth-child(2),
@@ -88,10 +151,10 @@
 }
 
 .bet-list-table td {
-  padding: 10px 8px;
+  padding: 1.3px; /* Padding tất cả là 1.3px */
   border: 1px solid #e0e0e0;
   text-align: center;
-  font-size: 12px;
+  font-size: 11px;
   color: #555;
 }
 
@@ -122,6 +185,12 @@
   -webkit-appearance: none;
   -moz-appearance: none;
   background-color: transparent;
+}
+
+.status-select.status-new,
+select.status-select.status-new {
+  background: #2196f3 !important; /* Xanh dương - Đơn hàng mới */
+  color: white !important;
 }
 
 .status-select.status-done,
@@ -166,6 +235,50 @@ select.status-select.status-waiting-ref {
   color: white !important;
 }
 
+/* History badges */
+.status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-badge.history-update {
+  background: #2196f3;
+  color: white;
+}
+
+.status-badge.history-delete {
+  background: #f44336;
+  color: white;
+}
+
+/* Top tabs phía trên footer */
+.admin-top-tabs {
+  position: fixed;
+  bottom: 50px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #ffffff;
+  border-top: 1px solid #e0e0e0;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 8px 0;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  z-index: 999;
+  height: 40px;
+  gap: 6px;
+}
+
+.admin-top-tabs-inner {
+  display: flex;
+  gap: 0;
+}
+
 .admin-bottom-nav {
   position: fixed;
   bottom: 0;
@@ -176,10 +289,10 @@ select.status-select.status-waiting-ref {
   align-items: center;
   background-color: #ffffff;
   border-top: 1px solid #e0e0e0;
-  padding: 8px 0;
+  padding: 6px 0;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
   z-index: 1000;
-  height: 60px;
+  height: 50px;
 }
 
 .admin-nav-item {
@@ -190,7 +303,7 @@ select.status-select.status-waiting-ref {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 8px 24px;
+  padding: 4px 16px;
   transition: all 0.3s ease;
   color: #666;
   flex: 1;
@@ -199,7 +312,7 @@ select.status-select.status-waiting-ref {
 
 .admin-nav-item:hover {
   background-color: #f5f5f5;
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .admin-nav-item.active {
@@ -211,13 +324,13 @@ select.status-select.status-waiting-ref {
 }
 
 .admin-nav-icon {
-  font-size: 24px;
-  margin-bottom: 4px;
+  font-size: 20px;
+  margin-bottom: 2px;
   transition: transform 0.3s ease;
 }
 
 .admin-nav-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
 }
 
@@ -233,9 +346,9 @@ select.status-select.status-waiting-ref {
   background: #667eea;
   color: white;
   border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.3s ease;
@@ -445,10 +558,11 @@ select.status-select.status-waiting-ref {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  padding: 16px 20px;
+  gap: 6px;
+  padding: 12px 16px;
   border-bottom: 1px solid #e0e0e0;
   background: #f8f9fa;
+  flex-shrink: 0;
 }
 
 .rut-tien-sub-tabs-left {
@@ -457,11 +571,11 @@ select.status-select.status-waiting-ref {
 }
 
 .rut-tien-sub-tab {
-  padding: 10px 24px;
+  padding: 8px 16px;
   background: white;
   border: 1px solid #e0e0e0;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;

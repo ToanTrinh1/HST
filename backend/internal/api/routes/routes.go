@@ -14,6 +14,7 @@ func SetupRoutes(
 	walletHandler *handlers.WalletHandler,
 	depositHandler *handlers.DepositHandler,
 	withdrawalHandler *handlers.WithdrawalHandler,
+	historyHandler *handlers.BetReceiptHistoryHandler,
 ) {
 	// API group - prefix /api cho tất cả endpoints
 	api := router.Group("/api")
@@ -24,6 +25,7 @@ func SetupRoutes(
 	setupWalletRoutes(api, walletHandler)
 	setupDepositRoutes(api, depositHandler)
 	setupWithdrawalRoutes(api, withdrawalHandler)
+	SetupBetReceiptHistoryRoutes(api, historyHandler)
 
 	// TODO: Thêm các routes khác ở đây khi phát triển
 	// setupUserRoutes(api, userHandler)

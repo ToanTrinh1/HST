@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"fullstack-backend/internal/models"
 	"fullstack-backend/internal/repository"
@@ -11,13 +12,15 @@ type BetReceiptService struct {
 	betReceiptRepo *repository.BetReceiptRepository
 	userRepo       *repository.UserRepository
 	walletRepo     *repository.WalletRepository
+	historyRepo    *repository.BetReceiptHistoryRepository
 }
 
-func NewBetReceiptService(betReceiptRepo *repository.BetReceiptRepository, userRepo *repository.UserRepository, walletRepo *repository.WalletRepository) *BetReceiptService {
+func NewBetReceiptService(betReceiptRepo *repository.BetReceiptRepository, userRepo *repository.UserRepository, walletRepo *repository.WalletRepository, historyRepo *repository.BetReceiptHistoryRepository) *BetReceiptService {
 	return &BetReceiptService{
 		betReceiptRepo: betReceiptRepo,
 		userRepo:       userRepo,
 		walletRepo:     walletRepo,
+		historyRepo:    historyRepo,
 	}
 }
 
@@ -54,8 +57,8 @@ func (s *BetReceiptService) CreateBetReceipt(req *models.CreateBetReceiptRequest
 		return nil, errors.New("Loại kèo không hợp lệ. Phải là 'web' hoặc 'Kèo ngoài'")
 	}
 
-	// 3. Đặt trạng thái mặc định là "ĐANG THỰC HIỆN"
-	status := models.BetReceiptStatusInProgress
+	// 3. Đặt trạng thái mặc định là "Đơn hàng mới"
+	status := models.BetReceiptStatusNew
 
 	// 4. Tính thời gian còn lại: Thời gian hoàn thành (completed_hours) = Thời gian còn lại ban đầu
 	// Thời gian còn lại sẽ bằng thời gian hoàn thành vì lúc tạo đơn, thời gian nhận kèo = NOW()
@@ -102,6 +105,138 @@ func (s *BetReceiptService) GetAllBetReceipts(limit, offset int) ([]*models.BetR
 // GetBetReceiptByID lấy đơn hàng (thông tin nhận kèo) theo ID
 func (s *BetReceiptService) GetBetReceiptByID(id string) (*models.BetReceipt, error) {
 	return s.betReceiptRepo.FindByID(id)
+}
+
+// UpdateBetReceipt cập nhật các trường thông thường của đơn hàng (không phải status)
+func (s *BetReceiptService) UpdateBetReceipt(id string, req *models.UpdateBetReceiptRequest, performedBy *string) (*models.BetReceipt, error) {
+	log.Printf("Service - Cập nhật đơn hàng ID: %s", id)
+
+	// Kiểm tra đơn hàng có tồn tại không và lấy dữ liệu cũ
+	oldBetReceipt, err := s.betReceiptRepo.FindByID(id)
+	if err != nil {
+		log.Printf("Service - ❌ Không tìm thấy đơn hàng với ID: %s", id)
+		return nil, errors.New("Không tìm thấy đơn hàng")
+	}
+
+	// Validation
+	if req.BetType != nil && *req.BetType != models.BetTypeWeb && *req.BetType != models.BetTypeExternal {
+		return nil, errors.New("Loại kèo không hợp lệ. Phải là 'web' hoặc 'Kèo ngoài'")
+	}
+
+	// Cập nhật trong database
+	if err := s.betReceiptRepo.Update(id, req); err != nil {
+		log.Printf("Service - ❌ Lỗi cập nhật đơn hàng: %v", err)
+		return nil, errors.New("Lỗi khi cập nhật đơn hàng: " + err.Error())
+	}
+
+	// Lấy lại thông tin đơn hàng đã cập nhật
+	betReceipt, err := s.betReceiptRepo.FindByID(id)
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi lấy thông tin đơn hàng sau khi cập nhật: %v", err)
+		return nil, errors.New("Lỗi khi lấy thông tin đơn hàng")
+	}
+
+	// Lấy tên người dùng
+	if req.UserName != nil {
+		users, err := s.userRepo.FindByName(*req.UserName)
+		if err == nil {
+			for _, u := range users {
+				if u.Name == *req.UserName {
+					betReceipt.UserName = u.Name
+					break
+				}
+			}
+		}
+	} else {
+		// Nếu không cập nhật user_name, lấy từ database
+		user, err := s.userRepo.FindByID(betReceipt.UserID)
+		if err == nil && user != nil {
+			betReceipt.UserName = user.Name
+		}
+	}
+
+	// Ghi log lịch sử (UPDATE)
+	if s.historyRepo != nil {
+		go func() {
+			oldData, _ := betReceiptToMap(oldBetReceipt)
+			newData, _ := betReceiptToMap(betReceipt)
+			changedFields := repository.FindChangedFields(oldData, newData)
+
+			historyReq := &models.CreateHistoryRequest{
+				BetReceiptID:  id,
+				Action:        models.HistoryActionUpdate,
+				PerformedBy:   performedBy,
+				OldData:       oldData,
+				NewData:       newData,
+				ChangedFields: changedFields,
+				Description:   "Cập nhật thông tin đơn hàng",
+			}
+
+			if err := s.createHistory(historyReq); err != nil {
+				log.Printf("Service - ⚠️ Không thể ghi lịch sử: %v", err)
+			}
+		}()
+	}
+
+	log.Printf("Service - ✅ Đã cập nhật đơn hàng thành công cho ID: %s", id)
+	return betReceipt, nil
+}
+
+// DeleteBetReceipt xóa đơn hàng
+func (s *BetReceiptService) DeleteBetReceipt(id string, performedBy *string) error {
+	log.Printf("Service - Xóa đơn hàng ID: %s", id)
+
+	// Kiểm tra đơn hàng có tồn tại không
+	betReceipt, err := s.betReceiptRepo.FindByID(id)
+	if err != nil {
+		log.Printf("Service - ❌ Không tìm thấy đơn hàng với ID: %s", id)
+		return errors.New("Không tìm thấy đơn hàng")
+	}
+
+	// Nếu đơn hàng có status = DONE, HỦY BỎ, hoặc ĐỀN, cần tính lại wallet
+	const exchangeRate = 3550.0
+	oldStatus := betReceipt.Status
+	userID := betReceipt.UserID
+
+	// Lưu dữ liệu cũ để ghi log
+	oldData, _ := betReceiptToMap(betReceipt)
+
+	// Xóa đơn hàng
+	if err := s.betReceiptRepo.Delete(id); err != nil {
+		log.Printf("Service - ❌ Lỗi xóa đơn hàng: %v", err)
+		return errors.New("Lỗi khi xóa đơn hàng: " + err.Error())
+	}
+
+	// Ghi log lịch sử (DELETE)
+	if s.historyRepo != nil {
+		go func() {
+			historyReq := &models.CreateHistoryRequest{
+				BetReceiptID: id,
+				Action:       models.HistoryActionDelete,
+				PerformedBy:  performedBy,
+				OldData:      oldData,
+				Description:  "Xóa đơn hàng",
+			}
+
+			if err := s.createHistory(historyReq); err != nil {
+				log.Printf("Service - ⚠️ Không thể ghi lịch sử: %v", err)
+			}
+		}()
+	}
+
+	// Nếu đơn hàng đã có ảnh hưởng đến wallet (status = DONE, HỦY BỎ, hoặc ĐỀN), tính lại wallet
+	if oldStatus == models.BetReceiptStatusDone || oldStatus == models.BetReceiptStatusCancelled || oldStatus == models.BetReceiptStatusCompensation {
+		if err := s.walletRepo.RecalculateTotalReceived(userID, exchangeRate); err != nil {
+			log.Printf("Service - ❌ Lỗi tính lại wallet sau khi xóa: %v", err)
+			// Không return error vì đơn hàng đã bị xóa, chỉ log warning
+			log.Printf("Service - ⚠️ Đơn hàng đã bị xóa nhưng không thể tính lại wallet, cần tính thủ công")
+		} else {
+			log.Printf("Service - ✅ Đã tính lại wallet cho user ID: %s sau khi xóa đơn hàng", userID)
+		}
+	}
+
+	log.Printf("Service - ✅ Đã xóa đơn hàng thành công cho ID: %s", id)
+	return nil
 }
 
 // lookupPhiWeb tra cứu phí web dựa trên giá kèo (tệ)
@@ -173,7 +308,7 @@ func calculateActualAmountCNY(betType string, giaKeo float64) float64 {
 
 // UpdateBetReceiptStatus cập nhật status của đơn hàng
 // Khi status = "DONE", tự động tính "Công thực nhận" (ActualAmountCNY)
-func (s *BetReceiptService) UpdateBetReceiptStatus(id string, req *models.UpdateBetReceiptStatusRequest) (*models.BetReceipt, error) {
+func (s *BetReceiptService) UpdateBetReceiptStatus(id string, req *models.UpdateBetReceiptStatusRequest, performedBy *string) (*models.BetReceipt, error) {
 	log.Printf("Service - Cập nhật status cho đơn hàng ID: %s, Status mới: %s", id, req.Status)
 
 	// 1. Lấy thông tin đơn hàng hiện tại
@@ -183,34 +318,97 @@ func (s *BetReceiptService) UpdateBetReceiptStatus(id string, req *models.Update
 		return nil, errors.New("Không tìm thấy đơn hàng")
 	}
 
+	// Lưu dữ liệu cũ để ghi log
+	oldBetReceiptData, _ := betReceiptToMap(betReceipt)
+
 	// 2. Xử lý "Công thực nhận" và cập nhật wallet
 	const exchangeRate = 3550.0 // Tỷ giá VND/CNY
 
 	// Lưu status cũ để kiểm tra xem có cần tính lại wallet không
 	oldStatus := betReceipt.Status
 
+	// 3. Xử lý theo từng status
 	if req.Status == models.BetReceiptStatusDone {
+		// Status = "DONE": Set ActualReceivedCNY = WebBetAmountCNY ban đầu và tính ActualAmountCNY
+		betReceipt.ActualReceivedCNY = betReceipt.WebBetAmountCNY // ActualReceivedCNY = WebBetAmountCNY khi DONE
 		actualAmountCNY := calculateActualAmountCNY(betReceipt.BetType, betReceipt.WebBetAmountCNY)
 		betReceipt.ActualAmountCNY = actualAmountCNY
-		log.Printf("Service - ✅ Đã tính Công thực nhận: %.2f cho đơn hàng ID: %s", actualAmountCNY, id)
+		log.Printf("Service - ✅ Status = DONE, set ActualReceivedCNY = WebBetAmountCNY = %.2f, Công thực nhận: %.2f cho đơn hàng ID: %s",
+			betReceipt.WebBetAmountCNY, actualAmountCNY, id)
+	} else if req.Status == models.BetReceiptStatusCancelled {
+		// Status = "HỦY BỎ": Yêu cầu nhập ActualReceivedCNY
+		if req.ActualReceivedCNY == nil {
+			return nil, errors.New("Khi chọn status 'Hủy bỏ', phải nhập 'Tiền kèo thực nhận' (ActualReceivedCNY)")
+		}
+
+		actualReceivedCNY := *req.ActualReceivedCNY
+		betReceipt.ActualReceivedCNY = actualReceivedCNY
+		// KHÔNG thay đổi WebBetAmountCNY (giữ nguyên giá trị ban đầu)
+
+		// Tính ActualAmountCNY dựa trên ActualReceivedCNY (coi như WebBetAmountCNY để tính)
+		// Nếu ActualReceivedCNY = 0 thì ActualAmountCNY = 0
+		if actualReceivedCNY == 0 {
+			betReceipt.ActualAmountCNY = 0
+			log.Printf("Service - ℹ️ Status = HỦY BỎ, ActualReceivedCNY = 0, set ActualAmountCNY = 0 cho đơn hàng ID: %s", id)
+		} else {
+			actualAmountCNY := calculateActualAmountCNY(betReceipt.BetType, actualReceivedCNY)
+			betReceipt.ActualAmountCNY = actualAmountCNY
+			log.Printf("Service - ✅ Status = HỦY BỎ, ActualReceivedCNY = %.2f, Công thực nhận: %.2f cho đơn hàng ID: %s",
+				actualReceivedCNY, actualAmountCNY, id)
+		}
+	} else if req.Status == models.BetReceiptStatusCompensation {
+		// Status = "ĐỀN": Yêu cầu nhập CompensationCNY (bắt buộc phải > 0)
+		if req.CompensationCNY == nil {
+			return nil, errors.New("Khi chọn status 'Đền', phải nhập 'Tiền đền' (CompensationCNY)")
+		}
+
+		compensationCNY := *req.CompensationCNY
+		// Validation: Tiền đền phải > 0
+		if compensationCNY <= 0 {
+			return nil, errors.New("Tiền đền phải lớn hơn 0")
+		}
+
+		betReceipt.CompensationCNY = compensationCNY
+		// KHÔNG thay đổi WebBetAmountCNY và ActualReceivedCNY (giữ nguyên giá trị)
+
+		// ActualAmountCNY = -CompensationCNY (nhập bao nhiêu trừ bấy nhiêu, không dùng công thức)
+		betReceipt.ActualAmountCNY = -compensationCNY // Giá trị ÂM để trừ tiền
+		log.Printf("Service - ✅ Status = ĐỀN, CompensationCNY = %.2f, ActualAmountCNY (âm): %.2f cho đơn hàng ID: %s",
+			compensationCNY, betReceipt.ActualAmountCNY, id)
 	} else {
-		// Khi status không phải "DONE", không hiển thị "Công thực nhận"
+		// Khi status không phải "DONE", "HỦY BỎ", hoặc "ĐỀN"
+		// Nếu đổi từ "DONE" hoặc "HỦY BỎ" sang status khác, reset ActualReceivedCNY về 0
+		if oldStatus == models.BetReceiptStatusDone || oldStatus == models.BetReceiptStatusCancelled {
+			betReceipt.ActualReceivedCNY = 0
+			log.Printf("Service - ℹ️ Đổi từ %s sang %s, reset ActualReceivedCNY = 0 cho đơn hàng ID: %s", oldStatus, req.Status, id)
+		}
+		// Nếu đổi từ "ĐỀN" sang status khác, reset CompensationCNY về 0
+		if oldStatus == models.BetReceiptStatusCompensation {
+			betReceipt.CompensationCNY = 0
+			log.Printf("Service - ℹ️ Đổi từ %s sang %s, reset CompensationCNY = 0 cho đơn hàng ID: %s", oldStatus, req.Status, id)
+		}
+		// Không hiển thị "Công thực nhận"
 		betReceipt.ActualAmountCNY = 0
-		log.Printf("Service - ℹ️ Status không phải DONE, set Công thực nhận = 0 cho đơn hàng ID: %s", id)
+		log.Printf("Service - ℹ️ Status không phải DONE/HỦY BỎ/ĐỀN, set Công thực nhận = 0 cho đơn hàng ID: %s", id)
 	}
 
-	// 3. Cập nhật các trường khác nếu có
-	if req.ActualReceivedCNY != nil {
-		betReceipt.ActualReceivedCNY = *req.ActualReceivedCNY
-	}
-	if req.CompensationCNY != nil {
-		betReceipt.CompensationCNY = *req.CompensationCNY
+	// 4. Cập nhật các trường khác nếu có (chỉ khi không phải "HỦY BỎ", "DONE", và "ĐỀN" vì đã xử lý ở trên)
+	// Lưu ý: Nếu đổi từ "DONE" hoặc "HỦY BỎ" sang status khác, ActualReceivedCNY đã được reset về 0 ở phần trên
+	// Nếu đổi từ "ĐỀN" sang status khác, CompensationCNY đã được reset về 0 ở phần trên
+	// và sẽ không bị override ở đây (vì khi đổi status, thường không gửi các giá trị này trong request)
+	if req.Status != models.BetReceiptStatusCancelled && req.Status != models.BetReceiptStatusDone && req.Status != models.BetReceiptStatusCompensation {
+		if req.ActualReceivedCNY != nil {
+			betReceipt.ActualReceivedCNY = *req.ActualReceivedCNY
+		}
+		if req.CompensationCNY != nil {
+			betReceipt.CompensationCNY = *req.CompensationCNY
+		}
 	}
 	if req.CompletedAt != nil {
 		betReceipt.CompletedAt = req.CompletedAt
 	}
 
-	// 4. Cập nhật status vào database TRƯỚC (để khi tính lại wallet, status đã được update)
+	// 5. Cập nhật status vào database TRƯỚC (để khi tính lại wallet, status đã được update)
 	betReceipt.Status = req.Status
 
 	// 5. Lưu vào database
@@ -220,19 +418,64 @@ func (s *BetReceiptService) UpdateBetReceiptStatus(id string, req *models.Update
 	}
 
 	// 6. Tính lại wallet SAU KHI đã update status vào database
-	// - Status mới = DONE (cộng thêm vào wallet)
-	// - Status cũ = DONE và status mới ≠ DONE (trừ đi khỏi wallet)
-	if req.Status == models.BetReceiptStatusDone || oldStatus == models.BetReceiptStatusDone {
-		// Tính lại tổng "Công thực nhận" từ tất cả bet receipts có status = "DONE"
+	// - Status mới = DONE, HỦY BỎ, hoặc ĐỀN (DONE và HỦY BỎ cộng tiền, ĐỀN trừ tiền)
+	// - Status cũ = DONE, HỦY BỎ, hoặc ĐỀN và status mới ≠ DONE, ≠ HỦY BỎ, và ≠ ĐỀN (tính lại wallet)
+	if req.Status == models.BetReceiptStatusDone || req.Status == models.BetReceiptStatusCancelled || req.Status == models.BetReceiptStatusCompensation ||
+		oldStatus == models.BetReceiptStatusDone || oldStatus == models.BetReceiptStatusCancelled || oldStatus == models.BetReceiptStatusCompensation {
+		// Tính lại tổng "Công thực nhận" từ tất cả bet receipts có status = "DONE", "HỦY BỎ", hoặc "ĐỀN"
+		// (ĐỀN có ActualAmountCNY âm nên sẽ tự động trừ đi)
 		// và cập nhật wallet theo tổng này (đảm bảo wallet luôn phản ánh đúng tổng từ database)
 		if err := s.walletRepo.RecalculateTotalReceived(betReceipt.UserID, exchangeRate); err != nil {
 			log.Printf("Service - ❌ Lỗi tính lại wallet: %v", err)
 			return nil, errors.New("Lỗi khi cập nhật wallet: " + err.Error())
 		}
-		log.Printf("Service - ✅ Đã tính lại wallet cho user ID: %s từ tất cả bet receipts có status = DONE",
+		log.Printf("Service - ✅ Đã tính lại wallet cho user ID: %s từ tất cả bet receipts có status = DONE, HỦY BỎ, hoặc ĐỀN",
 			betReceipt.UserID)
+	}
+
+	// Ghi log lịch sử (UPDATE status)
+	if s.historyRepo != nil {
+		go func() {
+			newBetReceiptData, _ := betReceiptToMap(betReceipt)
+			changedFields := repository.FindChangedFields(oldBetReceiptData, newBetReceiptData)
+
+			historyReq := &models.CreateHistoryRequest{
+				BetReceiptID:  id,
+				Action:        models.HistoryActionUpdate,
+				PerformedBy:   performedBy,
+				OldData:       oldBetReceiptData,
+				NewData:       newBetReceiptData,
+				ChangedFields: changedFields,
+				Description:   "Cập nhật status: " + oldStatus + " -> " + req.Status,
+			}
+
+			if err := s.createHistory(historyReq); err != nil {
+				log.Printf("Service - ⚠️ Không thể ghi lịch sử: %v", err)
+			}
+		}()
 	}
 
 	log.Printf("Service - ✅ Đã cập nhật status thành công cho đơn hàng ID: %s", id)
 	return betReceipt, nil
+}
+
+// Helper function: Convert BetReceipt to map[string]interface{}
+func betReceiptToMap(betReceipt *models.BetReceipt) (map[string]interface{}, error) {
+	data, err := json.Marshal(betReceipt)
+	if err != nil {
+		return nil, err
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// Helper function: Create history record
+func (s *BetReceiptService) createHistory(req *models.CreateHistoryRequest) error {
+	historyService := NewBetReceiptHistoryService(s.historyRepo)
+	return historyService.CreateHistory(req)
 }
