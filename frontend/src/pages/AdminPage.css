@@ -9,7 +9,8 @@
 .admin-content {
   padding: 0;
   flex: 1;
-  overflow: hidden;
+  overflow-x: visible; /* Cho phép thanh cuộn ngang */
+  overflow-y: hidden; /* Giữ ẩn cuộn dọc ở level này */
   display: flex;
   flex-direction: column;
   margin-top: 0;
@@ -23,7 +24,7 @@
   border-radius: 0;
   padding: 0;
   box-shadow: none;
-  overflow: hidden;
+  overflow: visible; /* Đổi từ hidden sang visible để cho phép thanh cuộn ngang */
   margin-top: 0;
   height: 100%;
   display: flex;
@@ -60,24 +61,45 @@
   scrollbar-color: #cbd5e0 #f7fafc;
 }
 
-/* Custom scrollbar cho Chrome/Safari/Edge */
+
+/* Custom scrollbar cho Chrome/Safari/Edge - Force luôn hiển thị */
 .bet-list-table-wrapper::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 12px !important; /* Tăng từ 8px lên 12px */
+  height: 12px !important; /* Tăng từ 8px lên 12px */
+  -webkit-appearance: none; /* Force hiển thị */
+  display: block !important; /* Force hiển thị */
 }
 
 .bet-list-table-wrapper::-webkit-scrollbar-track {
   background: #f7fafc;
-  border-radius: 4px;
+  border-radius: 6px;
+  -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.1); /* Tạo độ sâu để dễ nhìn */
 }
 
 .bet-list-table-wrapper::-webkit-scrollbar-thumb {
-  background: #cbd5e0;
-  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.6) !important; /* Màu đen mặc định - force */
+  border-radius: 6px;
+  transition: background 0.3s ease;
+  -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.3); /* Tạo độ sâu */
+  min-height: 30px; /* Đảm bảo thumb có kích thước tối thiểu */
 }
 
 .bet-list-table-wrapper::-webkit-scrollbar-thumb:hover {
-  background: #a0aec0;
+  background: rgba(0, 0, 0, 0.8) !important; /* Màu đen đậm hơn khi hover */
+}
+
+.bet-list-table-wrapper::-webkit-scrollbar-thumb:active {
+  background: rgba(0, 0, 0, 1) !important; /* Màu đen hoàn toàn khi đang kéo */
+}
+
+/* Cho Firefox - luôn hiển thị thanh cuộn */
+.bet-list-table-wrapper {
+  scrollbar-width: auto; /* Đổi từ thin sang auto để to hơn */
+  scrollbar-color: rgba(0, 0, 0, 0.6) #f7fafc;
+}
+
+.bet-list-table-wrapper:hover {
+  scrollbar-color: rgba(0, 0, 0, 0.8) #f7fafc;
 }
 
 .bet-list-table {
@@ -85,11 +107,12 @@
   margin: 0 auto;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 11px;
+  font-size: 11px; /* Tăng font-size lên 11px */
   background: white;
   border-radius: 8px;
   /* Removed overflow: hidden để sticky header hoạt động */
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  line-height: 1.0; /* Giảm line-height xuống 1.0 để giảm chiều cao hàng */
 }
 
 /* Wallet table - override bet-list-table khi có cả 2 class */
@@ -155,14 +178,20 @@ table.bet-list-table.wallet-table td {
 }
 
 .bet-list-table th {
-  padding: 1.3px; /* Padding tất cả là 1.3px */
+  padding: 1px 2px; /* Giảm padding horizontal xuống 2px */
   text-align: center;
   font-weight: 600;
   border: 1px solid #e0e0e0;
   background: linear-gradient(to bottom, #f8f9fa, #f1f3f5);
-  font-size: 11px;
+  font-size: 11px; /* Tăng font-size lên 11px */
   white-space: nowrap;
   color: #333;
+  line-height: 1.0; /* Giảm line-height xuống 1.0 để giảm chiều cao hàng */
+  height: 30px !important; /* Tăng chiều cao lên 30px */
+  max-height: 30px !important; /* Ép chiều cao tối đa */
+  box-sizing: border-box; /* Đảm bảo padding được tính vào height */
+  vertical-align: middle; /* Căn giữa nội dung */
+  overflow: hidden; /* Ẩn nội dung vượt quá */
 }
 
 /* Đã bỏ sticky cho cột Tên vì không còn cuộn ngang */
@@ -172,33 +201,56 @@ table.bet-list-table.wallet-table td {
 .bet-list-table td:nth-child(2),
 .bet-list-table th:nth-child(5),
 .bet-list-table td:nth-child(5) {
-  min-width: 100px;
-  width: 100px;
+  min-width: 80px; /* Giảm từ 100px xuống 80px */
+  width: 80px; /* Giảm từ 100px xuống 80px */
 }
 
 /* Cột Ghi chú - rộng hơn 20px */
 .bet-list-table th:nth-child(9),
 .bet-list-table td:nth-child(9) {
-  min-width: 120px;
+  min-width: 90px; /* Giảm từ 120px xuống 90px */
   width: auto;
 }
 
 /* Cột Tiến độ hoàn thành (cột 11) - rộng hơn để hiển thị đủ text như "ĐANG THỰC HIỆN" */
 .bet-list-table th:nth-child(11),
 .bet-list-table td:nth-child(11) {
-  min-width: 160px;
-  width: 160px;
-  max-width: 180px;
+  min-width: 130px; /* Giảm từ 160px xuống 130px */
+  width: 130px; /* Giảm từ 160px xuống 130px */
+  max-width: 150px; /* Giảm từ 180px xuống 150px */
 }
 
 .bet-list-table td {
-  padding: 1.3px; /* Padding tất cả là 1.3px */
+  padding: 1px 2px; /* Giảm padding horizontal xuống 2px */
   border: 1px solid #e0e0e0;
   text-align: center;
-  font-size: 11px;
+  font-size: 11px; /* Tăng font-size lên 11px */
   color: #555;
+  line-height: 1.0; /* Giảm line-height xuống 1.0 để giảm chiều cao hàng */
+  height: 30px !important; /* Tăng chiều cao lên 30px */
+  max-height: 30px !important; /* Ép chiều cao tối đa */
+  box-sizing: border-box; /* Đảm bảo padding được tính vào height */
+  vertical-align: middle; /* Căn giữa nội dung */
+  overflow: hidden; /* Ẩn nội dung vượt quá */
 }
 
+/* Điều chỉnh các phần tử con trong td để fit vào 25px */
+.bet-list-table td button {
+  padding: 2px 6px !important; /* Giảm padding */
+  font-size: 10px !important; /* Giảm font-size */
+  line-height: 1.2 !important;
+  height: auto !important;
+  max-height: 20px !important;
+  border-radius: 3px;
+}
+
+.bet-list-table td div {
+  max-height: 30px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
 
 .bet-list-table tbody tr:nth-child(even) {
   background: #fafafa;
@@ -214,10 +266,10 @@ table.bet-list-table.wallet-table td {
 }
 
 .status-select {
-  padding: 4px 8px;
+  padding: 2px 4px; /* Giảm padding để fit vào 30px */
   border: none;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 10px; /* Giảm font-size để fit vào 30px */
   font-weight: 600;
   cursor: pointer;
   width: 100%;
@@ -226,6 +278,9 @@ table.bet-list-table.wallet-table td {
   -webkit-appearance: none;
   -moz-appearance: none;
   background-color: transparent;
+  height: 100%; /* Chiếm toàn bộ chiều cao của td */
+  max-height: 30px; /* Không vượt quá 30px */
+  box-sizing: border-box;
 }
 
 .status-select.status-new,

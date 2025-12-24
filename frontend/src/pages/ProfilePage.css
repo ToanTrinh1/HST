@@ -130,14 +130,59 @@
   gap: 8px;
   font-size: 12px;
   color: #2d2f3a;
+  overflow-x: auto;
+  min-width: 0; /* Cho phép container co lại khi cần */
+}
+
+.task-list-compact::-webkit-scrollbar {
+  height: 8px;
+}
+
+.task-list-compact::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.task-list-compact::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 10px;
+}
+
+.task-list-compact::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.task-list-body {
+  max-height: 150px; /* Chiều cao cho 5 hàng (mỗi hàng ~30px) */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.task-list-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.task-list-body::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.task-list-body::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 10px;
+}
+
+.task-list-body::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 .task-list-header,
 .task-list-row {
   display: grid;
-  grid-template-columns: 1.6fr 0.9fr 1.1fr 1.9fr 0.8fr;
-  gap: 8px;
+  grid-template-columns: 1.2fr 0.8fr 0.9fr 1fr 0.7fr 0.9fr 0.9fr 0.8fr 1.3fr;
+  gap: 6px;
   align-items: center;
+  min-width: 800px; /* Đảm bảo bảng có chiều rộng tối thiểu để kích hoạt thanh cuộn ngang */
 }
 
 .task-list-header span,

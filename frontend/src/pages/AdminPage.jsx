@@ -73,6 +73,9 @@ const AdminPage = () => {
     order_code: '',
     notes: '',
     completed_hours: '', // Thời gian hoàn thành (số giờ)
+    account: '', // Tài khoản
+    password: '', // Mật khẩu
+    region: '', // Khu vực
   });
 
   // Danh sách đơn hàng từ API
@@ -343,6 +346,9 @@ const AdminPage = () => {
             completedAt: item.completed_at || '', // Thời gian hoàn thành thực tế (datetime)
             timeRemainingHours: item.time_remaining_hours || '',
             timeRemainingFormatted: item.time_remaining_formatted || '', // Thời gian còn lại đã format (giờ:phút)
+            account: item.account || '', // Tài khoản
+            password: item.password || '', // Mật khẩu
+            region: item.region || '', // Khu vực
           };
         });
         console.log('✅ Mapped data:', mappedData);
@@ -1050,6 +1056,9 @@ const AdminPage = () => {
       order_code: bet.orderCode || '',
       notes: bet.note || '',
       completed_hours: bet.timeRemainingHours?.toString() || bet.completedHours?.toString() || '',
+      account: bet.account || '',
+      password: bet.password || '',
+      region: bet.region || '',
     });
     setShowEditModal(true);
   };
@@ -1069,6 +1078,9 @@ const AdminPage = () => {
       if (formData.order_code !== undefined) dataToSend.order_code = formData.order_code || null;
       if (formData.notes !== undefined) dataToSend.notes = formData.notes || null;
       if (formData.completed_hours) dataToSend.completed_hours = parseInt(formData.completed_hours);
+      if (formData.account !== undefined) dataToSend.account = formData.account || null;
+      if (formData.password !== undefined) dataToSend.password = formData.password || null;
+      if (formData.region !== undefined) dataToSend.region = formData.region || null;
 
       const response = await donHangAPI.capNhatDonHang(editingBetId, dataToSend);
 
@@ -1085,6 +1097,9 @@ const AdminPage = () => {
           order_code: '',
           notes: '',
           completed_hours: '',
+          account: '',
+          password: '',
+          region: '',
         });
         // Reload danh sách đơn hàng
         fetchDonHangList();
@@ -1137,6 +1152,9 @@ const AdminPage = () => {
         order_code: formData.order_code || undefined,
         notes: formData.notes || undefined,
         completed_hours: formData.completed_hours ? parseInt(formData.completed_hours) : undefined,
+        account: formData.account || undefined,
+        password: formData.password || undefined,
+        region: formData.region || undefined,
       };
 
       const response = await donHangAPI.taoDonHang(dataToSend);
@@ -1153,6 +1171,9 @@ const AdminPage = () => {
           order_code: '',
           notes: '',
           completed_hours: '',
+          account: '',
+          password: '',
+          region: '',
         });
         // Reload danh sách đơn hàng
         fetchDonHangList();
@@ -1397,7 +1418,7 @@ const AdminPage = () => {
                       </div>
                     </th>
                     <th>Thời gian nhận kèo</th>
-                    <th>Thời gian hoàn thành</th>
+                    <th>Deadline (Giờ)</th>
                     <th>Nhiệm vụ</th>
                     <th>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', flexDirection: 'column' }}>
@@ -1586,18 +1607,23 @@ const AdminPage = () => {
                     <th>Tiền đền</th>
                     <th>Công thực nhận</th>
                     <th>Thao tác</th>
+                    <th>Tài khoản</th>
+                    <th>Mật khẩu</th>
+                    <th>Khu vực</th>
+                    <th>Ngày hoàn thành</th>
+                    <th>Thời gian hoàn thành thực tế</th>
                   </tr>
                 </thead>
                 <tbody>
                   {isLoadingDonHang ? (
                     <tr>
-                      <td colSpan="16" style={{ textAlign: 'center', padding: '20px' }}>
+                      <td colSpan="21" style={{ textAlign: 'center', padding: '20px' }}>
                         Đang tải...
                       </td>
                     </tr>
                   ) : filteredBetList.length === 0 ? (
                     <tr>
-                      <td colSpan="16" style={{ textAlign: 'center', padding: '20px' }}>
+                      <td colSpan="21" style={{ textAlign: 'center', padding: '20px' }}>
                         Chưa có dữ liệu
                       </td>
                     </tr>
@@ -1607,7 +1633,7 @@ const AdminPage = () => {
                         <td>{bet.stt || bet.id}</td>
                         <td>{bet.name}</td>
                         <td>{bet.receivedAt ? new Date(bet.receivedAt).toLocaleString('vi-VN') : ''}</td>
-                        <td>{bet.completedHours || ''}</td>
+                        <td>{bet.timeRemainingHours || ''}</td>
                         <td>{bet.task}</td>
                         <td>{bet.betType}</td>
                         <td>{bet.webBet}</td>
@@ -1686,9 +1712,9 @@ const AdminPage = () => {
                                           actualReceived: response.data.actual_received_cny !== undefined 
                                             ? response.data.actual_received_cny 
                                             : (newStatus !== 'HỦY BỎ' && newStatus !== 'DONE' ? 0 : item.actualReceived),
-                                          compensation: response.data.compensation_cny !== undefined 
-                                            ? response.data.compensation_cny 
-                                            : (newStatus !== 'ĐỀN' ? 0 : item.compensation),
+                                          compensation: newStatus === 'ĐỀN' 
+                                            ? (response.data.compensation_cny !== undefined ? response.data.compensation_cny : item.compensation)
+                                            : 0, // Luôn set về 0 khi status không phải "ĐỀN"
                                         };
                                       }
                                       return item;
@@ -1746,7 +1772,7 @@ const AdminPage = () => {
                           </select>
                         </td>
                         <td>{bet.actualReceived || ''}</td>
-                        <td>{bet.compensation || ''}</td>
+                        <td>{bet.status === 'ĐỀN' ? (bet.compensation || '') : ''}</td>
                         <td>{((bet.status === 'DONE' || bet.status === 'HỦY BỎ' || bet.status === 'ĐỀN') && bet.actualAmount) ? bet.actualAmount.toString() : ''}</td>
                         <td>
                           <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
@@ -1788,6 +1814,17 @@ const AdminPage = () => {
                             </button>
                           </div>
                         </td>
+                        <td>{bet.account || '-'}</td>
+                        <td>{bet.password || '-'}</td>
+                        <td>{bet.region || '-'}</td>
+                        <td>{bet.completedAt ? new Date(bet.completedAt).toLocaleString('vi-VN', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        }) : '-'}</td>
+                        <td>{bet.completedHours || ''}</td>
                       </tr>
                     ))
                   )}
@@ -2607,6 +2644,45 @@ const AdminPage = () => {
                 />
               </div>
 
+              <div className="form-group">
+                <label htmlFor="edit_account">Tài khoản</label>
+                <input
+                  type="text"
+                  id="edit_account"
+                  name="account"
+                  value={formData.account}
+                  onChange={handleFormChange}
+                  placeholder="Nhập tài khoản"
+                  autoComplete="off"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="edit_password">Mật khẩu</label>
+                <input
+                  type="text"
+                  id="edit_password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleFormChange}
+                  placeholder="Nhập mật khẩu"
+                  autoComplete="off"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="edit_region">Khu vực</label>
+                <input
+                  type="text"
+                  id="edit_region"
+                  name="region"
+                  value={formData.region}
+                  onChange={handleFormChange}
+                  placeholder="Nhập khu vực"
+                  autoComplete="off"
+                />
+              </div>
+
               <div className="form-actions">
                 <button
                   type="button"
@@ -2773,6 +2849,45 @@ const AdminPage = () => {
                   placeholder="Nhập số giờ để hoàn thành (ví dụ: 40)"
                   pattern="[0-9]*"
                   inputMode="numeric"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="account">Tài khoản</label>
+                <input
+                  type="text"
+                  id="account"
+                  name="account"
+                  value={formData.account}
+                  onChange={handleFormChange}
+                  placeholder="Nhập tài khoản"
+                  autoComplete="off"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="password">Mật khẩu</label>
+                <input
+                  type="text"
+                  id="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleFormChange}
+                  placeholder="Nhập mật khẩu"
+                  autoComplete="off"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="region">Khu vực</label>
+                <input
+                  type="text"
+                  id="region"
+                  name="region"
+                  value={formData.region}
+                  onChange={handleFormChange}
+                  placeholder="Nhập khu vực"
+                  autoComplete="off"
                 />
               </div>
 
@@ -3381,7 +3496,7 @@ const AdminPage = () => {
                                     <th>STT</th>
                                     <th>Tên</th>
                                     <th>Thời gian nhận kèo</th>
-                                    <th>Thời gian hoàn thành</th>
+                                    <th>Deadline</th>
                                     <th>Nhiệm vụ</th>
                                     <th>Loại kèo</th>
                                     <th>Tiền kèo web</th>
@@ -3392,6 +3507,7 @@ const AdminPage = () => {
                                     <th>Tiền kèo thực nhận</th>
                                     <th>Tiền đền</th>
                                     <th>Công thực nhận</th>
+                                    <th>Thời gian hoàn thành thực tế</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -3399,7 +3515,7 @@ const AdminPage = () => {
                                     <td style={{ color: isChanged('stt') ? '#f44336' : 'inherit', fontWeight: isChanged('stt') ? '600' : 'normal' }}>{oldBet.stt}</td>
                                     <td style={{ color: isChanged('name') ? '#f44336' : 'inherit', fontWeight: isChanged('name') ? '600' : 'normal' }}>{oldBet.name}</td>
                                     <td style={{ color: isChanged('receivedAt') ? '#f44336' : 'inherit', fontWeight: isChanged('receivedAt') ? '600' : 'normal' }}>{formatCellValue(oldBet.receivedAt, true)}</td>
-                                    <td style={{ color: isChanged('completedHours') ? '#f44336' : 'inherit', fontWeight: isChanged('completedHours') ? '600' : 'normal' }}>{oldBet.completedHours || ''}</td>
+                                    <td style={{ color: isChanged('timeRemainingHours') ? '#f44336' : 'inherit', fontWeight: isChanged('timeRemainingHours') ? '600' : 'normal' }}>{oldBet.timeRemainingHours || ''}</td>
                                     <td style={{ color: isChanged('task') ? '#f44336' : 'inherit', fontWeight: isChanged('task') ? '600' : 'normal' }}>{oldBet.task}</td>
                                     <td style={{ color: isChanged('betType') ? '#f44336' : 'inherit', fontWeight: isChanged('betType') ? '600' : 'normal' }}>{oldBet.betType}</td>
                                     <td style={{ color: isChanged('webBet') ? '#f44336' : 'inherit', fontWeight: isChanged('webBet') ? '600' : 'normal' }}>{oldBet.webBet}</td>
@@ -3412,8 +3528,9 @@ const AdminPage = () => {
                                       </span>
                                     </td>
                                     <td style={{ color: isChanged('actualReceived') ? '#f44336' : 'inherit', fontWeight: isChanged('actualReceived') ? '600' : 'normal' }}>{oldBet.actualReceived || ''}</td>
-                                    <td style={{ color: isChanged('compensation') ? '#f44336' : 'inherit', fontWeight: isChanged('compensation') ? '600' : 'normal' }}>{oldBet.compensation || ''}</td>
+                                    <td style={{ color: isChanged('compensation') ? '#f44336' : 'inherit', fontWeight: isChanged('compensation') ? '600' : 'normal' }}>{oldBet.status === 'ĐỀN' ? (oldBet.compensation || '') : ''}</td>
                                     <td style={{ color: isChanged('actualAmount') ? '#f44336' : 'inherit', fontWeight: isChanged('actualAmount') ? '600' : 'normal' }}>{((oldBet.status === 'DONE' || oldBet.status === 'HỦY BỎ' || oldBet.status === 'ĐỀN') && oldBet.actualAmount) ? oldBet.actualAmount.toString() : ''}</td>
+                                    <td style={{ color: isChanged('completedHours') ? '#f44336' : 'inherit', fontWeight: isChanged('completedHours') ? '600' : 'normal' }}>{oldBet.completedHours || ''}</td>
                                   </tr>
                                 </tbody>
                               </table>
@@ -3430,7 +3547,7 @@ const AdminPage = () => {
                                     <th>STT</th>
                                     <th>Tên</th>
                                     <th>Thời gian nhận kèo</th>
-                                    <th>Thời gian hoàn thành</th>
+                                    <th>Deadline</th>
                                     <th>Nhiệm vụ</th>
                                     <th>Loại kèo</th>
                                     <th>Tiền kèo web</th>
@@ -3441,6 +3558,7 @@ const AdminPage = () => {
                                     <th>Tiền kèo thực nhận</th>
                                     <th>Tiền đền</th>
                                     <th>Công thực nhận</th>
+                                    <th>Thời gian hoàn thành thực tế</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -3448,7 +3566,7 @@ const AdminPage = () => {
                                     <td style={{ color: isChanged('stt') ? '#f44336' : 'inherit', fontWeight: isChanged('stt') ? '600' : 'normal' }}>{newBet.stt}</td>
                                     <td style={{ color: isChanged('name') ? '#f44336' : 'inherit', fontWeight: isChanged('name') ? '600' : 'normal' }}>{newBet.name}</td>
                                     <td style={{ color: isChanged('receivedAt') ? '#f44336' : 'inherit', fontWeight: isChanged('receivedAt') ? '600' : 'normal' }}>{formatCellValue(newBet.receivedAt, true)}</td>
-                                    <td style={{ color: isChanged('completedHours') ? '#f44336' : 'inherit', fontWeight: isChanged('completedHours') ? '600' : 'normal' }}>{newBet.completedHours || ''}</td>
+                                    <td style={{ color: isChanged('timeRemainingHours') ? '#f44336' : 'inherit', fontWeight: isChanged('timeRemainingHours') ? '600' : 'normal' }}>{newBet.timeRemainingHours || ''}</td>
                                     <td style={{ color: isChanged('task') ? '#f44336' : 'inherit', fontWeight: isChanged('task') ? '600' : 'normal' }}>{newBet.task}</td>
                                     <td style={{ color: isChanged('betType') ? '#f44336' : 'inherit', fontWeight: isChanged('betType') ? '600' : 'normal' }}>{newBet.betType}</td>
                                     <td style={{ color: isChanged('webBet') ? '#f44336' : 'inherit', fontWeight: isChanged('webBet') ? '600' : 'normal' }}>{newBet.webBet}</td>
@@ -3461,7 +3579,7 @@ const AdminPage = () => {
                                       </span>
                                     </td>
                                     <td style={{ color: isChanged('actualReceived') ? '#f44336' : 'inherit', fontWeight: isChanged('actualReceived') ? '600' : 'normal' }}>{newBet.actualReceived || ''}</td>
-                                    <td style={{ color: isChanged('compensation') ? '#f44336' : 'inherit', fontWeight: isChanged('compensation') ? '600' : 'normal' }}>{newBet.compensation || ''}</td>
+                                    <td style={{ color: isChanged('compensation') ? '#f44336' : 'inherit', fontWeight: isChanged('compensation') ? '600' : 'normal' }}>{newBet.status === 'ĐỀN' ? (newBet.compensation || '') : ''}</td>
                                     <td style={{ color: isChanged('actualAmount') ? '#f44336' : 'inherit', fontWeight: isChanged('actualAmount') ? '600' : 'normal' }}>{((newBet.status === 'DONE' || newBet.status === 'HỦY BỎ' || newBet.status === 'ĐỀN') && newBet.actualAmount) ? newBet.actualAmount.toString() : ''}</td>
                                   </tr>
                                 </tbody>
@@ -3520,7 +3638,8 @@ const AdminPage = () => {
                                 <th>STT</th>
                                 <th>Tên</th>
                                 <th>Thời gian nhận kèo</th>
-                                <th>Thời gian hoàn thành</th>
+                                <th>Deadline</th>
+                                <th>Thời gian hoàn thành thực tế</th>
                                 <th>Nhiệm vụ</th>
                                 <th>Loại kèo</th>
                                 <th>Tiền kèo web</th>
@@ -3538,6 +3657,7 @@ const AdminPage = () => {
                                 <td>{deletedBet.stt}</td>
                                 <td>{deletedBet.name}</td>
                                 <td>{deletedBet.receivedAt ? new Date(deletedBet.receivedAt).toLocaleString('vi-VN') : ''}</td>
+                                <td>{deletedBet.timeRemainingHours || ''}</td>
                                 <td>{deletedBet.completedHours || ''}</td>
                                 <td>{deletedBet.task}</td>
                                 <td>{deletedBet.betType}</td>
@@ -3551,7 +3671,7 @@ const AdminPage = () => {
                                   </span>
                                 </td>
                                 <td>{deletedBet.actualReceived || ''}</td>
-                                <td>{deletedBet.compensation || ''}</td>
+                                <td>{deletedBet.status === 'ĐỀN' ? (deletedBet.compensation || '') : ''}</td>
                                 <td>{((deletedBet.status === 'DONE' || deletedBet.status === 'HỦY BỎ' || deletedBet.status === 'ĐỀN') && deletedBet.actualAmount) ? deletedBet.actualAmount.toString() : ''}</td>
                               </tr>
                             </tbody>

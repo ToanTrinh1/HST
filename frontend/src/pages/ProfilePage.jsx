@@ -61,6 +61,14 @@ const ProfilePage = () => {
       const res = await donHangAPI.layDanhSachDonHang(50, 0);
       if (res.success && Array.isArray(res.data)) {
         const done = res.data.filter((item) => item.status === 'DONE' || item.status === 'HỦY BỎ' || item.status === 'ĐỀN');
+        // Debug: Log dữ liệu để kiểm tra các trường mới
+        if (done.length > 0) {
+          console.log('🔍 Sample task data:', done[0]);
+          console.log('🔍 Account:', done[0].account);
+          console.log('🔍 Password:', done[0].password);
+          console.log('🔍 Region:', done[0].region);
+          console.log('🔍 Completed_at:', done[0].completed_at);
+        }
         setDoneTasks(done);
       } else {
         setDoneTasks([]);
@@ -174,35 +182,60 @@ const ProfilePage = () => {
                   <span>Loại kèo</span>
                   <span>Tiền kèo</span>
                   <span>Công thực nhận</span>
-                  <span></span>
+                  <span>Thao tác</span>
+                  <span>Tài khoản</span>
+                  <span>Mật khẩu</span>
+                  <span>Khu vực</span>
+                  <span>Thời gian hoàn thành</span>
                 </div>
                 <div className="task-list-body">
-                  {doneTasks.map((task) => (
-                    <div key={task.id} className="task-list-row">
-                      <span>{task.task_code || task.task || '-'}</span>
-                      <span>{task.bet_type || task.betType || '-'}</span>
-                      <span>
-                        {formatNumber(task.web_bet_amount_cny ?? task.webBet)}
-                      </span>
-                      <span>{formatNumber(task.actual_amount_cny ?? task.actualAmount)}</span>
-                      <span>
-                        {(task.status === 'HỦY BỎ' || task.status === 'ĐỀN') ? (
-                          <button
-                            className="task-detail-btn"
-                            type="button"
-                            onClick={() => {
-                              setSelectedTask(task);
-                              setShowCancelReasonModal(true);
-                            }}
-                          >
-                            Chi tiết
-                          </button>
-                        ) : (
-                          ''
-                        )}
-                      </span>
-                    </div>
-                  ))}
+                  {doneTasks.map((task) => {
+                    const formatDateTime = (dateTime) => {
+                      if (!dateTime) return '-';
+                      try {
+                        const date = new Date(dateTime);
+                        return date.toLocaleString('vi-VN', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        });
+                      } catch (e) {
+                        return '-';
+                      }
+                    };
+                    return (
+                      <div key={task.id} className="task-list-row">
+                        <span>{task.task_code || task.task || '-'}</span>
+                        <span>{task.bet_type || task.betType || '-'}</span>
+                        <span>
+                          {formatNumber(task.web_bet_amount_cny ?? task.webBet)}
+                        </span>
+                        <span>{formatNumber(task.actual_amount_cny ?? task.actualAmount)}</span>
+                        <span>
+                          {(task.status === 'HỦY BỎ' || task.status === 'ĐỀN') ? (
+                            <button
+                              className="task-detail-btn"
+                              type="button"
+                              onClick={() => {
+                                setSelectedTask(task);
+                                setShowCancelReasonModal(true);
+                              }}
+                            >
+                              Chi tiết
+                            </button>
+                          ) : (
+                            '-'
+                          )}
+                        </span>
+                        <span>{task.account || '-'}</span>
+                        <span>{task.password || '-'}</span>
+                        <span>{task.region || '-'}</span>
+                        <span>{formatDateTime(task.completed_at)}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

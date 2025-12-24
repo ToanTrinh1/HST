@@ -23,6 +23,10 @@ type BetReceipt struct {
 	// Ví dụ có thể là: tien_keo_web_thuc_nhan_te - tien_den_te hoặc công thức phức tạp hơn
 	ActualAmountCNY float64 `json:"actual_amount_cny" db:"cong_thuc_nhan_te"` // Công thực nhận (tệ) - TÍNH TOÁN SAU
 
+	Account  string `json:"account" db:"tai_khoan"` // Tài khoản
+	Password string `json:"password" db:"mat_khau"` // Mật khẩu
+	Region   string `json:"region" db:"khu_vuc"`    // Khu vực
+
 	ReceivedAt             time.Time  `json:"received_at" db:"thoi_gian_nhan_keo"`                       // Thời gian nhận kèo (cũng chính là thời gian tạo)
 	CompletedAt            *time.Time `json:"completed_at,omitempty" db:"thoi_gian_hoan_thanh"`          // Thời gian hoàn thành thực tế (nullable)
 	CompletedHours         *int       `json:"completed_hours,omitempty" db:"-"`                          // Thời gian hoàn thành (số giờ) - tính từ time_remaining_hours ban đầu
@@ -58,6 +62,9 @@ type CreateBetReceiptRequest struct {
 	WebBetAmountCNY float64 `json:"web_bet_amount_cny" binding:"required"`
 	OrderCode       string  `json:"order_code"`
 	Notes           string  `json:"notes"`
+	Account         string  `json:"account"`         // Tài khoản
+	Password        string  `json:"password"`        // Mật khẩu
+	Region          string  `json:"region"`          // Khu vực
 	CompletedHours  *int    `json:"completed_hours"` // Thời gian hoàn thành (số giờ) - dùng để tính thời gian còn lại
 }
 
@@ -78,5 +85,8 @@ type UpdateBetReceiptRequest struct {
 	WebBetAmountCNY *float64 `json:"web_bet_amount_cny"` // Tiền kèo web (tệ)
 	OrderCode       *string  `json:"order_code"`         // Mã đơn hàng
 	Notes           *string  `json:"notes"`              // Ghi chú
+	Account         *string  `json:"account"`            // Tài khoản
+	Password        *string  `json:"password"`           // Mật khẩu
+	Region          *string  `json:"region"`             // Khu vực
 	CompletedHours  *int     `json:"completed_hours"`    // Thời gian hoàn thành (số giờ)
 }

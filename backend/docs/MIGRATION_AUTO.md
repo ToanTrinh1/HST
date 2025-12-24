@@ -181,3 +181,4 @@ Nếu không muốn tự động chạy migrations khi start app, comment trong 
 
 - Xem file migration mẫu: `backend/migrations/001_create_bet_tables.sql`
 - Code migration runner: `backend/internal/database/migrate.go`
+

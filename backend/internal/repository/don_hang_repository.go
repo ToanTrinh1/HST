@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"fullstack-backend/internal/models"
 	"log"
+	"math"
 	"time"
 )
 
@@ -39,9 +40,10 @@ func (r *BetReceiptRepository) Create(betReceipt *models.BetReceipt) error {
         INSERT INTO thong_tin_nhan_keo (
             stt, id_nguoi_dung, ma_nhiem_vu, loai_keo, tien_keo_web_te, 
             ma_don_hang, ghi_chu, tien_do_hoan_thanh, 
+            tai_khoan, mat_khau, khu_vuc,
             thoi_gian_nhan_keo, thoi_gian_con_lai_gio, thoi_gian_cap_nhat
         ) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9, NOW()) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, NOW()) 
         RETURNING id, thoi_gian_nhan_keo, thoi_gian_cap_nhat
     `
 	return r.db.QueryRow(
@@ -54,6 +56,9 @@ func (r *BetReceiptRepository) Create(betReceipt *models.BetReceipt) error {
 		betReceipt.OrderCode,
 		betReceipt.Notes,
 		betReceipt.Status,
+		betReceipt.Account,
+		betReceipt.Password,
+		betReceipt.Region,
 		betReceipt.TimeRemainingHours,
 	).Scan(&betReceipt.ID, &betReceipt.ReceivedAt, &betReceipt.UpdatedAt)
 }
@@ -66,7 +71,8 @@ func (r *BetReceiptRepository) GetAll(limit, offset int) ([]*models.BetReceipt, 
             ttnk.ma_nhiem_vu, ttnk.loai_keo, ttnk.tien_keo_web_te,
             ttnk.ma_don_hang, ttnk.ghi_chu, ttnk.tien_do_hoan_thanh, 
             ttnk.tien_keo_web_thuc_nhan_te, ttnk.tien_den_te, ttnk.cong_thuc_nhan_te,
-            ttnk.ly_do_huy, ttnk.thoi_gian_nhan_keo, ttnk.thoi_gian_hoan_thanh,
+            ttnk.ly_do_huy, ttnk.tai_khoan, ttnk.mat_khau, ttnk.khu_vuc,
+            ttnk.thoi_gian_nhan_keo, ttnk.thoi_gian_hoan_thanh,
             ttnk.thoi_gian_con_lai_gio, ttnk.thoi_gian_cap_nhat
         FROM thong_tin_nhan_keo ttnk
         LEFT JOIN nguoi_dung nd ON ttnk.id_nguoi_dung = nd.id
@@ -97,6 +103,9 @@ func (r *BetReceiptRepository) GetAll(limit, offset int) ([]*models.BetReceipt, 
 		var timeRemainingHours sql.NullInt64
 		var userName sql.NullString
 		var cancelReason sql.NullString
+		var account sql.NullString
+		var password sql.NullString
+		var region sql.NullString
 
 		err := rows.Scan(
 			&betReceipt.ID,
@@ -113,6 +122,9 @@ func (r *BetReceiptRepository) GetAll(limit, offset int) ([]*models.BetReceipt, 
 			&betReceipt.CompensationCNY,
 			&betReceipt.ActualAmountCNY,
 			&cancelReason,
+			&account,
+			&password,
+			&region,
 			&betReceipt.ReceivedAt,
 			&completedAt,
 			&timeRemainingHours,
@@ -135,14 +147,41 @@ func (r *BetReceiptRepository) GetAll(limit, offset int) ([]*models.BetReceipt, 
 			betReceipt.CancelReason = cancelReason.String
 		}
 
+		if account.Valid {
+			betReceipt.Account = account.String
+		} else {
+			betReceipt.Account = ""
+		}
+
+		if password.Valid {
+			betReceipt.Password = password.String
+		} else {
+			betReceipt.Password = ""
+		}
+
+		if region.Valid {
+			betReceipt.Region = region.String
+		} else {
+			betReceipt.Region = ""
+		}
+
 		if completedAt.Valid {
 			betReceipt.CompletedAt = &completedAt.Time
+			// Tính thời gian hoàn thành thực tế (số giờ) = CompletedAt - ReceivedAt
+			elapsed := completedAt.Time.Sub(betReceipt.ReceivedAt)
+			// Làm tròn theo quy tắc chuẩn: .1-.4 làm tròn xuống, từ .5 làm tròn lên
+			completedHours := int(math.Round(elapsed.Hours()))
+			// Nếu < 1 giờ thì trả về 1 giờ
+			if completedHours < 1 {
+				completedHours = 1
+			}
+			betReceipt.CompletedHours = &completedHours
+		} else {
+			betReceipt.CompletedHours = nil
 		}
 		if timeRemainingHours.Valid {
 			hours := int(timeRemainingHours.Int64)
 			betReceipt.TimeRemainingHours = &hours
-			// Thời gian hoàn thành = thời gian còn lại ban đầu (lúc đầu chúng bằng nhau)
-			betReceipt.CompletedHours = &hours
 
 			// Tính toán thời gian còn lại thực tế dựa trên thời gian đã trôi qua
 			now := time.Now()
@@ -187,12 +226,16 @@ func (r *BetReceiptRepository) FindByID(id string) (*models.BetReceipt, error) {
         SELECT 
             id, stt, id_nguoi_dung, ma_nhiem_vu, loai_keo, tien_keo_web_te,
             ma_don_hang, ghi_chu, tien_do_hoan_thanh, tien_keo_web_thuc_nhan_te,
-            tien_den_te, cong_thuc_nhan_te, ly_do_huy, thoi_gian_nhan_keo, thoi_gian_hoan_thanh,
+            tien_den_te, cong_thuc_nhan_te, ly_do_huy, tai_khoan, mat_khau, khu_vuc,
+            thoi_gian_nhan_keo, thoi_gian_hoan_thanh,
             thoi_gian_con_lai_gio, thoi_gian_cap_nhat
         FROM thong_tin_nhan_keo 
         WHERE id = $1
     `
 	var cancelReason sql.NullString
+	var account sql.NullString
+	var password sql.NullString
+	var region sql.NullString
 	err := r.db.QueryRow(query, id).Scan(
 		&betReceipt.ID,
 		&betReceipt.STT,
@@ -207,6 +250,9 @@ func (r *BetReceiptRepository) FindByID(id string) (*models.BetReceipt, error) {
 		&betReceipt.CompensationCNY,
 		&betReceipt.ActualAmountCNY,
 		&cancelReason,
+		&account,
+		&password,
+		&region,
 		&betReceipt.ReceivedAt,
 		&completedAt,
 		&timeRemainingHours,
@@ -220,8 +266,32 @@ func (r *BetReceiptRepository) FindByID(id string) (*models.BetReceipt, error) {
 		betReceipt.CancelReason = cancelReason.String
 	}
 
+	if account.Valid {
+		betReceipt.Account = account.String
+	} else {
+		betReceipt.Account = ""
+	}
+
+	if password.Valid {
+		betReceipt.Password = password.String
+	} else {
+		betReceipt.Password = ""
+	}
+
+	if region.Valid {
+		betReceipt.Region = region.String
+	} else {
+		betReceipt.Region = ""
+	}
+
 	if completedAt.Valid {
 		betReceipt.CompletedAt = &completedAt.Time
+		// Tính thời gian hoàn thành thực tế (số giờ) = CompletedAt - ReceivedAt
+		elapsed := completedAt.Time.Sub(betReceipt.ReceivedAt)
+		completedHours := int(elapsed.Hours())
+		betReceipt.CompletedHours = &completedHours
+	} else {
+		betReceipt.CompletedHours = nil
 	}
 	if timeRemainingHours.Valid {
 		hours := int(timeRemainingHours.Int64)
@@ -232,7 +302,36 @@ func (r *BetReceiptRepository) FindByID(id string) (*models.BetReceipt, error) {
 }
 
 // UpdateStatus cập nhật status và các trường liên quan của đơn hàng
+// Xử lý thoi_gian_hoan_thanh:
+// - Nếu status là "HỦY BỎ", "DONE", "ĐỀN", "CHỜ CHẤP NHẬN", hoặc "CHỜ TRỌNG TÀI": dùng CompletedAt từ betReceipt (có thể là NULL hoặc có giá trị)
+// - Nếu status không phải các status trên: set về NULL
 func (r *BetReceiptRepository) UpdateStatus(betReceipt *models.BetReceipt) error {
+	// Xử lý thoi_gian_hoan_thanh dựa trên status
+	var completedAt interface{}
+	if betReceipt.Status == "HỦY BỎ" || betReceipt.Status == "DONE" || betReceipt.Status == "ĐỀN" ||
+		betReceipt.Status == "CHỜ CHẤP NHẬN" || betReceipt.Status == "CHỜ TRỌNG TÀI" {
+		// Status là một trong các status trên: dùng CompletedAt từ betReceipt
+		if betReceipt.CompletedAt != nil {
+			completedAt = *betReceipt.CompletedAt
+		} else {
+			// Nếu CompletedAt là nil, set về NULL trong database
+			completedAt = nil
+		}
+	} else {
+		// Status không phải các status trên: set về NULL
+		completedAt = nil
+	}
+
+	// Xử lý thoi_gian_con_lai_gio (Deadline):
+	// Deadline không bao giờ bị thay đổi khi update status, chỉ có thể thay đổi khi update thông thường
+	// Giữ nguyên giá trị từ betReceipt (đã được load từ DB hiện tại)
+	var timeRemainingHours interface{}
+	if betReceipt.TimeRemainingHours != nil {
+		timeRemainingHours = *betReceipt.TimeRemainingHours
+	} else {
+		timeRemainingHours = nil
+	}
+
 	query := `
 		UPDATE thong_tin_nhan_keo
 		SET 
@@ -242,17 +341,11 @@ func (r *BetReceiptRepository) UpdateStatus(betReceipt *models.BetReceipt) error
 			tien_den_te = $4,
 			tien_keo_web_te = $5,
 			thoi_gian_hoan_thanh = $6,
-			ly_do_huy = $7,
+			thoi_gian_con_lai_gio = $7,
+			ly_do_huy = $8,
 			thoi_gian_cap_nhat = NOW()
-		WHERE id = $8
+		WHERE id = $9
 	`
-
-	var completedAt interface{}
-	if betReceipt.CompletedAt != nil {
-		completedAt = *betReceipt.CompletedAt
-	} else {
-		completedAt = nil
-	}
 
 	var cancelReason interface{}
 	if betReceipt.CancelReason != "" {
@@ -269,6 +362,7 @@ func (r *BetReceiptRepository) UpdateStatus(betReceipt *models.BetReceipt) error
 		betReceipt.CompensationCNY,   // tien_den_te
 		betReceipt.WebBetAmountCNY,   // tien_keo_web_te (có thể được cập nhật khi status = HỦY BỎ)
 		completedAt,                  // thoi_gian_hoan_thanh
+		timeRemainingHours,           // thoi_gian_con_lai_gio
 		cancelReason,                 // ly_do_huy
 		betReceipt.ID,
 	)
@@ -319,6 +413,15 @@ func (r *BetReceiptRepository) Update(id string, req *models.UpdateBetReceiptReq
 	if req.Notes != nil {
 		betReceipt.Notes = *req.Notes
 	}
+	if req.Account != nil {
+		betReceipt.Account = *req.Account
+	}
+	if req.Password != nil {
+		betReceipt.Password = *req.Password
+	}
+	if req.Region != nil {
+		betReceipt.Region = *req.Region
+	}
 	if req.CompletedHours != nil {
 		hours := *req.CompletedHours
 		betReceipt.TimeRemainingHours = &hours
@@ -334,9 +437,12 @@ func (r *BetReceiptRepository) Update(id string, req *models.UpdateBetReceiptReq
 			tien_keo_web_te = $4,
 			ma_don_hang = $5,
 			ghi_chu = $6,
-			thoi_gian_con_lai_gio = $7,
+			tai_khoan = $7,
+			mat_khau = $8,
+			khu_vuc = $9,
+			thoi_gian_con_lai_gio = $10,
 			thoi_gian_cap_nhat = NOW()
-		WHERE id = $8
+		WHERE id = $11
 	`
 
 	_, err = r.db.Exec(
@@ -347,6 +453,9 @@ func (r *BetReceiptRepository) Update(id string, req *models.UpdateBetReceiptReq
 		betReceipt.WebBetAmountCNY,
 		betReceipt.OrderCode,
 		betReceipt.Notes,
+		betReceipt.Account,
+		betReceipt.Password,
+		betReceipt.Region,
 		betReceipt.TimeRemainingHours,
 		id,
 	)

@@ -6,6 +6,7 @@ import (
 	"fullstack-backend/internal/models"
 	"fullstack-backend/internal/repository"
 	"log"
+	"time"
 )
 
 type BetReceiptService struct {
@@ -76,6 +77,9 @@ func (s *BetReceiptService) CreateBetReceipt(req *models.CreateBetReceiptRequest
 		WebBetAmountCNY:    req.WebBetAmountCNY,
 		OrderCode:          req.OrderCode,
 		Notes:              req.Notes,
+		Account:            req.Account,
+		Password:           req.Password,
+		Region:             req.Region,
 		Status:             status,
 		CompletedHours:     req.CompletedHours, // Lưu thời gian hoàn thành ban đầu
 		TimeRemainingHours: timeRemainingHours,
@@ -406,13 +410,46 @@ func (s *BetReceiptService) UpdateBetReceiptStatus(id string, req *models.Update
 		if req.ActualReceivedCNY != nil {
 			betReceipt.ActualReceivedCNY = *req.ActualReceivedCNY
 		}
-		if req.CompensationCNY != nil {
-			betReceipt.CompensationCNY = *req.CompensationCNY
+		// CompensationCNY chỉ có giá trị khi status = "ĐỀN", các status khác luôn là 0
+		// Không cho phép override CompensationCNY khi status không phải "ĐỀN"
+		betReceipt.CompensationCNY = 0
+		log.Printf("Service - ✅ Status không phải ĐỀN, set CompensationCNY = 0 cho đơn hàng ID: %s", id)
+	}
+	// 4.5. Xử lý thời gian hoàn thành:
+	// - Nếu status là "HỦY BỎ", "DONE", "ĐỀN", "CHỜ CHẤP NHẬN", hoặc "CHỜ TRỌNG TÀI": set thời gian hoàn thành
+	// - Nếu status không phải các status trên: xóa thời gian hoàn thành (set về NULL)
+	// - Nếu trước đó status là "CHỜ CHẤP NHẬN" hoặc "CHỜ TRỌNG TÀI" (đã có CompletedAt), 
+	//   khi chuyển sang DONE/HỦY BỎ/ĐỀN thì giữ nguyên ngày cũ (không cập nhật lại)
+	if req.Status == models.BetReceiptStatusDone || req.Status == models.BetReceiptStatusCancelled || req.Status == models.BetReceiptStatusCompensation ||
+		req.Status == models.BetReceiptStatusPending || req.Status == models.BetReceiptStatusWaitingRef {
+		// Kiểm tra nếu trước đó là "CHỜ CHẤP NHẬN" hoặc "CHỜ TRỌNG TÀI" và đã có CompletedAt
+		// Khi chuyển sang DONE/HỦY BỎ/ĐỀN thì giữ nguyên ngày cũ
+		if (oldStatus == models.BetReceiptStatusPending || oldStatus == models.BetReceiptStatusWaitingRef) &&
+			betReceipt.CompletedAt != nil &&
+			(req.Status == models.BetReceiptStatusDone || req.Status == models.BetReceiptStatusCancelled || req.Status == models.BetReceiptStatusCompensation) {
+			// Giữ nguyên CompletedAt cũ (không cập nhật lại)
+			log.Printf("Service - ℹ️ Giữ nguyên thời gian hoàn thành cũ cho đơn hàng ID: %s (từ %s sang %s)", id, oldStatus, req.Status)
+		} else {
+			// Nếu có CompletedAt trong request, dùng nó (thường là nil, sẽ set mới)
+			if req.CompletedAt != nil {
+				betReceipt.CompletedAt = req.CompletedAt
+			} else {
+				// Set thời gian mới khi chuyển sang các status này
+				now := time.Now()
+				betReceipt.CompletedAt = &now
+				log.Printf("Service - ✅ Set thời gian hoàn thành mới cho đơn hàng ID: %s với status: %s", id, req.Status)
+			}
 		}
+	} else {
+		// Status không phải các status trên -> xóa thời gian hoàn thành
+		betReceipt.CompletedAt = nil
+		log.Printf("Service - ✅ Xóa thời gian hoàn thành cho đơn hàng ID: %s khi chuyển sang status: %s", id, req.Status)
 	}
-	if req.CompletedAt != nil {
-		betReceipt.CompletedAt = req.CompletedAt
-	}
+
+	// 4.6. Xử lý thời gian còn lại (Deadline):
+	// Deadline không bao giờ bị thay đổi khi update status, chỉ có thể thay đổi khi bấm nút chỉnh sửa
+	// Giữ nguyên giá trị TimeRemainingHours từ DB hiện tại (không thay đổi)
+	log.Printf("Service - ℹ️ Giữ nguyên Deadline (thoi_gian_con_lai_gio) cho đơn hàng ID: %s khi chuyển sang status: %s", id, req.Status)
 
 	// 5. Cập nhật status vào database TRƯỚC (để khi tính lại wallet, status đã được update)
 	betReceipt.Status = req.Status
