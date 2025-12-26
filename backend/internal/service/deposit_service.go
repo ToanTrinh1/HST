@@ -68,7 +68,7 @@ func (s *DepositService) CreateDeposit(req *models.CreateDepositRequest) (*model
 		return nil, errors.New("Lỗi khi cập nhật wallet: " + err.Error())
 	}
 
-	log.Printf("Service - ✅ Đã nạp tiền thành công cho user ID: %s, AmountVND: %.2f", 
+	log.Printf("Service - ✅ Đã nạp tiền thành công cho user ID: %s, AmountVND: %.2f",
 		foundUser.ID, req.AmountVND)
 
 	return deposit, nil
@@ -77,14 +77,13 @@ func (s *DepositService) CreateDeposit(req *models.CreateDepositRequest) (*model
 // GetAllDeposits lấy tất cả lịch sử nạp tiền
 func (s *DepositService) GetAllDeposits() ([]repository.DepositWithUser, error) {
 	log.Printf("Service - Lấy tất cả lịch sử nạp tiền")
-	
+
 	deposits, err := s.depositRepo.GetAll()
 	if err != nil {
 		log.Printf("Service - ❌ Lỗi lấy danh sách deposits: %v", err)
 		return nil, err
 	}
-	
+
 	log.Printf("Service - ✅ Đã lấy %d deposits", len(deposits))
 	return deposits, nil
 }
-

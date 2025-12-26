@@ -245,14 +245,50 @@ const AdminPage = () => {
     status: false,
   });
 
+  // Danh sách các status đã xử lí (sẽ không hiển thị ở tab Tổng hợp)
+  const processedStatuses = ['DONE', 'HỦY BỎ', 'ĐỀN'];
+
+  // Danh sách đơn hàng đã xử lí (DONE, HỦY BỎ, ĐỀN)
+  const processedBetList = betList.filter(bet => processedStatuses.includes(bet.status));
+
   // Filter betList theo status và các filters
+  // Tab "Tổng hợp" sẽ loại bỏ các đơn hàng đã xử lí (DONE, HỦY BỎ, ĐỀN)
   const filteredBetList = (activeDonHangTab === 'tong-hop'
-    ? betList // Tab tổng hợp - hiển thị tất cả
+    ? betList.filter(bet => !processedStatuses.includes(bet.status)) // Tab tổng hợp - loại bỏ đơn hàng đã xử lí
     : betList.filter(bet => {
         const selectedTab = statusTabs.find(tab => tab.key === activeDonHangTab);
         return selectedTab && selectedTab.status ? bet.status === selectedTab.status : true;
       })
   ).filter(bet => {
+    // Filter theo Tên
+    if (filters.name && !bet.name?.toLowerCase().includes(filters.name.toLowerCase())) {
+      return false;
+    }
+    // Filter theo Loại kèo
+    if (filters.betType && bet.betType !== filters.betType) {
+      return false;
+    }
+    // Filter theo Tiền kèo web (tìm kiếm theo số, hỗ trợ phần nguyên)
+    if (filters.webBet) {
+      const filterValue = parseFloat(filters.webBet);
+      const betValue = typeof bet.webBet === 'number' ? bet.webBet : parseFloat(bet.webBet) || 0;
+      if (isNaN(filterValue) || betValue !== filterValue) {
+        return false;
+      }
+    }
+    // Filter theo Mã đơn hàng
+    if (filters.orderCode && !bet.orderCode?.toLowerCase().includes(filters.orderCode.toLowerCase())) {
+      return false;
+    }
+    // Filter theo Status (Tiến độ hoàn thành)
+    if (filters.status && bet.status !== filters.status) {
+      return false;
+    }
+    return true;
+  });
+
+  // Filter processedBetList theo các filters (cho tab "Đơn hàng đã xử lí")
+  const filteredProcessedBetList = processedBetList.filter(bet => {
     // Filter theo Tên
     if (filters.name && !bet.name?.toLowerCase().includes(filters.name.toLowerCase())) {
       return false;
@@ -1198,7 +1234,584 @@ const AdminPage = () => {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [showCreateModal]);
 
+  // Helper function để render bảng đơn hàng (tái sử dụng cho cả "Trang thông tin" và "Đơn hàng đã xử lí")
+  const renderBetTable = (betListToRender, showSubTabs = true, allowStatusChange = true) => {
+    return (
+      <div className="admin-tab-content">
+        {/* Sub-tabs cho Danh sách kèo (chỉ hiển thị khi showSubTabs = true) */}
+        {showSubTabs && (
+          <div className="rut-tien-sub-tabs">
+            <div className="rut-tien-sub-tabs-left">
+              {statusTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  className={`rut-tien-sub-tab ${activeDonHangTab === tab.key ? 'active' : ''}`}
+                  onClick={() => setActiveDonHangTab(tab.key)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <div className="wallet-action-buttons">
+              <button 
+                className="btn-create-don-hang"
+                onClick={() => setShowCreateModal(true)}
+                style={{
+                  padding: '10px 20px',
+                  background: '#667eea',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'background 0.3s ease'
+                }}
+              >
+                ➕ Tạo đơn hàng
+              </button>
+            </div>
+          </div>
+        )}
+        <div className="bet-list-table-wrapper">
+          <table className="bet-list-table">
+            <thead>
+              <tr>
+                <th>STT</th>
+                <th>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>Tên</span>
+                      <button
+                        onClick={() => setShowFilterInputs({ ...showFilterInputs, name: !showFilterInputs.name })}
+                        style={{
+                          background: filters.name ? '#667eea' : 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontSize: '16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        title="Lọc theo tên"
+                      >
+                        🔍
+                      </button>
+                    </div>
+                    {showFilterInputs.name && (
+                      <input
+                        type="text"
+                        value={filters.name}
+                        onChange={(e) => setFilters({ ...filters, name: e.target.value })}
+                        onBlur={() => {
+                          setTimeout(() => {
+                            setShowFilterInputs({ ...showFilterInputs, name: false });
+                          }, 200);
+                        }}
+                        placeholder="Lọc tên..."
+                        style={{
+                          marginTop: '4px',
+                          padding: '4px 8px',
+                          width: 'calc(100% - 16px)',
+                          fontSize: '11px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          boxSizing: 'border-box',
+                        }}
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    )}
+                    {showFilterInputs.name && betNameOptions.length > 0 && (
+                      <div className="inline-suggestions">
+                        {betNameOptions.map((opt) => (
+                          <div
+                            key={opt}
+                            className="inline-suggestion-item"
+                            onMouseDown={() => {
+                              setFilters({ ...filters, name: opt });
+                              setShowFilterInputs({ ...showFilterInputs, name: false });
+                            }}
+                          >
+                            {opt}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </th>
+                <th>Thời gian nhận kèo</th>
+                <th>Deadline (Giờ)</th>
+                <th>Nhiệm vụ</th>
+                <th>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>Loại kèo</span>
+                      <button
+                        onClick={() => setShowFilterInputs({ ...showFilterInputs, betType: !showFilterInputs.betType })}
+                        style={{
+                          background: filters.betType ? '#667eea' : 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontSize: '16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        title="Lọc theo loại kèo"
+                      >
+                        🔍
+                      </button>
+                    </div>
+                    {showFilterInputs.betType && (
+                      <select
+                        value={filters.betType}
+                        onChange={(e) => setFilters({ ...filters, betType: e.target.value })}
+                        onBlur={() => {
+                          setTimeout(() => {
+                            setShowFilterInputs({ ...showFilterInputs, betType: false });
+                          }, 200);
+                        }}
+                        style={{
+                          marginTop: '4px',
+                          padding: '4px 8px',
+                          width: 'calc(100% - 16px)',
+                          fontSize: '11px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          boxSizing: 'border-box',
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <option value="">Tất cả</option>
+                        <option value="web">web</option>
+                        <option value="Kèo ngoài">Kèo ngoài</option>
+                      </select>
+                    )}
+                  </div>
+                </th>
+                <th>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>Tiền kèo web</span>
+                      <button
+                        onClick={() => setShowFilterInputs({ ...showFilterInputs, webBet: !showFilterInputs.webBet })}
+                        style={{
+                          background: filters.webBet ? '#667eea' : 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontSize: '16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        title="Lọc theo tiền kèo web"
+                      >
+                        🔍
+                      </button>
+                    </div>
+                    {showFilterInputs.webBet && (
+                      <input
+                        type="text"
+                        value={filters.webBet}
+                        onChange={(e) => setFilters({ ...filters, webBet: e.target.value.replace(/[^\d.]/g, '') })}
+                        onBlur={() => {
+                          setTimeout(() => {
+                            setShowFilterInputs({ ...showFilterInputs, webBet: false });
+                          }, 200);
+                        }}
+                        placeholder="Lọc số tiền..."
+                        style={{
+                          marginTop: '4px',
+                          padding: '4px 8px',
+                          width: 'calc(100% - 16px)',
+                          fontSize: '11px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          boxSizing: 'border-box',
+                        }}
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    )}
+                    {showFilterInputs.webBet && betWebBetOptions.length > 0 && (
+                      <div className="inline-suggestions">
+                        {betWebBetOptions.map((opt) => (
+                          <div
+                            key={opt}
+                            className="inline-suggestion-item"
+                            onMouseDown={() => {
+                              setFilters({ ...filters, webBet: opt.toString() });
+                              setShowFilterInputs({ ...showFilterInputs, webBet: false });
+                            }}
+                          >
+                            {opt}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </th>
+                <th>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>Mã đơn hàng</span>
+                      <button
+                        onClick={() => setShowFilterInputs({ ...showFilterInputs, orderCode: !showFilterInputs.orderCode })}
+                        style={{
+                          background: filters.orderCode ? '#667eea' : 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontSize: '16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        title="Lọc theo mã đơn hàng"
+                      >
+                        🔍
+                      </button>
+                    </div>
+                    {showFilterInputs.orderCode && (
+                      <input
+                        type="text"
+                        value={filters.orderCode}
+                        onChange={(e) => setFilters({ ...filters, orderCode: e.target.value })}
+                        onBlur={() => {
+                          setTimeout(() => {
+                            setShowFilterInputs({ ...showFilterInputs, orderCode: false });
+                          }, 200);
+                        }}
+                        placeholder="Lọc mã đơn hàng..."
+                        style={{
+                          marginTop: '4px',
+                          padding: '4px 8px',
+                          width: 'calc(100% - 16px)',
+                          fontSize: '11px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          boxSizing: 'border-box',
+                        }}
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    )}
+                    {showFilterInputs.orderCode && betOrderCodeOptions.length > 0 && (
+                      <div className="inline-suggestions">
+                        {betOrderCodeOptions.map((opt) => (
+                          <div
+                            key={opt}
+                            className="inline-suggestion-item"
+                            onMouseDown={() => {
+                              setFilters({ ...filters, orderCode: opt });
+                              setShowFilterInputs({ ...showFilterInputs, orderCode: false });
+                            }}
+                          >
+                            {opt}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </th>
+                <th>Ghi chú</th>
+                <th>Thời gian còn lại</th>
+                <th>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>Tiến độ hoàn thành</span>
+                      <button
+                        onClick={() => setShowFilterInputs({ ...showFilterInputs, status: !showFilterInputs.status })}
+                        style={{
+                          background: filters.status ? '#667eea' : 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontSize: '16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        title="Lọc theo tiến độ hoàn thành"
+                      >
+                        🔍
+                      </button>
+                    </div>
+                    {showFilterInputs.status && (
+                      <select
+                        value={filters.status}
+                        onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                        onBlur={() => {
+                          setTimeout(() => {
+                            setShowFilterInputs({ ...showFilterInputs, status: false });
+                          }, 200);
+                        }}
+                        style={{
+                          marginTop: '4px',
+                          padding: '4px 8px',
+                          width: 'calc(100% - 16px)',
+                          fontSize: '11px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          boxSizing: 'border-box',
+                        }}
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <option value="">Tất cả</option>
+                        <option value="Đơn hàng mới">Đơn hàng mới</option>
+                        <option value="ĐANG THỰC HIỆN">ĐANG THỰC HIỆN</option>
+                        <option value="DONE">DONE</option>
+                        <option value="CHỜ CHẤP NHẬN">CHỜ CHẤP NHẬN</option>
+                        <option value="HỦY BỎ">HỦY BỎ</option>
+                        <option value="ĐỀN">ĐỀN</option>
+                        <option value="ĐANG QUÉT MÃ">ĐANG QUÉT MÃ</option>
+                        <option value="CHỜ TRỌNG TÀI">CHỜ TRỌNG TÀI</option>
+                      </select>
+                    )}
+                  </div>
+                </th>
+                <th>Tiền kèo thực nhận</th>
+                <th>Tiền đền</th>
+                <th>Công thực nhận</th>
+                <th>Thao tác</th>
+                <th>Tài khoản</th>
+                <th>Mật khẩu</th>
+                <th>Khu vực</th>
+                <th>Ngày hoàn thành</th>
+                <th>Thời gian hoàn thành thực tế</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoadingDonHang ? (
+                <tr>
+                  <td colSpan="21" style={{ textAlign: 'center', padding: '20px' }}>
+                    Đang tải...
+                  </td>
+                </tr>
+              ) : betListToRender.length === 0 ? (
+                <tr>
+                  <td colSpan="21" style={{ textAlign: 'center', padding: '20px' }}>
+                    Chưa có dữ liệu
+                  </td>
+                </tr>
+              ) : (
+                betListToRender.map((bet) => (
+                  <tr key={bet.id}>
+                    <td>{bet.stt || bet.id}</td>
+                    <td>{bet.name}</td>
+                    <td>{bet.receivedAt ? new Date(bet.receivedAt).toLocaleString('vi-VN') : ''}</td>
+                    <td>{bet.timeRemainingHours || ''}</td>
+                    <td>{bet.task}</td>
+                    <td>{bet.betType}</td>
+                    <td>{bet.webBet}</td>
+                    <td>{bet.orderCode || ''}</td>
+                    <td>{bet.note}</td>
+                    <td>{bet.status !== 'DONE' ? (bet.timeRemainingFormatted || bet.timeRemainingHours || '') : ''}</td>
+                    <td>
+                      {allowStatusChange ? (
+                        <select 
+                          className={`status-select ${getStatusClass(bet.status)}`} 
+                          value={bet.status}
+                          onChange={async (e) => {
+                          const newStatus = e.target.value;
+                          const betId = bet.id;
+                          
+                          if (newStatus === 'HỦY BỎ') {
+                            setCancelModalData({
+                              betId: betId,
+                              oldStatus: bet.status,
+                              actualReceivedCNY: '',
+                            });
+                            setShowCancelModal(true);
+                            return;
+                          }
+                          
+                          if (newStatus === 'ĐỀN') {
+                            setCompensationModalData({
+                              betId: betId,
+                              oldStatus: bet.status,
+                              compensationCNY: '',
+                              cancelReason: '',
+                            });
+                            setShowCompensationModal(true);
+                            return;
+                          }
+                          
+                          setBetList(prevList => 
+                            prevList.map(item => 
+                              item.id === betId ? { ...item, status: newStatus } : item
+                            )
+                          );
+
+                          try {
+                            console.log('📡 Cập nhật status cho đơn hàng ID:', betId, 'Status mới:', newStatus);
+                            const response = await donHangAPI.capNhatStatusDonHang(betId, {
+                              status: newStatus
+                            });
+
+                            if (response.success && response.data) {
+                              console.log('✅ Cập nhật status thành công:', response.data);
+                              
+                              const newStatus = response.data.status;
+                              const actualAmount = (newStatus === 'DONE' || newStatus === 'HỦY BỎ' || newStatus === 'ĐỀN')
+                                ? (response.data.actual_amount_cny || 0)
+                                : 0;
+                              
+                              setBetList(prevList => 
+                                prevList.map(item => {
+                                  if (item.id === betId) {
+                                    return {
+                                      ...item,
+                                      status: newStatus,
+                                      actualAmount: actualAmount,
+                                      actualReceived: response.data.actual_received_cny !== undefined 
+                                        ? response.data.actual_received_cny 
+                                        : (newStatus !== 'HỦY BỎ' && newStatus !== 'DONE' ? 0 : item.actualReceived),
+                                      compensation: newStatus === 'ĐỀN' 
+                                        ? (response.data.compensation_cny !== undefined ? response.data.compensation_cny : item.compensation)
+                                        : 0,
+                                    };
+                                  }
+                                  return item;
+                                })
+                              );
+
+                              setTimeout(() => {
+                                fetchWalletList();
+                                fetchDonHangList();
+                              }, 500);
+
+                              setTimeout(() => {
+                                console.log('📢 AdminPage - Dispatch event bet-receipt-status-changed cho status:', newStatus);
+                                window.dispatchEvent(
+                                  new CustomEvent('bet-receipt-status-changed', {
+                                    detail: { id: betId, status: newStatus },
+                                  })
+                                );
+                              }, 600);
+                            } else {
+                              console.error('❌ Lỗi cập nhật status:', response.error);
+                              alert('Lỗi: ' + (response.error || 'Không thể cập nhật status'));
+                              setBetList(prevList => 
+                                prevList.map(item => 
+                                  item.id === betId ? { ...item, status: bet.status } : item
+                                )
+                              );
+                            }
+                          } catch (error) {
+                            console.error('❌ Lỗi khi gọi API cập nhật status:', error);
+                            alert('Có lỗi xảy ra khi cập nhật status');
+                            setBetList(prevList => 
+                              prevList.map(item => 
+                                item.id === betId ? { ...item, status: bet.status } : item
+                              )
+                            );
+                          }
+                        }}
+                      >
+                        <option value="Đơn hàng mới">Đơn hàng mới</option>
+                        <option value="ĐANG THỰC HIỆN">ĐANG THỰC HIỆN</option>
+                        <option value="DONE">DONE</option>
+                        <option value="CHỜ CHẤP NHẬN">CHỜ CHẤP NHẬN</option>
+                        <option value="HỦY BỎ">HỦY BỎ</option>
+                        <option value="ĐỀN">ĐỀN</option>
+                        <option value="ĐANG QUÉT MÃ">ĐANG QUÉT MÃ</option>
+                        <option value="CHỜ TRỌNG TÀI">CHỜ TRỌNG TÀI</option>
+                      </select>
+                      ) : (
+                        <span className={`status-select ${getStatusClass(bet.status)}`} style={{
+                          display: 'inline-block',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          cursor: 'default',
+                          pointerEvents: 'none'
+                        }}>
+                          {bet.status}
+                        </span>
+                      )}
+                    </td>
+                    <td>{bet.actualReceived || ''}</td>
+                    <td>{bet.status === 'ĐỀN' ? (bet.compensation || '') : ''}</td>
+                    <td>{((bet.status === 'DONE' || bet.status === 'HỦY BỎ' || bet.status === 'ĐỀN') && bet.actualAmount) ? bet.actualAmount.toString() : ''}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                        <button
+                          onClick={() => handleEditBet(bet)}
+                          style={{
+                            padding: '6px 12px',
+                            background: '#667eea',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            transition: 'background 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => e.target.style.background = '#5568d3'}
+                          onMouseLeave={(e) => e.target.style.background = '#667eea'}
+                        >
+                          ✏️ Chỉnh sửa
+                        </button>
+                        <button
+                          onClick={() => handleDeleteBet(bet.id)}
+                          style={{
+                            padding: '6px 12px',
+                            background: '#f44336',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            transition: 'background 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => e.target.style.background = '#d32f2f'}
+                          onMouseLeave={(e) => e.target.style.background = '#f44336'}
+                        >
+                          🗑️ Xóa
+                        </button>
+                      </div>
+                    </td>
+                    <td>{bet.account || '-'}</td>
+                    <td>{bet.password || '-'}</td>
+                    <td>{bet.region || '-'}</td>
+                    <td>{bet.completedAt ? new Date(bet.completedAt).toLocaleString('vi-VN', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }) : '-'}</td>
+                    <td>{bet.completedHours || ''}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
   const renderTabContent = () => {
+    // Nếu đang ở tab "Đơn hàng đã xử lí" và đang ở tab "Danh sách kèo", hiển thị bảng đơn hàng đã xử lí
+    if (activeTopTab === 'don-hang-da-xu-li' && activeTab === 'danh-sach-keo') {
+      return renderBetTable(filteredProcessedBetList, false, false); // false = không cho phép thay đổi status
+    }
+
     // Nếu đang ở tab "Lịch sử chỉnh sửa" và đang ở tab "Danh sách kèo", hiển thị bảng lịch sử
     if (activeTopTab === 'lich-su-chinh-sua' && activeTab === 'danh-sach-keo') {
       return (
@@ -1311,582 +1924,11 @@ const AdminPage = () => {
     // (chỉ khi activeTopTab === 'trang-thong-tin' hoặc không phải 'lich-su-chinh-sua')
     switch (activeTab) {
       case 'danh-sach-keo':
-        return (
-          <div className="admin-tab-content">
-            {/* Sub-tabs cho Danh sách kèo */}
-            <div className="rut-tien-sub-tabs">
-              <div className="rut-tien-sub-tabs-left">
-                {statusTabs.map((tab) => (
-                  <button
-                    key={tab.key}
-                    className={`rut-tien-sub-tab ${activeDonHangTab === tab.key ? 'active' : ''}`}
-                    onClick={() => setActiveDonHangTab(tab.key)}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-              <div className="wallet-action-buttons">
-                <button 
-                  className="btn-create-don-hang"
-                  onClick={() => setShowCreateModal(true)}
-                  style={{
-                    padding: '10px 20px',
-                    background: '#667eea',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    transition: 'background 0.3s ease'
-                  }}
-                >
-                  ➕ Tạo đơn hàng
-                </button>
-              </div>
-            </div>
-            <div className="bet-list-table-wrapper">
-              <table className="bet-list-table">
-                <thead>
-                  <tr>
-                    <th>STT</th>
-                    <th>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span>Tên</span>
-                          <button
-                            onClick={() => setShowFilterInputs({ ...showFilterInputs, name: !showFilterInputs.name })}
-                            style={{
-                              background: filters.name ? '#667eea' : 'transparent',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              fontSize: '16px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                            title="Lọc theo tên"
-                          >
-                            🔍
-                          </button>
-                        </div>
-                        {showFilterInputs.name && (
-                          <input
-                            type="text"
-                            value={filters.name}
-                            onChange={(e) => setFilters({ ...filters, name: e.target.value })}
-                            onBlur={() => {
-                              // Đóng filter input khi mất focus sau một chút để cho phép click vào button
-                              setTimeout(() => {
-                                setShowFilterInputs({ ...showFilterInputs, name: false });
-                              }, 200);
-                            }}
-                            placeholder="Lọc tên..."
-                            style={{
-                              marginTop: '4px',
-                              padding: '4px 8px',
-                              width: 'calc(100% - 16px)',
-                              fontSize: '11px',
-                              border: '1px solid #ddd',
-                              borderRadius: '4px',
-                              boxSizing: 'border-box',
-                            }}
-                            autoFocus
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        )}
-                        {showFilterInputs.name && betNameOptions.length > 0 && (
-                          <div className="inline-suggestions">
-                            {betNameOptions.map((opt) => (
-                              <div
-                                key={opt}
-                                className="inline-suggestion-item"
-                                onMouseDown={() => {
-                                  setFilters({ ...filters, name: opt });
-                                  setShowFilterInputs({ ...showFilterInputs, name: false });
-                                }}
-                              >
-                                {opt}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </th>
-                    <th>Thời gian nhận kèo</th>
-                    <th>Deadline (Giờ)</th>
-                    <th>Nhiệm vụ</th>
-                    <th>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span>Loại kèo</span>
-                          <button
-                            onClick={() => setShowFilterInputs({ ...showFilterInputs, betType: !showFilterInputs.betType })}
-                            style={{
-                              background: filters.betType ? '#667eea' : 'transparent',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              fontSize: '16px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                            title="Lọc theo loại kèo"
-                          >
-                            🔍
-                          </button>
-                        </div>
-                        {showFilterInputs.betType && (
-                          <select
-                            value={filters.betType}
-                            onChange={(e) => setFilters({ ...filters, betType: e.target.value })}
-                            onBlur={() => {
-                              // Đóng filter input khi mất focus sau một chút để cho phép click vào button
-                              setTimeout(() => {
-                                setShowFilterInputs({ ...showFilterInputs, betType: false });
-                              }, 200);
-                            }}
-                            style={{
-                              marginTop: '4px',
-                              padding: '4px 8px',
-                              width: 'calc(100% - 16px)',
-                              fontSize: '11px',
-                              border: '1px solid #ddd',
-                              borderRadius: '4px',
-                              boxSizing: 'border-box',
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <option value="">Tất cả</option>
-                            <option value="web">web</option>
-                            <option value="Kèo ngoài">Kèo ngoài</option>
-                          </select>
-                        )}
-                      </div>
-                    </th>
-                    <th>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span>Tiền kèo web</span>
-                          <button
-                            onClick={() => setShowFilterInputs({ ...showFilterInputs, webBet: !showFilterInputs.webBet })}
-                            style={{
-                              background: filters.webBet ? '#667eea' : 'transparent',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              fontSize: '16px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                            title="Lọc theo tiền kèo web"
-                          >
-                            🔍
-                          </button>
-                        </div>
-                        {showFilterInputs.webBet && (
-                          <input
-                            type="text"
-                            value={filters.webBet}
-                            onChange={(e) => setFilters({ ...filters, webBet: e.target.value.replace(/[^\d.]/g, '') })}
-                            onBlur={() => {
-                              // Đóng filter input khi mất focus sau một chút để cho phép click vào button
-                              setTimeout(() => {
-                                setShowFilterInputs({ ...showFilterInputs, webBet: false });
-                              }, 200);
-                            }}
-                            placeholder="Lọc số tiền..."
-                            style={{
-                              marginTop: '4px',
-                              padding: '4px 8px',
-                              width: 'calc(100% - 16px)',
-                              fontSize: '11px',
-                              border: '1px solid #ddd',
-                              borderRadius: '4px',
-                              boxSizing: 'border-box',
-                            }}
-                            autoFocus
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        )}
-                        {showFilterInputs.webBet && betWebBetOptions.length > 0 && (
-                          <div className="inline-suggestions">
-                            {betWebBetOptions.map((opt) => (
-                              <div
-                                key={opt}
-                                className="inline-suggestion-item"
-                                onMouseDown={() => {
-                                  setFilters({ ...filters, webBet: opt.toString() });
-                                  setShowFilterInputs({ ...showFilterInputs, webBet: false });
-                                }}
-                              >
-                                {opt}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </th>
-                    <th>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span>Mã đơn hàng</span>
-                          <button
-                            onClick={() => setShowFilterInputs({ ...showFilterInputs, orderCode: !showFilterInputs.orderCode })}
-                            style={{
-                              background: filters.orderCode ? '#667eea' : 'transparent',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              fontSize: '16px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                            title="Lọc theo mã đơn hàng"
-                          >
-                            🔍
-                          </button>
-                        </div>
-                        {showFilterInputs.orderCode && (
-                          <input
-                            type="text"
-                            value={filters.orderCode}
-                            onChange={(e) => setFilters({ ...filters, orderCode: e.target.value })}
-                            onBlur={() => {
-                              // Đóng filter input khi mất focus sau một chút để cho phép click vào button
-                              setTimeout(() => {
-                                setShowFilterInputs({ ...showFilterInputs, orderCode: false });
-                              }, 200);
-                            }}
-                            placeholder="Lọc mã đơn hàng..."
-                            style={{
-                              marginTop: '4px',
-                              padding: '4px 8px',
-                              width: 'calc(100% - 16px)',
-                              fontSize: '11px',
-                              border: '1px solid #ddd',
-                              borderRadius: '4px',
-                              boxSizing: 'border-box',
-                            }}
-                            autoFocus
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        )}
-                        {showFilterInputs.orderCode && betOrderCodeOptions.length > 0 && (
-                          <div className="inline-suggestions">
-                            {betOrderCodeOptions.map((opt) => (
-                              <div
-                                key={opt}
-                                className="inline-suggestion-item"
-                                onMouseDown={() => {
-                                  setFilters({ ...filters, orderCode: opt });
-                                  setShowFilterInputs({ ...showFilterInputs, orderCode: false });
-                                }}
-                              >
-                                {opt}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </th>
-                    <th>Ghi chú</th>
-                    <th>Thời gian còn lại</th>
-                    <th>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span>Tiến độ hoàn thành</span>
-                          <button
-                            onClick={() => setShowFilterInputs({ ...showFilterInputs, status: !showFilterInputs.status })}
-                            style={{
-                              background: filters.status ? '#667eea' : 'transparent',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              fontSize: '16px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                            title="Lọc theo tiến độ hoàn thành"
-                          >
-                            🔍
-                          </button>
-                        </div>
-                        {showFilterInputs.status && (
-                          <select
-                            value={filters.status}
-                            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                            onBlur={() => {
-                              setTimeout(() => {
-                                setShowFilterInputs({ ...showFilterInputs, status: false });
-                              }, 200);
-                            }}
-                            style={{
-                              marginTop: '4px',
-                              padding: '4px 8px',
-                              width: 'calc(100% - 16px)',
-                              fontSize: '11px',
-                              border: '1px solid #ddd',
-                              borderRadius: '4px',
-                              boxSizing: 'border-box',
-                            }}
-                            autoFocus
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <option value="">Tất cả</option>
-                            <option value="Đơn hàng mới">Đơn hàng mới</option>
-                            <option value="ĐANG THỰC HIỆN">ĐANG THỰC HIỆN</option>
-                            <option value="DONE">DONE</option>
-                            <option value="CHỜ CHẤP NHẬN">CHỜ CHẤP NHẬN</option>
-                            <option value="HỦY BỎ">HỦY BỎ</option>
-                            <option value="ĐỀN">ĐỀN</option>
-                            <option value="ĐANG QUÉT MÃ">ĐANG QUÉT MÃ</option>
-                            <option value="CHỜ TRỌNG TÀI">CHỜ TRỌNG TÀI</option>
-                          </select>
-                        )}
-                      </div>
-                    </th>
-                    <th>Tiền kèo thực nhận</th>
-                    <th>Tiền đền</th>
-                    <th>Công thực nhận</th>
-                    <th>Thao tác</th>
-                    <th>Tài khoản</th>
-                    <th>Mật khẩu</th>
-                    <th>Khu vực</th>
-                    <th>Ngày hoàn thành</th>
-                    <th>Thời gian hoàn thành thực tế</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {isLoadingDonHang ? (
-                    <tr>
-                      <td colSpan="21" style={{ textAlign: 'center', padding: '20px' }}>
-                        Đang tải...
-                      </td>
-                    </tr>
-                  ) : filteredBetList.length === 0 ? (
-                    <tr>
-                      <td colSpan="21" style={{ textAlign: 'center', padding: '20px' }}>
-                        Chưa có dữ liệu
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredBetList.map((bet) => (
-                      <tr key={bet.id}>
-                        <td>{bet.stt || bet.id}</td>
-                        <td>{bet.name}</td>
-                        <td>{bet.receivedAt ? new Date(bet.receivedAt).toLocaleString('vi-VN') : ''}</td>
-                        <td>{bet.timeRemainingHours || ''}</td>
-                        <td>{bet.task}</td>
-                        <td>{bet.betType}</td>
-                        <td>{bet.webBet}</td>
-                        <td>{bet.orderCode || ''}</td>
-                        <td>{bet.note}</td>
-                        <td>{bet.status !== 'DONE' ? (bet.timeRemainingFormatted || bet.timeRemainingHours || '') : ''}</td>
-                        <td>
-                          <select 
-                            className={`status-select ${getStatusClass(bet.status)}`} 
-                            value={bet.status}
-                            onChange={async (e) => {
-                              const newStatus = e.target.value;
-                              const betId = bet.id; // ID thực sự (UUID)
-                              
-                              // Nếu chọn status "HỦY BỎ", hiển thị modal để nhập ActualReceivedCNY
-                              if (newStatus === 'HỦY BỎ') {
-                                setCancelModalData({
-                                  betId: betId,
-                                  oldStatus: bet.status,
-                                  actualReceivedCNY: '',
-                                });
-                                setShowCancelModal(true);
-                                // Không cập nhật state, select sẽ tự động giữ giá trị cũ (controlled component)
-                                return;
-                              }
-                              
-                              // Nếu chọn status "ĐỀN", hiển thị modal để nhập CompensationCNY và lý do đền
-                              if (newStatus === 'ĐỀN') {
-                                setCompensationModalData({
-                                  betId: betId,
-                                  oldStatus: bet.status,
-                                  compensationCNY: '',
-                                  cancelReason: '',
-                                });
-                                setShowCompensationModal(true);
-                                // Không cập nhật state, select sẽ tự động giữ giá trị cũ (controlled component)
-                                return;
-                              }
-                              
-                              // Cập nhật UI ngay lập tức (optimistic update)
-                              setBetList(prevList => 
-                                prevList.map(item => 
-                                  item.id === betId ? { ...item, status: newStatus } : item
-                                )
-                              );
-
-                              // Gọi API để cập nhật status trên backend
-                              try {
-                                console.log('📡 Cập nhật status cho đơn hàng ID:', betId, 'Status mới:', newStatus);
-                                const response = await donHangAPI.capNhatStatusDonHang(betId, {
-                                  status: newStatus
-                                });
-
-                                if (response.success && response.data) {
-                                  console.log('✅ Cập nhật status thành công:', response.data);
-                                  
-                                  const newStatus = response.data.status;
-                                  const actualAmount = (newStatus === 'DONE' || newStatus === 'HỦY BỎ' || newStatus === 'ĐỀN')
-                                    ? (response.data.actual_amount_cny || 0)
-                                    : 0;
-                                  
-                                  // Cập nhật lại state với dữ liệu từ backend
-                                  // - Nếu status = DONE: ActualReceivedCNY = WebBetAmountCNY (backend đã tự động set)
-                                  // - Nếu status = HỦY BỎ: ActualReceivedCNY là giá trị đã nhập
-                                  // - Nếu status = ĐỀN: CompensationCNY là giá trị đã nhập, ActualAmountCNY sẽ là âm (trừ tiền)
-                                  // - Nếu đổi từ DONE, HỦY BỎ, hoặc ĐỀN sang status khác: các giá trị sẽ được reset về 0 (backend đã reset)
-                                  setBetList(prevList => 
-                                    prevList.map(item => {
-                                      if (item.id === betId) {
-                                        return {
-                                          ...item,
-                                          status: newStatus,
-                                          actualAmount: actualAmount,
-                                          // Luôn cập nhật actualReceived từ backend
-                                          // Backend sẽ tự động reset về 0 nếu đổi từ DONE hoặc HỦY BỎ sang status khác
-                                          actualReceived: response.data.actual_received_cny !== undefined 
-                                            ? response.data.actual_received_cny 
-                                            : (newStatus !== 'HỦY BỎ' && newStatus !== 'DONE' ? 0 : item.actualReceived),
-                                          compensation: newStatus === 'ĐỀN' 
-                                            ? (response.data.compensation_cny !== undefined ? response.data.compensation_cny : item.compensation)
-                                            : 0, // Luôn set về 0 khi status không phải "ĐỀN"
-                                        };
-                                      }
-                                      return item;
-                                    })
-                                  );
-
-                                  // Wallet đã được cập nhật (cả khi DONE và khi đổi từ DONE sang khác)
-                                  // Reload lại danh sách wallet và đơn hàng để hiển thị số tiền mới và cập nhật tab
-                                  console.log('💰 Status đã thay đổi, reload lại danh sách wallet và đơn hàng...');
-                                  setTimeout(() => {
-                                    fetchWalletList();
-                                    fetchDonHangList(); // Reload danh sách đơn hàng để cập nhật tab
-                                  }, 500); // Delay 500ms để đảm bảo backend đã cập nhật xong
-
-                                  // Thông báo cho các trang khác (ví dụ trang cá nhân) cập nhật ngay
-                                  // Dispatch sau một chút để đảm bảo backend đã cập nhật xong
-                                  setTimeout(() => {
-                                    console.log('📢 AdminPage - Dispatch event bet-receipt-status-changed cho status:', newStatus);
-                                    window.dispatchEvent(
-                                      new CustomEvent('bet-receipt-status-changed', {
-                                        detail: { id: betId, status: newStatus },
-                                      })
-                                    );
-                                  }, 600);
-                                } else {
-                                  console.error('❌ Lỗi cập nhật status:', response.error);
-                                  alert('Lỗi: ' + (response.error || 'Không thể cập nhật status'));
-                                  // Revert lại status cũ
-                                  setBetList(prevList => 
-                                    prevList.map(item => 
-                                      item.id === betId ? { ...item, status: bet.status } : item
-                                    )
-                                  );
-                                }
-                              } catch (error) {
-                                console.error('❌ Lỗi khi gọi API cập nhật status:', error);
-                                alert('Có lỗi xảy ra khi cập nhật status');
-                                // Revert lại status cũ
-                                setBetList(prevList => 
-                                  prevList.map(item => 
-                                    item.id === betId ? { ...item, status: bet.status } : item
-                                  )
-                                );
-                              }
-                            }}
-                          >
-                            <option value="Đơn hàng mới">Đơn hàng mới</option>
-                            <option value="ĐANG THỰC HIỆN">ĐANG THỰC HIỆN</option>
-                            <option value="DONE">DONE</option>
-                            <option value="CHỜ CHẤP NHẬN">CHỜ CHẤP NHẬN</option>
-                            <option value="HỦY BỎ">HỦY BỎ</option>
-                            <option value="ĐỀN">ĐỀN</option>
-                            <option value="ĐANG QUÉT MÃ">ĐANG QUÉT MÃ</option>
-                            <option value="CHỜ TRỌNG TÀI">CHỜ TRỌNG TÀI</option>
-                          </select>
-                        </td>
-                        <td>{bet.actualReceived || ''}</td>
-                        <td>{bet.status === 'ĐỀN' ? (bet.compensation || '') : ''}</td>
-                        <td>{((bet.status === 'DONE' || bet.status === 'HỦY BỎ' || bet.status === 'ĐỀN') && bet.actualAmount) ? bet.actualAmount.toString() : ''}</td>
-                        <td>
-                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                            <button
-                              onClick={() => handleEditBet(bet)}
-                              style={{
-                                padding: '6px 12px',
-                                background: '#667eea',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontSize: '12px',
-                                fontWeight: '500',
-                                transition: 'background 0.2s ease'
-                              }}
-                              onMouseEnter={(e) => e.target.style.background = '#5568d3'}
-                              onMouseLeave={(e) => e.target.style.background = '#667eea'}
-                            >
-                              ✏️ Chỉnh sửa
-                            </button>
-                            <button
-                              onClick={() => handleDeleteBet(bet.id)}
-                              style={{
-                                padding: '6px 12px',
-                                background: '#f44336',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontSize: '12px',
-                                fontWeight: '500',
-                                transition: 'background 0.2s ease'
-                              }}
-                              onMouseEnter={(e) => e.target.style.background = '#d32f2f'}
-                              onMouseLeave={(e) => e.target.style.background = '#f44336'}
-                            >
-                              🗑️ Xóa
-                            </button>
-                          </div>
-                        </td>
-                        <td>{bet.account || '-'}</td>
-                        <td>{bet.password || '-'}</td>
-                        <td>{bet.region || '-'}</td>
-                        <td>{bet.completedAt ? new Date(bet.completedAt).toLocaleString('vi-VN', {
-                          year: 'numeric',
-                          month: '2-digit',
-                          day: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        }) : '-'}</td>
-                        <td>{bet.completedHours || ''}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
+        // Chỉ render bảng khi ở tab "Trang thông tin"
+        if (activeTopTab === 'trang-thong-tin') {
+          return renderBetTable(filteredBetList, true);
+        }
+        return null;
       case 'rut-tien':
         return (
           <div className="admin-tab-content">
@@ -3773,6 +3815,12 @@ const AdminPage = () => {
               onClick={() => setActiveTopTab('lich-su-chinh-sua')}
             >
               Lịch sử chỉnh sửa
+            </button>
+            <button
+              className={`rut-tien-sub-tab ${activeTopTab === 'don-hang-da-xu-li' ? 'active' : ''}`}
+              onClick={() => setActiveTopTab('don-hang-da-xu-li')}
+            >
+              Đơn hàng đã xử lí
             </button>
           </div>
         </div>
