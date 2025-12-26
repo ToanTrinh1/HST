@@ -392,3 +392,196 @@ func (h *BetReceiptHandler) DeleteBetReceipt(c *gin.Context) {
 		"message": "Đã xóa đơn hàng thành công",
 	})
 }
+
+// UpdateExchangeRateForProcessedOrders cập nhật tỷ giá cho tất cả đơn hàng đã xử lí (DONE, HỦY BỎ, ĐỀN)
+func (h *BetReceiptHandler) UpdateExchangeRateForProcessedOrders(c *gin.Context) {
+	log.Println("=== BẮT ĐẦU CẬP NHẬT TỶ GIÁ CHO ĐƠN HÀNG ĐÃ XỬ LÍ ===")
+
+	// Kiểm tra quyền admin
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Yêu cầu xác thực",
+		})
+		return
+	}
+
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	if tokenString == authHeader {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Định dạng token không hợp lệ",
+		})
+		return
+	}
+
+	claims, err := utils.ValidateJWT(tokenString, h.jwtSecret)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Token không hợp lệ hoặc đã hết hạn",
+		})
+		return
+	}
+
+	// TODO: Kiểm tra role là admin
+	log.Printf("🔍 Người thực hiện - User ID: %s", claims.UserID)
+
+	// Parse request body
+	var req struct {
+		ExchangeRate float64 `json:"exchange_rate" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("❌ VALIDATION LỖI: Dữ liệu không hợp lệ - %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Dữ liệu không hợp lệ: " + err.Error(),
+		})
+		return
+	}
+
+	// Validation: Tỷ giá phải > 0
+	if req.ExchangeRate <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Tỷ giá phải lớn hơn 0",
+		})
+		return
+	}
+
+	log.Printf("📝 Tỷ giá mới: %.2f", req.ExchangeRate)
+
+	// Gọi service để cập nhật tỷ giá
+	if err := h.betReceiptService.UpdateExchangeRateForProcessedOrders(req.ExchangeRate); err != nil {
+		log.Printf("❌ CẬP NHẬT TỶ GIÁ THẤT BẠI: %s", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Lỗi khi cập nhật tỷ giá: " + err.Error(),
+		})
+		return
+	}
+
+	log.Printf("✅ CẬP NHẬT TỶ GIÁ THÀNH CÔNG")
+	log.Println("=== KẾT THÚC CẬP NHẬT TỶ GIÁ ===\n")
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Đã cập nhật tỷ giá thành công. Tỷ giá mới sẽ được áp dụng cho các đơn hàng mới được tạo từ bây giờ.",
+	})
+}
+
+// GetCurrentExchangeRate lấy tỷ giá hiện tại
+func (h *BetReceiptHandler) GetCurrentExchangeRate(c *gin.Context) {
+	log.Println("=== BẮT ĐẦU LẤY TỶ GIÁ HIỆN TẠI ===")
+
+	// Kiểm tra quyền admin
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Yêu cầu xác thực",
+		})
+		return
+	}
+
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	if tokenString == authHeader {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Định dạng token không hợp lệ",
+		})
+		return
+	}
+
+	claims, err := utils.ValidateJWT(tokenString, h.jwtSecret)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Token không hợp lệ hoặc đã hết hạn",
+		})
+		return
+	}
+
+	log.Printf("🔍 Người yêu cầu - User ID: %s", claims.UserID)
+
+	// Gọi service để lấy tỷ giá hiện tại
+	exchangeRate, err := h.betReceiptService.GetCurrentExchangeRate()
+	if err != nil {
+		log.Printf("❌ LẤY TỶ GIÁ THẤT BẠI: %s", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Lỗi khi lấy tỷ giá hiện tại: " + err.Error(),
+		})
+		return
+	}
+
+	log.Printf("✅ LẤY TỶ GIÁ THÀNH CÔNG: %.2f", exchangeRate)
+	log.Println("=== KẾT THÚC LẤY TỶ GIÁ ===\n")
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":      true,
+		"exchange_rate": exchangeRate,
+	})
+}
+
+// RecalculateActualAmountCNY tính lại "Công thực nhận" (ActualAmountCNY) cho một đơn hàng đã xử lý
+func (h *BetReceiptHandler) RecalculateActualAmountCNY(c *gin.Context) {
+	id := c.Param("id")
+	log.Printf("=== BẮT ĐẦU TÍNH LẠI TỆ CHO ĐƠN HÀNG ID: %s ===", id)
+
+	// Kiểm tra quyền admin (từ JWT token)
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Yêu cầu xác thực",
+		})
+		return
+	}
+
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	if tokenString == authHeader {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Định dạng token không hợp lệ",
+		})
+		return
+	}
+
+	claims, err := utils.ValidateJWT(tokenString, h.jwtSecret)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Token không hợp lệ hoặc đã hết hạn",
+		})
+		return
+	}
+
+	log.Printf("🔍 Người tính lại tệ - User ID: %s", claims.UserID)
+
+	// Gọi service để tính lại tệ
+	betReceipt, err := h.betReceiptService.RecalculateActualAmountCNY(id)
+	if err != nil {
+		errorMsg := err.Error()
+		log.Printf("❌ TÍNH LẠI TỆ THẤT BẠI: %s", errorMsg)
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   errorMsg,
+		})
+		return
+	}
+
+	log.Printf("✅ TÍNH LẠI TỆ THÀNH CÔNG - ID: %s, Công thực nhận: %.2f",
+		betReceipt.ID, betReceipt.ActualAmountCNY)
+	log.Println("=== KẾT THÚC TÍNH LẠI TỆ ===\n")
+
+	// Trả response thành công
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    betReceipt,
+		"message": "Đã tính lại tệ thành công",
+	})
+}

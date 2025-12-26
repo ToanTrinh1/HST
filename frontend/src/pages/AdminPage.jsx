@@ -57,6 +57,13 @@ const AdminPage = () => {
   
   // Modal chỉnh sửa đơn hàng
   const [showEditModal, setShowEditModal] = useState(false);
+  
+  // Modal cập nhật tỷ giá
+  const [showExchangeRateModal, setShowExchangeRateModal] = useState(false);
+  const [exchangeRateInput, setExchangeRateInput] = useState('');
+  const [currentExchangeRate, setCurrentExchangeRate] = useState(null);
+  const [isLoadingCurrentRate, setIsLoadingCurrentRate] = useState(false);
+  const [isUpdatingExchangeRate, setIsUpdatingExchangeRate] = useState(false);
   const [editingBetId, setEditingBetId] = useState(null);
   const [isUpdating, setIsUpdating] = useState(false);
   
@@ -248,8 +255,15 @@ const AdminPage = () => {
   // Danh sách các status đã xử lí (sẽ không hiển thị ở tab Tổng hợp)
   const processedStatuses = ['DONE', 'HỦY BỎ', 'ĐỀN'];
 
-  // Danh sách đơn hàng đã xử lí (DONE, HỦY BỎ, ĐỀN)
-  const processedBetList = betList.filter(bet => processedStatuses.includes(bet.status));
+  // Danh sách đơn hàng đã xử lí (DONE, HỦY BỎ, ĐỀN) - sắp xếp theo thời gian hoàn thành tăng dần (cũ nhất lên đầu)
+  const processedBetList = betList
+    .filter(bet => processedStatuses.includes(bet.status))
+    .sort((a, b) => {
+      // Sắp xếp theo completedAt tăng dần (cũ nhất lên đầu)
+      const dateA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+      const dateB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+      return dateA - dateB; // Tăng dần
+    });
 
   // Filter betList theo status và các filters
   // Tab "Tổng hợp" sẽ loại bỏ các đơn hàng đã xử lí (DONE, HỦY BỎ, ĐỀN)
@@ -929,21 +943,20 @@ const AdminPage = () => {
           })
         );
 
-        // Reload lại danh sách wallet và đơn hàng
-        console.log('💰 Status đã thay đổi, reload lại danh sách wallet và đơn hàng...');
+        // Chỉ reload wallet vì status này ảnh hưởng đến wallet
+        // Không fetch lại donHangList vì đã cập nhật state local rồi
+        console.log('💰 Status đã thay đổi, reload lại danh sách wallet...');
         setTimeout(() => {
           fetchWalletList();
-          fetchDonHangList();
-        }, 500);
+        }, 300);
 
         // Dispatch event để ProfilePage cập nhật danh sách nhiệm vụ đã hoàn thành
-        // Dispatch sau một chút để đảm bảo backend đã cập nhật xong
         setTimeout(() => {
           console.log('📢 AdminPage - Dispatch event bet-receipt-status-changed cho ĐỀN');
           window.dispatchEvent(new CustomEvent('bet-receipt-status-changed', {
             detail: { id: betId, status: 'ĐỀN' }
           }));
-        }, 600);
+        }, 400);
 
         // Đóng modal
         setShowCompensationModal(false);
@@ -1027,21 +1040,20 @@ const AdminPage = () => {
           })
         );
 
-        // Reload lại danh sách wallet và đơn hàng
-        console.log('💰 Status đã thay đổi, reload lại danh sách wallet và đơn hàng...');
+        // Chỉ reload wallet vì status này ảnh hưởng đến wallet
+        // Không fetch lại donHangList vì đã cập nhật state local rồi
+        console.log('💰 Status đã thay đổi, reload lại danh sách wallet...');
         setTimeout(() => {
           fetchWalletList();
-          fetchDonHangList();
-        }, 500);
+        }, 300);
 
         // Dispatch event để ProfilePage cập nhật danh sách nhiệm vụ đã hoàn thành
-        // Dispatch sau một chút để đảm bảo backend đã cập nhật xong
         setTimeout(() => {
           console.log('📢 AdminPage - Dispatch event bet-receipt-status-changed cho HỦY BỎ');
           window.dispatchEvent(new CustomEvent('bet-receipt-status-changed', {
             detail: { id: betId, status: 'HỦY BỎ' }
           }));
-        }, 600);
+        }, 400);
 
         // Đóng modal
         setShowCancelModal(false);
@@ -1223,16 +1235,97 @@ const AdminPage = () => {
     }
   };
 
+  // Handler tính lại tệ cho một đơn hàng đã xử lý
+  const handleRecalculateAmount = async (betId) => {
+    if (!window.confirm('Bạn có chắc chắn muốn tính lại tệ cho đơn hàng này?\n\nHành động này sẽ:\n- Tính lại Công thực nhận (ActualAmountCNY) dựa trên status hiện tại\n- Cập nhật wallet cho user')) {
+      return;
+    }
+
+    try {
+      const response = await donHangAPI.tinhLaiTe(betId);
+
+      if (response.success && response.data) {
+        alert('Tính lại tệ thành công!');
+        
+        // Cập nhật lại đơn hàng trong danh sách
+        setBetList(prevList => 
+          prevList.map(item => {
+            if (item.id === betId) {
+              return {
+                ...item,
+                actualAmount: response.data.actual_amount_cny || 0,
+                actualReceived: response.data.actual_received_cny !== undefined 
+                  ? response.data.actual_received_cny 
+                  : item.actualReceived,
+              };
+            }
+            return item;
+          })
+        );
+
+        // Reload wallet để cập nhật số dư
+        setTimeout(() => {
+          fetchWalletList();
+        }, 300);
+      } else {
+        alert('Lỗi: ' + (response.error || 'Không thể tính lại tệ'));
+      }
+    } catch (error) {
+      console.error('Lỗi khi tính lại tệ:', error);
+      alert('Có lỗi xảy ra khi tính lại tệ');
+    }
+  };
+
+  // Handler cập nhật tỷ giá (chỉ áp dụng cho đơn hàng mới)
+  const handleUpdateExchangeRate = async (e) => {
+    e.preventDefault();
+    
+    const rateValue = parseFloat(exchangeRateInput);
+    if (isNaN(rateValue) || rateValue <= 0) {
+      alert('Vui lòng nhập tỷ giá hợp lệ (số lớn hơn 0)');
+      return;
+    }
+
+    if (!window.confirm(`Bạn có chắc chắn muốn cập nhật tỷ giá thành ${rateValue}?\n\nLưu ý:\n- Tỷ giá mới chỉ áp dụng cho các đơn hàng MỚI được tạo sau khi cập nhật\n- Các đơn hàng đã xử lí (DONE, HỦY BỎ, ĐỀN) sẽ giữ nguyên tỷ giá cũ\n- Khi đơn hàng mới chuyển sang DONE/HỦY BỎ/ĐỀN, tỷ giá sẽ được lưu vào đơn hàng đó`)) {
+      return;
+    }
+
+    setIsUpdatingExchangeRate(true);
+    try {
+      const response = await donHangAPI.capNhatTyGiaChoDonHangDaXuLi(rateValue);
+
+      if (response.success) {
+        alert('Cập nhật tỷ giá thành công!\n\nĐã cập nhật tỷ giá cho tất cả đơn hàng đã xử lí (DONE, HỦY BỎ, ĐỀN) và tính lại wallet cho tất cả users.');
+        setShowExchangeRateModal(false);
+        setExchangeRateInput('');
+        setCurrentExchangeRate(null);
+        // Reload danh sách đơn hàng và wallet để hiển thị kết quả
+        fetchDonHangList();
+        fetchWalletList();
+      } else {
+        alert('Lỗi: ' + (response.error || 'Không thể cập nhật tỷ giá'));
+      }
+    } catch (error) {
+      console.error('Lỗi khi cập nhật tỷ giá:', error);
+      alert('Có lỗi xảy ra khi cập nhật tỷ giá');
+    } finally {
+      setIsUpdatingExchangeRate(false);
+    }
+  };
+
   // Đóng modal khi click bên ngoài
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape' && showCreateModal) {
         setShowCreateModal(false);
       }
+      if (e.key === 'Escape' && showExchangeRateModal) {
+        setShowExchangeRateModal(false);
+      }
     };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [showCreateModal]);
+  }, [showCreateModal, showExchangeRateModal]);
 
   // Helper function để render bảng đơn hàng (tái sử dụng cho cả "Trang thông tin" và "Đơn hàng đã xử lí")
   const renderBetTable = (betListToRender, showSubTabs = true, allowStatusChange = true) => {
@@ -1270,6 +1363,43 @@ const AdminPage = () => {
               >
                 ➕ Tạo đơn hàng
               </button>
+              {activeDonHangTab === 'tong-hop' && (
+                <button 
+                  className="btn-update-exchange-rate"
+                  onClick={async () => {
+                    setShowExchangeRateModal(true);
+                    setExchangeRateInput('');
+                    setIsLoadingCurrentRate(true);
+                    try {
+                      const response = await donHangAPI.layTyGiaHienTai();
+                      if (response.success && response.exchange_rate) {
+                        setCurrentExchangeRate(response.exchange_rate);
+                      } else {
+                        setCurrentExchangeRate(null);
+                      }
+                    } catch (error) {
+                      console.error('Lỗi khi lấy tỷ giá hiện tại:', error);
+                      setCurrentExchangeRate(null);
+                    } finally {
+                      setIsLoadingCurrentRate(false);
+                    }
+                  }}
+                  style={{
+                    padding: '10px 20px',
+                    background: '#f59e0b',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'background 0.3s ease',
+                    marginLeft: '10px'
+                  }}
+                >
+                  💱 Cập nhật tỷ giá
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -1686,10 +1816,14 @@ const AdminPage = () => {
                                 })
                               );
 
-                              setTimeout(() => {
-                                fetchWalletList();
-                                fetchDonHangList();
-                              }, 500);
+                              // Chỉ fetch wallet khi status ảnh hưởng đến wallet (DONE, HỦY BỎ, ĐỀN)
+                              // Không fetch lại donHangList vì đã update state local rồi
+                              const statusAffectsWallet = ['DONE', 'HỦY BỎ', 'ĐỀN'].includes(newStatus);
+                              if (statusAffectsWallet) {
+                                setTimeout(() => {
+                                  fetchWalletList();
+                                }, 300);
+                              }
 
                               setTimeout(() => {
                                 console.log('📢 AdminPage - Dispatch event bet-receipt-status-changed cho status:', newStatus);
@@ -1698,7 +1832,7 @@ const AdminPage = () => {
                                     detail: { id: betId, status: newStatus },
                                   })
                                 );
-                              }, 600);
+                              }, 400);
                             } else {
                               console.error('❌ Lỗi cập nhật status:', response.error);
                               alert('Lỗi: ' + (response.error || 'Không thể cập nhật status'));
@@ -1746,7 +1880,7 @@ const AdminPage = () => {
                     <td>{bet.status === 'ĐỀN' ? (bet.compensation || '') : ''}</td>
                     <td>{((bet.status === 'DONE' || bet.status === 'HỦY BỎ' || bet.status === 'ĐỀN') && bet.actualAmount) ? bet.actualAmount.toString() : ''}</td>
                     <td>
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
                         <button
                           onClick={() => handleEditBet(bet)}
                           style={{
@@ -1765,6 +1899,27 @@ const AdminPage = () => {
                         >
                           ✏️ Chỉnh sửa
                         </button>
+                        {(bet.status === 'DONE' || bet.status === 'HỦY BỎ' || bet.status === 'ĐỀN') && (
+                          <button
+                            onClick={() => handleRecalculateAmount(bet.id)}
+                            style={{
+                              padding: '6px 12px',
+                              background: '#4caf50',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: '500',
+                              transition: 'background 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => e.target.style.background = '#45a049'}
+                            onMouseLeave={(e) => e.target.style.background = '#4caf50'}
+                            title="Tính lại tệ cho đơn hàng đã xử lý"
+                          >
+                            💰 Tính tệ
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDeleteBet(bet.id)}
                           style={{
@@ -3795,6 +3950,92 @@ const AdminPage = () => {
               >
                 Đóng
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal cập nhật tỷ giá */}
+      {showExchangeRateModal && (
+        <div
+          className="reason-modal-overlay"
+          onClick={() => setShowExchangeRateModal(false)}
+        >
+          <div
+            className="reason-modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '500px' }}
+          >
+            <div className="reason-modal-header">
+              <h3>Cập nhật tỷ giá</h3>
+              <button
+                className="reason-modal-close"
+                onClick={() => setShowExchangeRateModal(false)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <div className="reason-modal-body">
+              <p style={{ marginBottom: '16px', color: '#666' }}>
+                Nhập tỷ giá mới (VND/CNY). Tỷ giá này sẽ được áp dụng cho các đơn hàng MỚI được tạo sau khi cập nhật.
+              </p>
+              <p style={{ marginBottom: '16px', color: '#f59e0b', fontSize: '14px', fontWeight: '500' }}>
+                ⚠️ Lưu ý: Các đơn hàng đã xử lí (DONE, HỦY BỎ, ĐỀN) sẽ giữ nguyên tỷ giá cũ. Khi đơn hàng mới chuyển sang DONE/HỦY BỎ/ĐỀN, tỷ giá hiện tại sẽ được lưu vào đơn hàng đó.
+              </p>
+              <form onSubmit={handleUpdateExchangeRate}>
+                <div className="form-group" style={{ marginBottom: '20px' }}>
+                  <label htmlFor="exchange_rate" style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
+                    Tỷ giá mới (VND/CNY) <span className="required">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    id="exchange_rate"
+                    value={exchangeRateInput}
+                    onChange={(e) => setExchangeRateInput(e.target.value)}
+                    placeholder="Ví dụ: 3800"
+                    min="0"
+                    step="0.01"
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      fontSize: '16px',
+                      border: '1px solid #ddd',
+                      borderRadius: '8px',
+                      boxSizing: 'border-box'
+                    }}
+                    autoFocus
+                  />
+                  {isLoadingCurrentRate ? (
+                    <p style={{ marginTop: '8px', fontSize: '13px', color: '#666', fontStyle: 'italic' }}>
+                      Đang tải tỷ giá hiện tại...
+                    </p>
+                  ) : currentExchangeRate !== null ? (
+                    <p style={{ marginTop: '8px', fontSize: '13px', color: '#666' }}>
+                      Tỷ giá trước khi thay đổi là: <strong style={{ color: '#f59e0b', fontSize: '14px' }}>{currentExchangeRate.toLocaleString('vi-VN')}</strong>
+                    </p>
+                  ) : null}
+                </div>
+                <div className="reason-modal-footer">
+                  <button
+                    type="button"
+                    className="reason-modal-button"
+                    onClick={() => setShowExchangeRateModal(false)}
+                    style={{ marginRight: '10px', background: '#6b7280' }}
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    className="reason-modal-button"
+                    disabled={isUpdatingExchangeRate}
+                    style={{ background: '#f59e0b' }}
+                  >
+                    {isUpdatingExchangeRate ? 'Đang cập nhật...' : 'Xác nhận'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

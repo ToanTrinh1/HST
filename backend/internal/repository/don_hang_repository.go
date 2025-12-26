@@ -73,7 +73,7 @@ func (r *BetReceiptRepository) GetAll(limit, offset int, userID *string) ([]*mod
             ttnk.ma_nhiem_vu, ttnk.loai_keo, ttnk.tien_keo_web_te,
             ttnk.ma_don_hang, ttnk.ghi_chu, ttnk.tien_do_hoan_thanh, 
             ttnk.tien_keo_web_thuc_nhan_te, ttnk.tien_den_te, ttnk.cong_thuc_nhan_te,
-            ttnk.ly_do_huy, ttnk.tai_khoan, ttnk.mat_khau, ttnk.khu_vuc,
+            ttnk.exchange_rate, ttnk.ly_do_huy, ttnk.tai_khoan, ttnk.mat_khau, ttnk.khu_vuc,
             ttnk.thoi_gian_nhan_keo, ttnk.thoi_gian_hoan_thanh,
             ttnk.thoi_gian_con_lai_gio, ttnk.thoi_gian_cap_nhat
         FROM thong_tin_nhan_keo ttnk
@@ -127,6 +127,7 @@ func (r *BetReceiptRepository) GetAll(limit, offset int, userID *string) ([]*mod
 		var password sql.NullString
 		var region sql.NullString
 
+		var exchangeRate sql.NullFloat64
 		err := rows.Scan(
 			&betReceipt.ID,
 			&betReceipt.STT,
@@ -141,6 +142,7 @@ func (r *BetReceiptRepository) GetAll(limit, offset int, userID *string) ([]*mod
 			&betReceipt.ActualReceivedCNY,
 			&betReceipt.CompensationCNY,
 			&betReceipt.ActualAmountCNY,
+			&exchangeRate,
 			&cancelReason,
 			&account,
 			&password,
@@ -161,6 +163,12 @@ func (r *BetReceiptRepository) GetAll(limit, offset int, userID *string) ([]*mod
 			// Nếu không tìm thấy tên trong DB (JOIN không match), hiển thị thông báo
 			betReceipt.UserName = "không có trong db"
 			log.Printf("Repository - ⚠️ BetReceipt ID: %s, UserID: %s, UserName: NULL (không tìm thấy trong DB)", betReceipt.ID, betReceipt.UserID)
+		}
+
+		if exchangeRate.Valid {
+			betReceipt.ExchangeRate = exchangeRate.Float64
+		} else {
+			betReceipt.ExchangeRate = 3550.0 // Giá trị mặc định
 		}
 
 		if cancelReason.Valid {
@@ -246,7 +254,7 @@ func (r *BetReceiptRepository) FindByID(id string) (*models.BetReceipt, error) {
         SELECT 
             id, stt, id_nguoi_dung, ma_nhiem_vu, loai_keo, tien_keo_web_te,
             ma_don_hang, ghi_chu, tien_do_hoan_thanh, tien_keo_web_thuc_nhan_te,
-            tien_den_te, cong_thuc_nhan_te, ly_do_huy, tai_khoan, mat_khau, khu_vuc,
+            tien_den_te, cong_thuc_nhan_te, exchange_rate, ly_do_huy, tai_khoan, mat_khau, khu_vuc,
             thoi_gian_nhan_keo, thoi_gian_hoan_thanh,
             thoi_gian_con_lai_gio, thoi_gian_cap_nhat
         FROM thong_tin_nhan_keo 
@@ -256,6 +264,7 @@ func (r *BetReceiptRepository) FindByID(id string) (*models.BetReceipt, error) {
 	var account sql.NullString
 	var password sql.NullString
 	var region sql.NullString
+	var exchangeRate sql.NullFloat64
 	err := r.db.QueryRow(query, id).Scan(
 		&betReceipt.ID,
 		&betReceipt.STT,
@@ -269,6 +278,7 @@ func (r *BetReceiptRepository) FindByID(id string) (*models.BetReceipt, error) {
 		&betReceipt.ActualReceivedCNY,
 		&betReceipt.CompensationCNY,
 		&betReceipt.ActualAmountCNY,
+		&exchangeRate,
 		&cancelReason,
 		&account,
 		&password,
@@ -280,6 +290,12 @@ func (r *BetReceiptRepository) FindByID(id string) (*models.BetReceipt, error) {
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	if exchangeRate.Valid {
+		betReceipt.ExchangeRate = exchangeRate.Float64
+	} else {
+		betReceipt.ExchangeRate = 3550.0 // Giá trị mặc định
 	}
 
 	if cancelReason.Valid {
@@ -356,15 +372,16 @@ func (r *BetReceiptRepository) UpdateStatus(betReceipt *models.BetReceipt) error
 		UPDATE thong_tin_nhan_keo
 		SET 
 			tien_do_hoan_thanh = $1,
-			cong_thuc_nhan_te = $2,
-			tien_keo_web_thuc_nhan_te = $3,
-			tien_den_te = $4,
-			tien_keo_web_te = $5,
-			thoi_gian_hoan_thanh = $6,
-			thoi_gian_con_lai_gio = $7,
-			ly_do_huy = $8,
+			exchange_rate = COALESCE($2, exchange_rate),
+			cong_thuc_nhan_te = $3,
+			tien_keo_web_thuc_nhan_te = $4,
+			tien_den_te = $5,
+			tien_keo_web_te = $6,
+			thoi_gian_hoan_thanh = $7,
+			thoi_gian_con_lai_gio = $8,
+			ly_do_huy = $9,
 			thoi_gian_cap_nhat = NOW()
-		WHERE id = $9
+		WHERE id = $10
 	`
 
 	var cancelReason interface{}
@@ -374,9 +391,17 @@ func (r *BetReceiptRepository) UpdateStatus(betReceipt *models.BetReceipt) error
 		cancelReason = nil
 	}
 
+	var exchangeRate interface{}
+	if betReceipt.ExchangeRate > 0 {
+		exchangeRate = betReceipt.ExchangeRate
+	} else {
+		exchangeRate = nil
+	}
+
 	_, err := r.db.Exec(
 		query,
 		betReceipt.Status,
+		exchangeRate,                 // exchange_rate
 		betReceipt.ActualAmountCNY,   // cong_thuc_nhan_te
 		betReceipt.ActualReceivedCNY, // tien_keo_web_thuc_nhan_te
 		betReceipt.CompensationCNY,   // tien_den_te

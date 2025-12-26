@@ -224,6 +224,123 @@ export const donHangAPI = {
       };
     }
   },
+
+  // Lấy tỷ giá hiện tại
+  layTyGiaHienTai: async () => {
+    try {
+      console.log('donHangAPI - 📡 Gửi GET request đến /bet-receipts/current-exchange-rate');
+      
+      const response = await axiosInstance.get('/bet-receipts/current-exchange-rate');
+      console.log('donHangAPI - ✅ Backend response:', response.data);
+      
+      if (!response.data) {
+        console.error('donHangAPI - Response.data is null or undefined');
+        return {
+          success: false,
+          error: 'Không nhận được dữ liệu từ server',
+        };
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('donHangAPI - ❌ Get current exchange rate error:', error);
+      console.error('donHangAPI - Error response:', error.response?.data);
+      
+      let errorMsg = 'Lấy tỷ giá hiện tại thất bại';
+      
+      if (error.response) {
+        errorMsg = error.response.data?.error || error.response.data?.message || errorMsg;
+      } else if (error.request) {
+        errorMsg = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.';
+      } else {
+        errorMsg = error.message || errorMsg;
+      }
+      
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  },
+
+  // Cập nhật tỷ giá cho các đơn hàng đã xử lí (DONE, HỦY BỎ, ĐỀN)
+  capNhatTyGiaChoDonHangDaXuLi: async (exchangeRate) => {
+    try {
+      console.log('donHangAPI - 📡 Gửi POST request đến /bet-receipts/update-exchange-rate');
+      console.log('donHangAPI - Tỷ giá mới:', exchangeRate);
+      
+      const response = await axiosInstance.post('/bet-receipts/update-exchange-rate', {
+        exchange_rate: exchangeRate
+      });
+      console.log('donHangAPI - ✅ Backend response:', response.data);
+      
+      if (!response.data) {
+        console.error('donHangAPI - Response.data is null or undefined');
+        return {
+          success: false,
+          error: 'Không nhận được dữ liệu từ server',
+        };
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('donHangAPI - ❌ Update exchange rate error:', error);
+      console.error('donHangAPI - Error response:', error.response?.data);
+      
+      let errorMsg = 'Cập nhật tỷ giá thất bại';
+      
+      if (error.response) {
+        errorMsg = error.response.data?.error || error.response.data?.message || errorMsg;
+      } else if (error.request) {
+        errorMsg = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.';
+      } else {
+        errorMsg = error.message || errorMsg;
+      }
+      
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  },
+
+  // Tính lại tệ cho một đơn hàng đã xử lý
+  tinhLaiTe: async (donHangId) => {
+    try {
+      console.log('donHangAPI - 📡 Gửi POST request đến /bet-receipts/' + donHangId + '/recalculate-amount');
+      
+      const response = await axiosInstance.post(`/bet-receipts/${donHangId}/recalculate-amount`);
+      console.log('donHangAPI - ✅ Backend response:', response.data);
+      
+      if (!response.data) {
+        console.error('donHangAPI - Response.data is null or undefined');
+        return {
+          success: false,
+          error: 'Không nhận được dữ liệu từ server',
+        };
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('donHangAPI - ❌ Tính lại tệ error:', error);
+      console.error('donHangAPI - Error response:', error.response?.data);
+      
+      let errorMsg = 'Tính lại tệ thất bại';
+      
+      if (error.response) {
+        errorMsg = error.response.data?.error || error.response.data?.message || errorMsg;
+      } else if (error.request) {
+        errorMsg = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.';
+      } else {
+        errorMsg = error.message || errorMsg;
+      }
+      
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  },
 };
 
 export default donHangAPI;

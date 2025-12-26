@@ -22,6 +22,7 @@ type BetReceipt struct {
 	// Công thức tính: cong_thuc_nhan_te = f(tien_keo_web_thuc_nhan_te, tien_den_te, ...)
 	// Ví dụ có thể là: tien_keo_web_thuc_nhan_te - tien_den_te hoặc công thức phức tạp hơn
 	ActualAmountCNY float64 `json:"actual_amount_cny" db:"cong_thuc_nhan_te"` // Công thực nhận (tệ) - TÍNH TOÁN SAU
+	ExchangeRate    float64 `json:"exchange_rate" db:"exchange_rate"`         // Tỷ giá VND/CNY tại thời điểm đơn hàng được xử lí
 
 	Account  string `json:"account" db:"tai_khoan"` // Tài khoản
 	Password string `json:"password" db:"mat_khau"` // Mật khẩu

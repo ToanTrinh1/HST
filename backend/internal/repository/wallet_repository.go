@@ -221,24 +221,28 @@ func (r *WalletRepository) AddToTotalReceived(userID string, amountCNY float64, 
 
 // RecalculateTotalReceived tính lại tổng "Công thực nhận" từ tất cả bet receipts có status = "DONE", "HỦY BỎ", hoặc "ĐỀN"
 // TotalReceivedCNY = tổng ActualAmountCNY (cong_thuc_nhan_te) từ tất cả bet receipts có status = "DONE", "HỦY BỎ", hoặc "ĐỀN"
+// TotalReceivedVND = tổng (ActualAmountCNY * exchange_rate) - dùng tỷ giá riêng của từng đơn hàng
 // (ĐỀN có ActualAmountCNY âm nên sẽ tự động trừ đi khi tính tổng)
 // ActualReceivedCNY (tien_keo_web_thuc_nhan_te) và CompensationCNY (tien_den_te) chỉ dùng để hiển thị, không dùng để tính wallet
 func (r *WalletRepository) RecalculateTotalReceived(userID string, exchangeRate float64) error {
-	// Tính tổng ActualAmountCNY (cong_thuc_nhan_te) từ tất cả bet receipts có status = "DONE", "HỦY BỎ", hoặc "ĐỀN"
+	// Tính tổng ActualAmountCNY và TotalReceivedVND (dùng tỷ giá riêng của từng đơn hàng)
 	query := `
-		SELECT COALESCE(SUM(cong_thuc_nhan_te), 0) as total_actual_amount_cny
+		SELECT 
+			COALESCE(SUM(cong_thuc_nhan_te), 0) as total_actual_amount_cny,
+			COALESCE(SUM(cong_thuc_nhan_te * COALESCE(exchange_rate, $1)), 0) as total_actual_amount_vnd
 		FROM thong_tin_nhan_keo
-		WHERE id_nguoi_dung = $1 AND (tien_do_hoan_thanh = 'DONE' OR tien_do_hoan_thanh = 'HỦY BỎ' OR tien_do_hoan_thanh = 'ĐỀN')
+		WHERE id_nguoi_dung = $2 AND (tien_do_hoan_thanh = 'DONE' OR tien_do_hoan_thanh = 'HỦY BỎ' OR tien_do_hoan_thanh = 'ĐỀN')
 	`
 
 	var totalActualAmountCNY float64
-	err := r.db.QueryRow(query, userID).Scan(&totalActualAmountCNY)
+	var totalActualAmountVND float64
+	err := r.db.QueryRow(query, exchangeRate, userID).Scan(&totalActualAmountCNY, &totalActualAmountVND)
 	if err != nil {
 		return err
 	}
 
-	// Tính totalVND
-	totalVND := totalActualAmountCNY * exchangeRate
+	// Dùng totalActualAmountVND đã tính từ query (đã nhân với exchange_rate riêng của từng đơn hàng)
+	totalVND := totalActualAmountVND
 
 	// Kiểm tra wallet có tồn tại không
 	wallet, err := r.GetWalletByUserID(userID)
@@ -390,20 +394,21 @@ func (r *WalletRepository) RecalculateWallet(userID string, exchangeRate float64
 		return err
 	}
 
-	// 3. Tính tổng từ bet receipts (thong_tin_nhan_keo) - chỉ tính những cái có status = DONE
+	// 3. Tính tổng từ bet receipts (thong_tin_nhan_keo) - chỉ tính những cái có status = DONE, HỦY BỎ, ĐỀN
+	// Dùng tỷ giá riêng của từng đơn hàng
 	var totalReceivedCNY float64
+	var totalReceivedVND float64
 	betReceiptQuery := `
-		SELECT COALESCE(SUM(cong_thuc_nhan_te), 0)
+		SELECT 
+			COALESCE(SUM(cong_thuc_nhan_te), 0) as total_cny,
+			COALESCE(SUM(cong_thuc_nhan_te * COALESCE(exchange_rate, $1)), 0) as total_vnd
 		FROM thong_tin_nhan_keo
-		WHERE id_nguoi_dung = $1 AND tien_do_hoan_thanh = 'DONE'
+		WHERE id_nguoi_dung = $2 AND tien_do_hoan_thanh IN ('DONE', 'HỦY BỎ', 'ĐỀN')
 	`
-	err = r.db.QueryRow(betReceiptQuery, userID).Scan(&totalReceivedCNY)
+	err = r.db.QueryRow(betReceiptQuery, exchangeRate, userID).Scan(&totalReceivedCNY, &totalReceivedVND)
 	if err != nil {
 		return err
 	}
-
-	// 4. Tính totalReceivedVND từ CNY
-	totalReceivedVND := totalReceivedCNY * exchangeRate
 
 	// 5. Tính lại current balance
 	currentBalanceVND := totalReceivedVND + totalDepositVND - totalWithdrawnVND
@@ -439,7 +444,7 @@ func (r *WalletRepository) RecalculateWallet(userID string, exchangeRate float64
 			tong_da_rut_vnd = $4,
 			so_du_hien_tai_vnd = $5,
 			thoi_gian_cap_nhat = NOW()
-		WHERE id_nguoi_dung = $6
+		WHERE id_nguoi_dung = $6	
 	`
 
 	_, err = r.db.Exec(updateQuery, totalReceivedCNY, totalReceivedVND, totalDepositVND, totalWithdrawnVND, currentBalanceVND, userID)

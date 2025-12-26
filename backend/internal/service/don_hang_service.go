@@ -311,6 +311,109 @@ func calculateActualAmountCNY(betType string, giaKeo float64) float64 {
 	return tongThucNhan
 }
 
+// UpdateExchangeRateForProcessedOrders cập nhật tỷ giá cho tất cả đơn hàng đã xử lí (DONE, HỦY BỎ, ĐỀN)
+// Sau đó recalculate lại wallet cho tất cả users
+func (s *BetReceiptService) UpdateExchangeRateForProcessedOrders(newExchangeRate float64) error {
+	log.Printf("Service - 🔄 Bắt đầu cập nhật tỷ giá cho các đơn hàng đã xử lí, tỷ giá mới: %.2f", newExchangeRate)
+
+	// 1. Cập nhật tỷ giá hiện tại vào bảng current_exchange_rate
+	updateCurrentRateQuery := `
+		INSERT INTO current_exchange_rate (id, exchange_rate, updated_at)
+		VALUES (1, $1, CURRENT_TIMESTAMP)
+		ON CONFLICT (id) 
+		DO UPDATE SET 
+			exchange_rate = $1,
+			updated_at = CURRENT_TIMESTAMP
+	`
+
+	_, err := s.betReceiptRepo.GetDB().Exec(updateCurrentRateQuery, newExchangeRate)
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi cập nhật tỷ giá hiện tại: %v", err)
+		return err
+	}
+
+	log.Printf("Service - ✅ Đã cập nhật tỷ giá hiện tại thành %.2f", newExchangeRate)
+
+	// 2. Cập nhật tỷ giá cho tất cả đơn hàng có status DONE, HỦY BỎ, ĐỀN
+	updateOrdersQuery := `
+		UPDATE thong_tin_nhan_keo
+		SET exchange_rate = $1
+		WHERE tien_do_hoan_thanh IN ('DONE', 'HỦY BỎ', 'ĐỀN')
+	`
+
+	result, err := s.betReceiptRepo.GetDB().Exec(updateOrdersQuery, newExchangeRate)
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi cập nhật tỷ giá cho đơn hàng: %v", err)
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		log.Printf("Service - ⚠️ Không thể lấy số dòng bị ảnh hưởng: %v", err)
+	} else {
+		log.Printf("Service - ✅ Đã cập nhật tỷ giá cho %d đơn hàng", rowsAffected)
+	}
+
+	// 3. Lấy danh sách tất cả user IDs có đơn hàng đã xử lí
+	userIDsQuery := `
+		SELECT DISTINCT id_nguoi_dung
+		FROM thong_tin_nhan_keo
+		WHERE tien_do_hoan_thanh IN ('DONE', 'HỦY BỎ', 'ĐỀN')
+	`
+
+	rows, err := s.betReceiptRepo.GetDB().Query(userIDsQuery)
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi lấy danh sách user IDs: %v", err)
+		return err
+	}
+	defer rows.Close()
+
+	var userIDs []string
+	for rows.Next() {
+		var userID string
+		if err := rows.Scan(&userID); err != nil {
+			log.Printf("Service - ⚠️ Lỗi scan user ID: %v", err)
+			continue
+		}
+		userIDs = append(userIDs, userID)
+	}
+
+	log.Printf("Service - ✅ Tìm thấy %d users cần tính lại wallet", len(userIDs))
+
+	// 4. Recalculate wallet cho từng user (dùng tỷ giá riêng của từng đơn hàng)
+	for _, userID := range userIDs {
+		if err := s.walletRepo.RecalculateWallet(userID, newExchangeRate); err != nil {
+			log.Printf("Service - ⚠️ Lỗi tính lại wallet cho user %s: %v", userID, err)
+			// Tiếp tục với user khác dù có lỗi
+			continue
+		}
+		log.Printf("Service - ✅ Đã tính lại wallet cho user %s", userID)
+	}
+
+	log.Printf("Service - ✅ Hoàn thành cập nhật tỷ giá và tính lại wallet")
+	return nil
+}
+
+// GetCurrentExchangeRate lấy tỷ giá hiện tại từ bảng current_exchange_rate
+func (s *BetReceiptService) GetCurrentExchangeRate() (float64, error) {
+	query := `
+		SELECT exchange_rate
+		FROM current_exchange_rate
+		WHERE id = 1
+	`
+
+	var exchangeRate float64
+	err := s.betReceiptRepo.GetDB().QueryRow(query).Scan(&exchangeRate)
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi lấy tỷ giá hiện tại: %v", err)
+		// Nếu không tìm thấy, trả về giá trị mặc định
+		return 3550.0, nil
+	}
+
+	log.Printf("Service - ✅ Tỷ giá hiện tại: %.2f", exchangeRate)
+	return exchangeRate, nil
+}
+
 // UpdateBetReceiptStatus cập nhật status của đơn hàng
 // Khi status = "DONE", tự động tính "Công thực nhận" (ActualAmountCNY)
 func (s *BetReceiptService) UpdateBetReceiptStatus(id string, req *models.UpdateBetReceiptStatusRequest, performedBy *string) (*models.BetReceipt, error) {
@@ -327,7 +430,12 @@ func (s *BetReceiptService) UpdateBetReceiptStatus(id string, req *models.Update
 	oldBetReceiptData, _ := betReceiptToMap(betReceipt)
 
 	// 2. Xử lý "Công thực nhận" và cập nhật wallet
-	const exchangeRate = 3550.0 // Tỷ giá VND/CNY
+	// Lấy tỷ giá hiện tại từ bảng current_exchange_rate
+	exchangeRate, err := s.GetCurrentExchangeRate()
+	if err != nil {
+		log.Printf("Service - ⚠️ Không thể lấy tỷ giá hiện tại, dùng giá trị mặc định 3550.0: %v", err)
+		exchangeRate = 3550.0 // Tỷ giá VND/CNY mặc định
+	}
 
 	// Lưu status cũ để kiểm tra xem có cần tính lại wallet không
 	oldStatus := betReceipt.Status
@@ -338,8 +446,10 @@ func (s *BetReceiptService) UpdateBetReceiptStatus(id string, req *models.Update
 		betReceipt.ActualReceivedCNY = betReceipt.WebBetAmountCNY // ActualReceivedCNY = WebBetAmountCNY khi DONE
 		actualAmountCNY := calculateActualAmountCNY(betReceipt.BetType, betReceipt.WebBetAmountCNY)
 		betReceipt.ActualAmountCNY = actualAmountCNY
-		log.Printf("Service - ✅ Status = DONE, set ActualReceivedCNY = WebBetAmountCNY = %.2f, Công thực nhận: %.2f cho đơn hàng ID: %s",
-			betReceipt.WebBetAmountCNY, actualAmountCNY, id)
+		// Lưu tỷ giá hiện tại khi đơn hàng chuyển sang DONE
+		betReceipt.ExchangeRate = exchangeRate
+		log.Printf("Service - ✅ Status = DONE, set ActualReceivedCNY = WebBetAmountCNY = %.2f, Công thực nhận: %.2f, Tỷ giá: %.2f cho đơn hàng ID: %s",
+			betReceipt.WebBetAmountCNY, actualAmountCNY, betReceipt.ExchangeRate, id)
 	} else if req.Status == models.BetReceiptStatusCancelled {
 		// Status = "HỦY BỎ": Yêu cầu nhập ActualReceivedCNY
 		if req.ActualReceivedCNY == nil {
@@ -358,8 +468,10 @@ func (s *BetReceiptService) UpdateBetReceiptStatus(id string, req *models.Update
 		} else {
 			actualAmountCNY := calculateActualAmountCNY(betReceipt.BetType, actualReceivedCNY)
 			betReceipt.ActualAmountCNY = actualAmountCNY
-			log.Printf("Service - ✅ Status = HỦY BỎ, ActualReceivedCNY = %.2f, Công thực nhận: %.2f cho đơn hàng ID: %s",
-				actualReceivedCNY, actualAmountCNY, id)
+			// Lưu tỷ giá hiện tại khi đơn hàng chuyển sang HỦY BỎ
+			betReceipt.ExchangeRate = exchangeRate
+			log.Printf("Service - ✅ Status = HỦY BỎ, ActualReceivedCNY = %.2f, Công thực nhận: %.2f, Tỷ giá: %.2f cho đơn hàng ID: %s",
+				actualReceivedCNY, actualAmountCNY, betReceipt.ExchangeRate, id)
 		}
 	} else if req.Status == models.BetReceiptStatusCompensation {
 		// Status = "ĐỀN": Yêu cầu nhập CompensationCNY và CancelReason (lý do đền)
@@ -381,6 +493,8 @@ func (s *BetReceiptService) UpdateBetReceiptStatus(id string, req *models.Update
 		// KHÔNG thay đổi WebBetAmountCNY và ActualReceivedCNY (giữ nguyên giá trị)
 
 		// ActualAmountCNY = -CompensationCNY (nhập bao nhiêu trừ bấy nhiêu, không dùng công thức)
+		// Lưu tỷ giá hiện tại khi đơn hàng chuyển sang ĐỀN
+		betReceipt.ExchangeRate = exchangeRate
 		betReceipt.ActualAmountCNY = -compensationCNY // Giá trị ÂM để trừ tiền
 		log.Printf("Service - ✅ Status = ĐỀN, CompensationCNY = %.2f, ActualAmountCNY (âm): %.2f cho đơn hàng ID: %s",
 			compensationCNY, betReceipt.ActualAmountCNY, id)
@@ -522,4 +636,91 @@ func betReceiptToMap(betReceipt *models.BetReceipt) (map[string]interface{}, err
 func (s *BetReceiptService) createHistory(req *models.CreateHistoryRequest) error {
 	historyService := NewBetReceiptHistoryService(s.historyRepo)
 	return historyService.CreateHistory(req)
+}
+
+// RecalculateActualAmountCNY tính lại "Công thực nhận" (ActualAmountCNY) cho một đơn hàng đã xử lý
+// Chỉ áp dụng cho các đơn hàng có status = DONE, HỦY BỎ, hoặc ĐỀN
+func (s *BetReceiptService) RecalculateActualAmountCNY(id string) (*models.BetReceipt, error) {
+	log.Printf("Service - 🔄 Bắt đầu tính lại Công thực nhận cho đơn hàng ID: %s", id)
+
+	// 1. Lấy thông tin đơn hàng hiện tại
+	betReceipt, err := s.betReceiptRepo.FindByID(id)
+	if err != nil {
+		log.Printf("Service - ❌ Không tìm thấy đơn hàng với ID: %s", id)
+		return nil, errors.New("Không tìm thấy đơn hàng")
+	}
+
+	// 2. Kiểm tra status có phải là đơn hàng đã xử lý không
+	processedStatuses := []string{models.BetReceiptStatusDone, models.BetReceiptStatusCancelled, models.BetReceiptStatusCompensation}
+	isProcessed := false
+	for _, status := range processedStatuses {
+		if betReceipt.Status == status {
+			isProcessed = true
+			break
+		}
+	}
+
+	if !isProcessed {
+		log.Printf("Service - ❌ Đơn hàng ID: %s có status '%s' chưa được xử lý. Chỉ tính lại tệ cho đơn hàng có status DONE, HỦY BỎ, hoặc ĐỀN", id, betReceipt.Status)
+		return nil, errors.New("Chỉ có thể tính lại tệ cho đơn hàng đã xử lý (DONE, HỦY BỎ, hoặc ĐỀN)")
+	}
+
+	// 3. Tính lại ActualAmountCNY dựa trên status
+	var newActualAmountCNY float64
+	exchangeRate := 3550.0 // Tỷ giá mặc định
+
+	if betReceipt.Status == models.BetReceiptStatusDone {
+		// DONE: Tính dựa trên WebBetAmountCNY
+		newActualAmountCNY = calculateActualAmountCNY(betReceipt.BetType, betReceipt.WebBetAmountCNY)
+		betReceipt.ActualReceivedCNY = betReceipt.WebBetAmountCNY
+		log.Printf("Service - ✅ Status = DONE, tính lại ActualAmountCNY = %.2f (từ WebBetAmountCNY = %.2f)", newActualAmountCNY, betReceipt.WebBetAmountCNY)
+	} else if betReceipt.Status == models.BetReceiptStatusCancelled {
+		// HỦY BỎ: Tính dựa trên ActualReceivedCNY
+		if betReceipt.ActualReceivedCNY == 0 {
+			newActualAmountCNY = 0
+		} else {
+			newActualAmountCNY = calculateActualAmountCNY(betReceipt.BetType, betReceipt.ActualReceivedCNY)
+		}
+		log.Printf("Service - ✅ Status = HỦY BỎ, tính lại ActualAmountCNY = %.2f (từ ActualReceivedCNY = %.2f)", newActualAmountCNY, betReceipt.ActualReceivedCNY)
+	} else if betReceipt.Status == models.BetReceiptStatusCompensation {
+		// ĐỀN: ActualAmountCNY = -CompensationCNY
+		newActualAmountCNY = -betReceipt.CompensationCNY
+		log.Printf("Service - ✅ Status = ĐỀN, tính lại ActualAmountCNY = %.2f (âm của CompensationCNY = %.2f)", newActualAmountCNY, betReceipt.CompensationCNY)
+	}
+
+	// 4. Lưu tỷ giá nếu chưa có
+	if betReceipt.ExchangeRate == 0 {
+		betReceipt.ExchangeRate = exchangeRate
+	}
+
+	// 5. Lưu ActualAmountCNY cũ để tính lại wallet
+	oldActualAmountCNY := betReceipt.ActualAmountCNY
+	betReceipt.ActualAmountCNY = newActualAmountCNY
+
+	// 6. Cập nhật vào database (dùng UpdateStatus để cập nhật ActualAmountCNY)
+	err = s.betReceiptRepo.UpdateStatus(betReceipt)
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi cập nhật ActualAmountCNY: %v", err)
+		return nil, errors.New("Lỗi khi cập nhật Công thực nhận: " + err.Error())
+	}
+
+	// 7. Tính lại wallet cho user (vì ActualAmountCNY đã thay đổi)
+	// Tính lại từ đầu dựa trên tất cả đơn hàng
+	if oldActualAmountCNY != newActualAmountCNY {
+		log.Printf("Service - 🔄 ActualAmountCNY thay đổi: %.2f -> %.2f, tính lại wallet cho user %s", oldActualAmountCNY, newActualAmountCNY, betReceipt.UserID)
+
+		// Tính lại wallet từ đầu (recalculate từ tất cả đơn hàng)
+		// RecalculateWallet sẽ tự tạo wallet nếu chưa có
+		err = s.walletRepo.RecalculateWallet(betReceipt.UserID, betReceipt.ExchangeRate)
+		if err != nil {
+			log.Printf("Service - ❌ Lỗi tính lại wallet: %v", err)
+			return nil, errors.New("Lỗi khi tính lại wallet: " + err.Error())
+		}
+
+		log.Printf("Service - ✅ Đã tính lại wallet cho user %s", betReceipt.UserID)
+	}
+
+	log.Printf("Service - ✅ Tính lại Công thực nhận thành công - ID: %s, ActualAmountCNY: %.2f", id, newActualAmountCNY)
+
+	return betReceipt, nil
 }
