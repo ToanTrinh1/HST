@@ -106,17 +106,31 @@
   flex: 1;
   align-items: flex-start;
   justify-content: flex-start;
-  padding-top: 16px;
-  padding-bottom: 16px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.personal-box-center .personal-box-body {
+  flex: 1;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Hạ chiều cao tổng thể hai box bên, giữ box giữa cao hơn */
 .personal-box-left {
-  height: 330px;
+  height: 350px; /* Tăng từ 330px lên 380px */
 }
 
 .personal-box-center {
   height: 380px;
+  display: flex;
+  flex-direction: column;
 }
 
 .personal-box-right {
@@ -127,11 +141,13 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  font-size: 12px;
+  gap: 4px;
+  font-size: 12px; /* Tăng từ 12px lên 13px */
   color: #2d2f3a;
-  overflow-x: auto;
+  overflow-x: hidden; /* Không có thanh cuộn ngang */
   min-width: 0; /* Cho phép container co lại khi cần */
+  flex: 1;
+  height: 100%;
 }
 
 .task-list-compact::-webkit-scrollbar {
@@ -153,9 +169,10 @@
 }
 
 .task-list-body {
-  max-height: 150px; /* Chiều cao cho 5 hàng (mỗi hàng ~30px) */
+  max-height: 240px; /* Tăng để chứa nhiều hàng hơn */
   overflow-y: auto;
   overflow-x: hidden;
+  flex: 1;
 }
 
 .task-list-body::-webkit-scrollbar {
@@ -179,15 +196,37 @@
 .task-list-header,
 .task-list-row {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr 0.9fr 1fr 0.7fr 0.9fr 0.9fr 0.8fr 1.3fr;
-  gap: 6px;
+  grid-template-columns: 1fr 0.8fr 1fr 1fr 0.8fr; /* Cột Nhiệm vụ nhỏ lại (0.8fr), thêm cột Chi tiết */
+  gap: 6px; /* Giảm gap để các cột sát nhau hơn */
   align-items: center;
-  min-width: 800px; /* Đảm bảo bảng có chiều rộng tối thiểu để kích hoạt thanh cuộn ngang */
+  width: 100%; /* Chiếm toàn bộ chiều rộng container */
+}
+
+/* CSS riêng cho bảng "Các đơn hàng đang xử lí" (4 cột) */
+.task-list-pending .task-list-header,
+.task-list-pending .task-list-row {
+  grid-template-columns: 1.2fr 1fr 1.2fr 1.5fr; /* Các cột rộng hơn cho bảng 4 cột */
+}
+
+/* Màu sắc cho status trong bảng "Các đơn hàng đang xử lí" */
+.task-list-pending .status-waiting-referee {
+  color: #dc2626; /* Màu đỏ cho "CHỜ TRỌNG TÀI" */
+  font-weight: 600;
+}
+
+.task-list-pending .status-pending {
+  color: #a855f7; /* Màu tím nhạt cho "CHỜ CHẤP NHẬN" */
+  font-weight: 600;
 }
 
 .task-list-header span,
 .task-list-row span {
   text-align: center;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  padding: 0 4px;
+  box-sizing: border-box;
 }
 
 .task-list-header {
@@ -215,6 +254,8 @@
   color: #4c51bf;
   cursor: pointer;
   transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .task-detail-btn:hover {
@@ -382,11 +423,13 @@
 }
 
 .personal-box-center h3 {
+  text-align: center;
   color: #4c51bf;
 }
 
 .personal-box-left h3 {
   color: #2c7a7b;
+  text-align: center;
 }
 
 .personal-box-right h3 {

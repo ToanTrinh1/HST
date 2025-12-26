@@ -45,3 +45,5 @@ type WalletUpdateRequest struct {
 // tong_cong_thuc_nhan_vnd = tong_cong_thuc_nhan_te * exchange_rate
 // Exchange rate hiện tại trong hình là 3550
 
+
+

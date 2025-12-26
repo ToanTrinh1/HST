@@ -19,3 +19,5 @@ COMMENT ON COLUMN thong_tin_nhan_keo.tai_khoan IS 'Tài khoản sử dụng cho 
 COMMENT ON COLUMN thong_tin_nhan_keo.mat_khau IS 'Mật khẩu tài khoản';
 COMMENT ON COLUMN thong_tin_nhan_keo.khu_vuc IS 'Khu vực của kèo';
 
+
+

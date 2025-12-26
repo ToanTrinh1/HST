@@ -6,6 +6,7 @@ import (
 	"fullstack-backend/internal/models"
 	"log"
 	"math"
+	"strings"
 	"time"
 )
 
@@ -64,7 +65,8 @@ func (r *BetReceiptRepository) Create(betReceipt *models.BetReceipt) error {
 }
 
 // GetAll lấy tất cả đơn hàng (thông tin nhận kèo) có phân trang, join với bảng nguoi_dung để lấy tên
-func (r *BetReceiptRepository) GetAll(limit, offset int) ([]*models.BetReceipt, error) {
+// Nếu userID != nil, chỉ lấy đơn hàng của user đó
+func (r *BetReceiptRepository) GetAll(limit, offset int, userID *string) ([]*models.BetReceipt, error) {
 	query := `
         SELECT 
             ttnk.id, ttnk.stt, ttnk.id_nguoi_dung, nd.ten as user_name,
@@ -76,9 +78,27 @@ func (r *BetReceiptRepository) GetAll(limit, offset int) ([]*models.BetReceipt, 
             ttnk.thoi_gian_con_lai_gio, ttnk.thoi_gian_cap_nhat
         FROM thong_tin_nhan_keo ttnk
         LEFT JOIN nguoi_dung nd ON ttnk.id_nguoi_dung = nd.id
-        ORDER BY ttnk.stt ASC
-        LIMIT $1 OFFSET $2
     `
+
+	// Thêm WHERE clause
+	args := []interface{}{}
+	argIndex := 1
+	whereConditions := []string{}
+
+	if userID != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("ttnk.id_nguoi_dung = $%d", argIndex))
+		args = append(args, *userID)
+		argIndex++
+		log.Printf("Repository - 🔍 Filtering by user_id: %s", *userID)
+	}
+
+	if len(whereConditions) > 0 {
+		query += " WHERE " + strings.Join(whereConditions, " AND ")
+	}
+
+	query += fmt.Sprintf(" ORDER BY ttnk.stt ASC LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+	args = append(args, limit, offset)
+
 	log.Printf("Repository - 🔍 Executing query với limit=%d, offset=%d", limit, offset)
 
 	// Kiểm tra connection trước khi query (connection pool sẽ tự động reconnect nếu cần)
@@ -87,7 +107,7 @@ func (r *BetReceiptRepository) GetAll(limit, offset int) ([]*models.BetReceipt, 
 		return nil, fmt.Errorf("database connection error: %w", err)
 	}
 
-	rows, err := r.db.Query(query, limit, offset)
+	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		log.Printf("Repository - ❌ Lỗi khi execute query: %v", err)
 		return nil, err

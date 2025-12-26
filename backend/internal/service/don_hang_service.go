@@ -102,8 +102,9 @@ func (s *BetReceiptService) CreateBetReceipt(req *models.CreateBetReceiptRequest
 }
 
 // GetAllBetReceipts lấy tất cả đơn hàng (thông tin nhận kèo)
-func (s *BetReceiptService) GetAllBetReceipts(limit, offset int) ([]*models.BetReceipt, error) {
-	return s.betReceiptRepo.GetAll(limit, offset)
+// Nếu userID != nil, chỉ lấy đơn hàng của user đó
+func (s *BetReceiptService) GetAllBetReceipts(limit, offset int, userID *string) ([]*models.BetReceipt, error) {
+	return s.betReceiptRepo.GetAll(limit, offset, userID)
 }
 
 // GetBetReceiptByID lấy đơn hàng (thông tin nhận kèo) theo ID
@@ -418,7 +419,7 @@ func (s *BetReceiptService) UpdateBetReceiptStatus(id string, req *models.Update
 	// 4.5. Xử lý thời gian hoàn thành:
 	// - Nếu status là "HỦY BỎ", "DONE", "ĐỀN", "CHỜ CHẤP NHẬN", hoặc "CHỜ TRỌNG TÀI": set thời gian hoàn thành
 	// - Nếu status không phải các status trên: xóa thời gian hoàn thành (set về NULL)
-	// - Nếu trước đó status là "CHỜ CHẤP NHẬN" hoặc "CHỜ TRỌNG TÀI" (đã có CompletedAt), 
+	// - Nếu trước đó status là "CHỜ CHẤP NHẬN" hoặc "CHỜ TRỌNG TÀI" (đã có CompletedAt),
 	//   khi chuyển sang DONE/HỦY BỎ/ĐỀN thì giữ nguyên ngày cũ (không cập nhật lại)
 	if req.Status == models.BetReceiptStatusDone || req.Status == models.BetReceiptStatusCancelled || req.Status == models.BetReceiptStatusCompensation ||
 		req.Status == models.BetReceiptStatusPending || req.Status == models.BetReceiptStatusWaitingRef {

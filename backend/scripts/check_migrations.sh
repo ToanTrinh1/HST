@@ -80,3 +80,5 @@ echo -e "${BLUE}💡 Tip: If tables are missing, restart the backend to run migr
 echo -e "${YELLOW}   Or run: cd backend && go run cmd/api/main.go${NC}"
 
 
+
+

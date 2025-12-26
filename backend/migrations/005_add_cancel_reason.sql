@@ -9,3 +9,5 @@ ADD COLUMN IF NOT EXISTS ly_do_huy TEXT;
 -- Comment cho cột mới
 COMMENT ON COLUMN thong_tin_nhan_keo.ly_do_huy IS 'Lý do hủy bỏ đơn hàng (chỉ có giá trị khi status = HỦY BỎ)';
 
+
+

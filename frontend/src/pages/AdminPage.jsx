@@ -227,13 +227,6 @@ const AdminPage = () => {
   const statusTabs = [
     { key: 'tong-hop', label: 'Tổng hợp', status: null }, // Tab tổng hợp - hiển thị tất cả
     { key: 'don-hang-moi', label: 'Đơn hàng mới', status: 'Đơn hàng mới' },
-    { key: 'dang-quet-ma', label: 'Đang quét mã', status: 'ĐANG QUÉT MÃ' },
-    { key: 'dang-thuc-hien', label: 'Đang thực hiện', status: 'ĐANG THỰC HIỆN' },
-    { key: 'huy-bo', label: 'Hủy bỏ', status: 'HỦY BỎ' },
-    { key: 'cho-chap-nhan', label: 'Chờ chấp nhận', status: 'CHỜ CHẤP NHẬN' },
-    { key: 'done', label: 'DONE', status: 'DONE' },
-    { key: 'den', label: 'Đền', status: 'ĐỀN' },
-    { key: 'cho-trong-tai', label: 'Chờ trọng tài', status: 'CHỜ TRỌNG TÀI' },
   ];
 
   // Filter states
@@ -242,12 +235,14 @@ const AdminPage = () => {
     betType: '',
     webBet: '',
     orderCode: '',
+    status: '', // Filter theo status
   });
   const [showFilterInputs, setShowFilterInputs] = useState({
     name: false,
     betType: false,
     webBet: false,
     orderCode: false,
+    status: false,
   });
 
   // Filter betList theo status và các filters
@@ -276,6 +271,10 @@ const AdminPage = () => {
     }
     // Filter theo Mã đơn hàng
     if (filters.orderCode && !bet.orderCode?.toLowerCase().includes(filters.orderCode.toLowerCase())) {
+      return false;
+    }
+    // Filter theo Status (Tiến độ hoàn thành)
+    if (filters.status && bet.status !== filters.status) {
       return false;
     }
     return true;
@@ -410,15 +409,15 @@ const AdminPage = () => {
     };
   }, []);
 
-  // Load danh sách đơn hàng khi component mount và khi activeTab thay đổi
+  // Load danh sách đơn hàng khi component mount và khi activeTab hoặc activeDonHangTab thay đổi
   useEffect(() => {
-    console.log('🔄 useEffect được gọi, activeTab hiện tại:', activeTab);
+    console.log('🔄 useEffect được gọi, activeTab hiện tại:', activeTab, 'activeDonHangTab:', activeDonHangTab);
     
     if (activeTab === 'danh-sach-keo') {
       console.log('✅ activeTab là danh-sach-keo, gọi fetchDonHangList');
       fetchDonHangList();
     }
-  }, [activeTab]);
+  }, [activeTab, activeDonHangTab]);
 
   // Load danh sách wallets khi vào sub-tab "Danh sách" trong tab "Rút tiền"
   useEffect(() => {
@@ -1602,7 +1601,62 @@ const AdminPage = () => {
                     </th>
                     <th>Ghi chú</th>
                     <th>Thời gian còn lại</th>
-                    <th>Tiến độ hoàn thành</th>
+                    <th>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span>Tiến độ hoàn thành</span>
+                          <button
+                            onClick={() => setShowFilterInputs({ ...showFilterInputs, status: !showFilterInputs.status })}
+                            style={{
+                              background: filters.status ? '#667eea' : 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '16px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                            title="Lọc theo tiến độ hoàn thành"
+                          >
+                            🔍
+                          </button>
+                        </div>
+                        {showFilterInputs.status && (
+                          <select
+                            value={filters.status}
+                            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                            onBlur={() => {
+                              setTimeout(() => {
+                                setShowFilterInputs({ ...showFilterInputs, status: false });
+                              }, 200);
+                            }}
+                            style={{
+                              marginTop: '4px',
+                              padding: '4px 8px',
+                              width: 'calc(100% - 16px)',
+                              fontSize: '11px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              boxSizing: 'border-box',
+                            }}
+                            autoFocus
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <option value="">Tất cả</option>
+                            <option value="Đơn hàng mới">Đơn hàng mới</option>
+                            <option value="ĐANG THỰC HIỆN">ĐANG THỰC HIỆN</option>
+                            <option value="DONE">DONE</option>
+                            <option value="CHỜ CHẤP NHẬN">CHỜ CHẤP NHẬN</option>
+                            <option value="HỦY BỎ">HỦY BỎ</option>
+                            <option value="ĐỀN">ĐỀN</option>
+                            <option value="ĐANG QUÉT MÃ">ĐANG QUÉT MÃ</option>
+                            <option value="CHỜ TRỌNG TÀI">CHỜ TRỌNG TÀI</option>
+                          </select>
+                        )}
+                      </div>
+                    </th>
                     <th>Tiền kèo thực nhận</th>
                     <th>Tiền đền</th>
                     <th>Công thực nhận</th>

@@ -166,3 +166,5 @@ docker exec -it fullstack-postgres psql -U postgres -d hst_db -c "DROP TABLE IF 
 cat backend/migrations/001_create_bet_tables.sql | docker exec -i fullstack-postgres psql -U postgres -d hst_db
 ```
 
+
+

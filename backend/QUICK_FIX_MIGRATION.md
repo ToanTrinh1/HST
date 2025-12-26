@@ -117,3 +117,5 @@ WHERE constraint_type = 'FOREIGN KEY'
 
 **Lần sau**: Khi start app, migration sẽ tự động chạy (nếu chưa chạy rồi).
 
+
+

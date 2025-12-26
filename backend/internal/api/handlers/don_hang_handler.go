@@ -115,8 +115,34 @@ func (h *BetReceiptHandler) GetAllBetReceipts(c *gin.Context) {
 		offset = 0
 	}
 
+	// Lấy user_id từ JWT token
+	var userID *string
+	authHeader := c.GetHeader("Authorization")
+	if authHeader != "" {
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		if tokenString != authHeader {
+			claims, err := utils.ValidateJWT(tokenString, h.jwtSecret)
+			if err == nil {
+				// Nếu role là "admin", không filter (userID = nil) để thấy tất cả
+				// Nếu role là "user", filter theo user_id để chỉ thấy của mình
+				if claims.Role != "admin" {
+					userID = &claims.UserID
+					log.Printf("🔍 User role - Filtering by user_id: %s (role: %s)", claims.UserID, claims.Role)
+				} else {
+					log.Printf("🔍 Admin role - Showing all receipts (user_id: %s, role: %s)", claims.UserID, claims.Role)
+				}
+			} else {
+				log.Printf("❌ Lỗi validate JWT token: %v", err)
+			}
+		} else {
+			log.Printf("❌ Token không có prefix 'Bearer '")
+		}
+	} else {
+		log.Printf("❌ Không có Authorization header")
+	}
+
 	// Gọi service
-	betReceipts, err := h.betReceiptService.GetAllBetReceipts(limit, offset)
+	betReceipts, err := h.betReceiptService.GetAllBetReceipts(limit, offset, userID)
 	if err != nil {
 		log.Printf("❌ LỖI LẤY DANH SÁCH ĐƠN HÀNG: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
