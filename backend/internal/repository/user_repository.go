@@ -33,20 +33,24 @@ func (r *UserRepository) Create(user *models.User) error {
 func (r *UserRepository) FindByID(id string) (*models.User, error) {
 	user := &models.User{}
 	var avatarURL sql.NullString
+	var lastNameChangeTime sql.NullTime
 	query := `
-        SELECT id, email, mat_khau, ten, vai_tro, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat 
+        SELECT id, email, mat_khau, ten, vai_tro, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat, thoi_gian_doi_ten_cuoi
         FROM nguoi_dung 
         WHERE id = $1
     `
 	err := r.db.QueryRow(query, id).Scan(
 		&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
-		&avatarURL, &user.CreatedAt, &user.UpdatedAt,
+		&avatarURL, &user.CreatedAt, &user.UpdatedAt, &lastNameChangeTime,
 	)
 	if err != nil {
 		return nil, err
 	}
 	if avatarURL.Valid {
 		user.AvatarURL = &avatarURL.String
+	}
+	if lastNameChangeTime.Valid {
+		user.LastNameChangeTime = &lastNameChangeTime.Time
 	}
 	return user, nil
 }
@@ -106,7 +110,7 @@ func (r *UserRepository) FindByName(name string) ([]*models.User, error) {
 	return users, nil
 }
 
-// UpdateUser cập nhật user (đổi tên và email)
+// UpdateUser cập nhật user (đổi tên và email) - DEPRECATED: Không cho phép đổi email
 func (r *UserRepository) UpdateUser(id string, name string, email string) error {
 	query := `
         UPDATE nguoi_dung 
@@ -114,6 +118,30 @@ func (r *UserRepository) UpdateUser(id string, name string, email string) error 
         WHERE id = $3
     `
 	result, err := r.db.Exec(query, name, email, id)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
+// UpdateUserName cập nhật chỉ tên và thời gian đổi tên (giới hạn 1 tháng 1 lần)
+func (r *UserRepository) UpdateUserName(id string, name string) error {
+	query := `
+        UPDATE nguoi_dung 
+        SET ten = $1, thoi_gian_cap_nhat = CURRENT_TIMESTAMP, thoi_gian_doi_ten_cuoi = CURRENT_TIMESTAMP
+        WHERE id = $2
+    `
+	result, err := r.db.Exec(query, name, id)
 	if err != nil {
 		return err
 	}

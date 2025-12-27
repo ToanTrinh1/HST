@@ -10,6 +10,7 @@ import (
 	"fullstack-backend/internal/repository"
 	"fullstack-backend/pkg/utils"
 	"log"
+	"time"
 )
 
 type AuthService struct {
@@ -140,7 +141,7 @@ func (s *AuthService) GetAllUsers(limit, offset int) ([]*models.User, error) {
 	return users, nil
 }
 
-// UpdateProfile - Cập nhật thông tin profile của user (tên và email)
+// UpdateProfile - Cập nhật thông tin profile của user (chỉ cho phép đổi tên, không cho phép đổi email)
 func (s *AuthService) UpdateProfile(userID string, req *models.UpdateProfileRequest) (*models.User, error) {
 	log.Printf("Service - Cập nhật profile cho user ID: %s", userID)
 
@@ -153,32 +154,47 @@ func (s *AuthService) UpdateProfile(userID string, req *models.UpdateProfileRequ
 		return nil, err
 	}
 
-	// 2. Kiểm tra email mới có bị trùng với user khác không (nếu email thay đổi)
-	if req.Email != existingUser.Email {
-		userWithEmail, _ := s.userRepo.FindByEmail(req.Email)
-		if userWithEmail != nil && userWithEmail.ID != userID {
-			log.Printf("Service - ❌ Email đã được sử dụng bởi user khác: %s", req.Email)
-			return nil, errors.New("Email đã được sử dụng bởi tài khoản khác")
+	// 2. KHÔNG cho phép đổi email
+	// Email không được thay đổi, giữ nguyên email hiện tại
+	log.Printf("Service - Email không được phép thay đổi, giữ nguyên: %s", existingUser.Email)
+
+	// 3. Kiểm tra thời gian đổi tên (chỉ được đổi 1 tháng 1 lần)
+	if existingUser.LastNameChangeTime != nil {
+		lastChangeTime := *existingUser.LastNameChangeTime
+		oneMonthAgo := time.Now().AddDate(0, -1, 0) // 1 tháng trước
+		
+		if lastChangeTime.After(oneMonthAgo) {
+			daysRemaining := int(time.Until(lastChangeTime.AddDate(0, 1, 0)).Hours() / 24)
+			log.Printf("Service - ❌ Chưa đủ 1 tháng kể từ lần đổi tên cuối. Còn lại: %d ngày", daysRemaining)
+			return nil, fmt.Errorf("Bạn chỉ có thể đổi tên 1 lần mỗi tháng. Lần đổi tên cuối: %s. Vui lòng thử lại sau %d ngày", 
+				lastChangeTime.Format("02/01/2006"), daysRemaining)
 		}
 	}
 
-	// 3. Cập nhật thông tin trong database
-	err = s.userRepo.UpdateUser(userID, req.Name, req.Email)
+	// 4. Kiểm tra tên có thay đổi không
+	if req.Name == existingUser.Name {
+		log.Printf("Service - Tên không thay đổi, không cần cập nhật")
+		return existingUser, nil
+	}
+
+	// 5. Cập nhật chỉ tên (không đổi email)
+	err = s.userRepo.UpdateUserName(userID, req.Name)
 	if err != nil {
-		log.Printf("Service - ❌ Lỗi cập nhật user trong DB: %v", err)
+		log.Printf("Service - ❌ Lỗi cập nhật tên trong DB: %v", err)
 		return nil, errors.New("Lỗi khi cập nhật thông tin: " + err.Error())
 	}
 
-	// 4. Lấy lại thông tin user đã cập nhật
+	// 6. Lấy lại thông tin user đã cập nhật
 	updatedUser, err := s.userRepo.FindByID(userID)
 	if err != nil {
 		log.Printf("Service - ❌ Lỗi lấy lại thông tin user: %v", err)
 		return nil, errors.New("Lỗi khi lấy thông tin user đã cập nhật")
 	}
 
-	// 5. Không trả password
+	// 7. Không trả password
 	updatedUser.Password = ""
-	log.Printf("Service - ✅ Cập nhật profile thành công - User ID: %s, Name: %s, Email: %s", updatedUser.ID, updatedUser.Name, updatedUser.Email)
+	log.Printf("Service - ✅ Cập nhật tên thành công - User ID: %s, Name: %s (Email giữ nguyên: %s)", 
+		updatedUser.ID, updatedUser.Name, updatedUser.Email)
 
 	return updatedUser, nil
 }

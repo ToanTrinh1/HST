@@ -9,14 +9,15 @@ import "time"
 // binding:"email" Validate đúng định dạng email
 
 type User struct {
-	ID        string    `json:"id" db:"id"`
-	Email     string    `json:"email" db:"email"`
-	Password  string    `json:"-" db:"mat_khau"`
-	Name      string    `json:"name" db:"ten"`
-	Role      string    `json:"vai_tro" db:"vai_tro"`
-	AvatarURL *string   `json:"avatar_url" db:"avatar_url"` // Nullable
-	CreatedAt time.Time `json:"created_at" db:"thoi_gian_tao"`
-	UpdatedAt time.Time `json:"updated_at" db:"thoi_gian_cap_nhat"`
+	ID                string     `json:"id" db:"id"`
+	Email             string     `json:"email" db:"email"`
+	Password          string     `json:"-" db:"mat_khau"`
+	Name              string     `json:"name" db:"ten"`
+	Role              string     `json:"vai_tro" db:"vai_tro"`
+	AvatarURL         *string    `json:"avatar_url" db:"avatar_url"` // Nullable
+	CreatedAt         time.Time  `json:"created_at" db:"thoi_gian_tao"`
+	UpdatedAt         time.Time  `json:"updated_at" db:"thoi_gian_cap_nhat"`
+	LastNameChangeTime *time.Time `json:"last_name_change_time" db:"thoi_gian_doi_ten_cuoi"` // Nullable
 }
 
 // Request DTOs
@@ -32,8 +33,8 @@ type LoginRequest struct {
 }
 
 type UpdateProfileRequest struct {
-	Name  string `json:"name" binding:"required"`
-	Email string `json:"email" binding:"required,email"`
+	Name string `json:"name" binding:"required"`
+	// Email không được phép thay đổi, chỉ để validate format nếu có
 }
 
 type ChangePasswordRequest struct {

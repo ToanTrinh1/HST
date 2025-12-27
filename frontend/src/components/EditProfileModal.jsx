@@ -245,8 +245,8 @@ const EditProfileModal = ({ isOpen, onClose }) => {
   };
 
   const handleUpdateProfile = async () => {
-    if (!editName.trim() || !editEmail.trim()) {
-      setErrorMessage('Vui lòng nhập đầy đủ tên và email');
+    if (!editName.trim()) {
+      setErrorMessage('Vui lòng nhập tên');
       return;
     }
 
@@ -255,7 +255,8 @@ const EditProfileModal = ({ isOpen, onClose }) => {
     setSuccessMessage('');
 
     try {
-      const response = await authAPI.updateProfile(editName.trim(), editEmail.trim());
+      // Chỉ gửi tên, email không được phép thay đổi
+      const response = await authAPI.updateProfile(editName.trim(), user?.email || '');
       if (response.success) {
         updateUser(response.data);
         setSuccessMessage('Cập nhật thông tin thành công!');
@@ -503,6 +504,9 @@ const EditProfileModal = ({ isOpen, onClose }) => {
                   }}
                   placeholder="Nhập tên của bạn"
                 />
+                <p style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                  ⚠️ Bạn chỉ có thể đổi tên 1 lần mỗi tháng
+                </p>
               </div>
               <div style={{ marginBottom: '12px' }}>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500' }}>
@@ -511,7 +515,7 @@ const EditProfileModal = ({ isOpen, onClose }) => {
                 <input
                   type="email"
                   value={editEmail}
-                  onChange={(e) => setEditEmail(e.target.value)}
+                  disabled
                   style={{
                     width: '100%',
                     padding: '10px 12px',
@@ -519,9 +523,15 @@ const EditProfileModal = ({ isOpen, onClose }) => {
                     border: '1px solid #ddd',
                     borderRadius: '8px',
                     boxSizing: 'border-box',
+                    backgroundColor: '#f5f5f5',
+                    color: '#666',
+                    cursor: 'not-allowed',
                   }}
-                  placeholder="Nhập email của bạn"
+                  placeholder="Email không được phép thay đổi"
                 />
+                <p style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                  Email không được phép thay đổi
+                </p>
               </div>
               <button
                 type="button"

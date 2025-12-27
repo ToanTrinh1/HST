@@ -243,7 +243,7 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	log.Printf("📝 Thông tin cập nhật - User ID: %s, Name: %s, Email: %s", claims.UserID, req.Name, req.Email)
+	log.Printf("📝 Thông tin cập nhật - User ID: %s, Name: %s (Email không được phép thay đổi)", claims.UserID, req.Name)
 
 	// 3. Gọi service để cập nhật
 	updatedUser, err := h.authService.UpdateProfile(claims.UserID, &req)
