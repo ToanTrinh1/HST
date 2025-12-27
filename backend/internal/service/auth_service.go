@@ -126,3 +126,123 @@ func (s *AuthService) GetAllUsers(limit, offset int) ([]*models.User, error) {
 	}
 	return users, nil
 }
+
+// UpdateProfile - Cập nhật thông tin profile của user (tên và email)
+func (s *AuthService) UpdateProfile(userID string, req *models.UpdateProfileRequest) (*models.User, error) {
+	log.Printf("Service - Cập nhật profile cho user ID: %s", userID)
+
+	// 1. Kiểm tra user có tồn tại không
+	existingUser, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.New("User không tồn tại")
+		}
+		return nil, err
+	}
+
+	// 2. Kiểm tra email mới có bị trùng với user khác không (nếu email thay đổi)
+	if req.Email != existingUser.Email {
+		userWithEmail, _ := s.userRepo.FindByEmail(req.Email)
+		if userWithEmail != nil && userWithEmail.ID != userID {
+			log.Printf("Service - ❌ Email đã được sử dụng bởi user khác: %s", req.Email)
+			return nil, errors.New("Email đã được sử dụng bởi tài khoản khác")
+		}
+	}
+
+	// 3. Cập nhật thông tin trong database
+	err = s.userRepo.UpdateUser(userID, req.Name, req.Email)
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi cập nhật user trong DB: %v", err)
+		return nil, errors.New("Lỗi khi cập nhật thông tin: " + err.Error())
+	}
+
+	// 4. Lấy lại thông tin user đã cập nhật
+	updatedUser, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi lấy lại thông tin user: %v", err)
+		return nil, errors.New("Lỗi khi lấy thông tin user đã cập nhật")
+	}
+
+	// 5. Không trả password
+	updatedUser.Password = ""
+	log.Printf("Service - ✅ Cập nhật profile thành công - User ID: %s, Name: %s, Email: %s", updatedUser.ID, updatedUser.Name, updatedUser.Email)
+
+	return updatedUser, nil
+}
+
+// ChangePassword - Đổi mật khẩu của user
+func (s *AuthService) ChangePassword(userID string, req *models.ChangePasswordRequest) error {
+	log.Printf("Service - Đổi mật khẩu cho user ID: %s", userID)
+
+	// 1. Kiểm tra user có tồn tại không
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errors.New("User không tồn tại")
+		}
+		return err
+	}
+
+	// 2. Kiểm tra mật khẩu cũ có đúng không
+	if !utils.CheckPassword(user.Password, req.OldPassword) {
+		log.Printf("Service - ❌ Mật khẩu cũ không đúng")
+		return errors.New("Mật khẩu cũ không đúng")
+	}
+
+	// 3. Kiểm tra mật khẩu mới có khác mật khẩu cũ không
+	if req.OldPassword == req.NewPassword {
+		log.Printf("Service - ❌ Mật khẩu mới phải khác mật khẩu cũ")
+		return errors.New("Mật khẩu mới phải khác mật khẩu cũ")
+	}
+
+	// 4. Hash mật khẩu mới
+	hashedPassword, err := utils.HashPassword(req.NewPassword)
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi hash password: %v", err)
+		return errors.New("Lỗi khi mã hóa mật khẩu")
+	}
+
+	// 5. Cập nhật mật khẩu trong database
+	err = s.userRepo.UpdatePassword(userID, hashedPassword)
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi cập nhật mật khẩu trong DB: %v", err)
+		return errors.New("Lỗi khi cập nhật mật khẩu: " + err.Error())
+	}
+
+	log.Printf("Service - ✅ Đổi mật khẩu thành công - User ID: %s", userID)
+	return nil
+}
+
+// UpdateAvatar - Cập nhật ảnh đại diện của user
+func (s *AuthService) UpdateAvatar(userID string, avatarURL string) (*models.User, error) {
+	log.Printf("Service - Cập nhật avatar cho user ID: %s", userID)
+
+	// 1. Kiểm tra user có tồn tại không
+	_, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.New("User không tồn tại")
+		}
+		return nil, err
+	}
+
+	// 2. Cập nhật avatar URL trong database
+	err = s.userRepo.UpdateAvatar(userID, avatarURL)
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi cập nhật avatar trong DB: %v", err)
+		return nil, errors.New("Lỗi khi cập nhật avatar: " + err.Error())
+	}
+
+	// 3. Lấy lại thông tin user đã cập nhật
+	updatedUser, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi lấy lại thông tin user: %v", err)
+		return nil, errors.New("Lỗi khi lấy thông tin user đã cập nhật")
+	}
+
+	// 4. Không trả password
+	updatedUser.Password = ""
+	log.Printf("Service - ✅ Cập nhật avatar thành công - User ID: %s, Avatar URL: %s", updatedUser.ID, avatarURL)
+
+	return updatedUser, nil
+}

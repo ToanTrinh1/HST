@@ -79,6 +79,10 @@ func main() {
 	})
 	log.Println("✅ CORS middleware enabled")
 
+	// Serve static files (avatars)
+	router.Static("/uploads", "./uploads")
+	log.Println("✅ Static file serving enabled for /uploads")
+
 	routes.SetupRoutes(router, authHandler, betReceiptHandler, walletHandler, depositHandler, withdrawalHandler, historyHandler)
 	log.Println("✅ Routes configured")
 

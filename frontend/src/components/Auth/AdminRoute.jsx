@@ -38,7 +38,8 @@ const AdminRoute = ({ children }) => {
         setCheckingRole(false);
       }
     }
-  }, [isAuthenticated, loading]); // Loại bỏ updateUser và user khỏi dependency array
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, loading]); // updateUser is intentionally excluded to prevent unnecessary re-runs
 
   if (loading || checkingRole) {
     return (

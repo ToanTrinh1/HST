@@ -171,6 +171,115 @@ export const authAPI = {
       };
     }
   },
+
+  // Cập nhật thông tin profile (tên và email)
+  updateProfile: async (name, email) => {
+    try {
+      console.log('authAPI - Gửi PUT request đến /auth/me');
+      const response = await axiosInstance.put('/auth/me', { name, email });
+      console.log('authAPI - ✅ Backend response:', response.data);
+
+      if (!response.data) {
+        return {
+          success: false,
+          error: 'Không nhận được dữ liệu từ server',
+        };
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('authAPI - ❌ UpdateProfile error:', error);
+      
+      let errorMsg = 'Cập nhật thông tin thất bại';
+
+      if (error.response?.status === 401) {
+        errorMsg = 'Token không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.';
+      } else if (error.response) {
+        errorMsg = error.response.data?.error || errorMsg;
+      }
+
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  },
+
+  // Đổi mật khẩu
+  changePassword: async (oldPassword, newPassword) => {
+    try {
+      console.log('authAPI - Gửi PUT request đến /auth/change-password');
+      const response = await axiosInstance.put('/auth/change-password', {
+        old_password: oldPassword,
+        new_password: newPassword,
+      });
+      console.log('authAPI - ✅ Backend response:', response.data);
+
+      if (!response.data) {
+        return {
+          success: false,
+          error: 'Không nhận được dữ liệu từ server',
+        };
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('authAPI - ❌ ChangePassword error:', error);
+      
+      let errorMsg = 'Đổi mật khẩu thất bại';
+
+      if (error.response?.status === 401) {
+        errorMsg = 'Token không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.';
+      } else if (error.response) {
+        errorMsg = error.response.data?.error || errorMsg;
+      }
+
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  },
+
+  // Upload avatar
+  uploadAvatar: async (file) => {
+    try {
+      console.log('authAPI - Gửi POST request đến /auth/upload-avatar');
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const response = await axiosInstance.post('/auth/upload-avatar', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      console.log('authAPI - ✅ Backend response:', response.data);
+
+      if (!response.data) {
+        return {
+          success: false,
+          error: 'Không nhận được dữ liệu từ server',
+        };
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('authAPI - ❌ UploadAvatar error:', error);
+      
+      let errorMsg = 'Upload avatar thất bại';
+
+      if (error.response?.status === 401) {
+        errorMsg = 'Token không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.';
+      } else if (error.response) {
+        errorMsg = error.response.data?.error || errorMsg;
+      }
+
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  },
 };
 
 export default authAPI;

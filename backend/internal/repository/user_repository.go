@@ -32,17 +32,21 @@ func (r *UserRepository) Create(user *models.User) error {
 // FindByID tìm user theo ID
 func (r *UserRepository) FindByID(id string) (*models.User, error) {
 	user := &models.User{}
+	var avatarURL sql.NullString
 	query := `
-        SELECT id, email, mat_khau, ten, vai_tro, thoi_gian_tao, thoi_gian_cap_nhat 
+        SELECT id, email, mat_khau, ten, vai_tro, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat 
         FROM nguoi_dung 
         WHERE id = $1
     `
 	err := r.db.QueryRow(query, id).Scan(
 		&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
-		&user.CreatedAt, &user.UpdatedAt,
+		&avatarURL, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
+	}
+	if avatarURL.Valid {
+		user.AvatarURL = &avatarURL.String
 	}
 	return user, nil
 }
@@ -50,17 +54,21 @@ func (r *UserRepository) FindByID(id string) (*models.User, error) {
 // FindByEmail tìm user theo Email (dùng cho login)
 func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 	user := &models.User{}
+	var avatarURL sql.NullString
 	query := `
-        SELECT id, email, mat_khau, ten, vai_tro, thoi_gian_tao, thoi_gian_cap_nhat 
+        SELECT id, email, mat_khau, ten, vai_tro, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat 
         FROM nguoi_dung 
         WHERE email = $1
     `
 	err := r.db.QueryRow(query, email).Scan(
 		&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
-		&user.CreatedAt, &user.UpdatedAt,
+		&avatarURL, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
+	}
+	if avatarURL.Valid {
+		user.AvatarURL = &avatarURL.String
 	}
 	return user, nil
 }
@@ -68,7 +76,7 @@ func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 // FindByName tìm user theo Name (tìm chính xác, phân biệt hoa thường)
 func (r *UserRepository) FindByName(name string) ([]*models.User, error) {
 	query := `
-        SELECT id, email, mat_khau, ten, vai_tro, thoi_gian_tao, thoi_gian_cap_nhat 
+        SELECT id, email, mat_khau, ten, vai_tro, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat 
         FROM nguoi_dung 
         WHERE ten = $1
     `
@@ -81,12 +89,16 @@ func (r *UserRepository) FindByName(name string) ([]*models.User, error) {
 	users := []*models.User{}
 	for rows.Next() {
 		user := &models.User{}
+		var avatarURL sql.NullString
 		err := rows.Scan(
 			&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
-			&user.CreatedAt, &user.UpdatedAt,
+			&avatarURL, &user.CreatedAt, &user.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
+		}
+		if avatarURL.Valid {
+			user.AvatarURL = &avatarURL.String
 		}
 		users = append(users, user)
 	}
@@ -142,6 +154,30 @@ func (r *UserRepository) UpdatePassword(id string, hashedPassword string) error 
 	return nil
 }
 
+// UpdateAvatar cập nhật avatar URL
+func (r *UserRepository) UpdateAvatar(id string, avatarURL string) error {
+	query := `
+        UPDATE nguoi_dung 
+        SET avatar_url = $1, thoi_gian_cap_nhat = CURRENT_TIMESTAMP 
+        WHERE id = $2
+    `
+	result, err := r.db.Exec(query, avatarURL, id)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
 // DeleteUser xóa user
 func (r *UserRepository) DeleteUser(id string) error {
 	query := `DELETE FROM nguoi_dung WHERE id = $1`
@@ -165,7 +201,7 @@ func (r *UserRepository) DeleteUser(id string) error {
 // GetAll lấy tất cả users (có phân trang)
 func (r *UserRepository) GetAll(limit, offset int) ([]*models.User, error) {
 	query := `
-        SELECT id, email, mat_khau, ten, vai_tro, thoi_gian_tao, thoi_gian_cap_nhat 
+        SELECT id, email, mat_khau, ten, vai_tro, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat 
         FROM nguoi_dung 
         ORDER BY thoi_gian_tao DESC
         LIMIT $1 OFFSET $2
@@ -179,12 +215,16 @@ func (r *UserRepository) GetAll(limit, offset int) ([]*models.User, error) {
 	users := []*models.User{}
 	for rows.Next() {
 		user := &models.User{}
+		var avatarURL sql.NullString
 		err := rows.Scan(
 			&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
-			&user.CreatedAt, &user.UpdatedAt,
+			&avatarURL, &user.CreatedAt, &user.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
+		}
+		if avatarURL.Valid {
+			user.AvatarURL = &avatarURL.String
 		}
 		users = append(users, user)
 	}
@@ -195,7 +235,7 @@ func (r *UserRepository) GetAll(limit, offset int) ([]*models.User, error) {
 // GetAllUsers lấy tất cả users có role = 'user' (có phân trang, sắp xếp theo tên)
 func (r *UserRepository) GetAllUsers(limit, offset int) ([]*models.User, error) {
 	query := `
-        SELECT id, email, mat_khau, ten, vai_tro, thoi_gian_tao, thoi_gian_cap_nhat 
+        SELECT id, email, mat_khau, ten, vai_tro, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat 
         FROM nguoi_dung 
         WHERE vai_tro = 'user'
         ORDER BY ten ASC
@@ -210,12 +250,16 @@ func (r *UserRepository) GetAllUsers(limit, offset int) ([]*models.User, error) 
 	users := []*models.User{}
 	for rows.Next() {
 		user := &models.User{}
+		var avatarURL sql.NullString
 		err := rows.Scan(
 			&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
-			&user.CreatedAt, &user.UpdatedAt,
+			&avatarURL, &user.CreatedAt, &user.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
+		}
+		if avatarURL.Valid {
+			user.AvatarURL = &avatarURL.String
 		}
 		users = append(users, user)
 	}

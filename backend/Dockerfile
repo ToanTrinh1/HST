@@ -18,11 +18,20 @@ FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates
 
-WORKDIR /root/
+WORKDIR /app
 
 # Copy binary from builder
-COPY --from=builder /app/main .
+COPY --from=builder /app/main /app/main
+
+# Copy migrations directory
+COPY --from=builder /app/migrations /app/migrations
+
+# Make binary executable
+RUN chmod +x /app/main
+
+# Create uploads directory
+RUN mkdir -p /app/uploads/avatars
 
 EXPOSE 8080
 
-CMD ["./main"]
+CMD ["/app/main"]

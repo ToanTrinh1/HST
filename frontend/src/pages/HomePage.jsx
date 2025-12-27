@@ -4,11 +4,13 @@ import { useAuth } from '../context/AuthContext';
 import BottomNavigation from '../components/BottomNavigation';
 import Card from '../components/Card';
 import BetCalculationWrapper from '../components/BetCalculationWrapper';
+import EditProfileModal from '../components/EditProfileModal';
 import './HomePage.css';
 
 const HomePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
@@ -26,7 +28,7 @@ const HomePage = () => {
   };
 
   const handleProfileClick = () => {
-    navigate('/profile');
+    setShowEditProfileModal(true);
     setShowDropdown(false);
   };
 
@@ -48,6 +50,14 @@ const HomePage = () => {
   const getInitials = (name) => {
     if (!name) return 'U';
     return name.charAt(0).toUpperCase();
+  };
+
+  // Lấy URL avatar hoặc hiển thị initials
+  const getAvatarDisplay = () => {
+    if (user?.avatar_url) {
+      return `http://localhost:8080${user.avatar_url}`;
+    }
+    return null;
   };
 
   return (
@@ -72,8 +82,13 @@ const HomePage = () => {
                 <div
                   className="avatar"
                   onClick={() => setShowDropdown(!showDropdown)}
+                  style={{
+                    backgroundImage: getAvatarDisplay() ? `url(${getAvatarDisplay()})` : 'none',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }}
                 >
-                  {getInitials(user?.name)}
+                  {!getAvatarDisplay() && getInitials(user?.name)}
                 </div>
                 {showDropdown && (
                   <div className="dropdown-menu">
@@ -177,6 +192,10 @@ const HomePage = () => {
           </div>
         </div>
       </div>
+      <EditProfileModal
+        isOpen={showEditProfileModal}
+        onClose={() => setShowEditProfileModal(false)}
+      />
       <BottomNavigation />
     </div>
   );

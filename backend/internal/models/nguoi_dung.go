@@ -14,6 +14,7 @@ type User struct {
 	Password  string    `json:"-" db:"mat_khau"`
 	Name      string    `json:"name" db:"ten"`
 	Role      string    `json:"vai_tro" db:"vai_tro"`
+	AvatarURL *string   `json:"avatar_url" db:"avatar_url"` // Nullable
 	CreatedAt time.Time `json:"created_at" db:"thoi_gian_tao"`
 	UpdatedAt time.Time `json:"updated_at" db:"thoi_gian_cap_nhat"`
 }
@@ -28,6 +29,16 @@ type RegisterRequest struct {
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
+}
+
+type UpdateProfileRequest struct {
+	Name  string `json:"name" binding:"required"`
+	Email string `json:"email" binding:"required,email"`
+}
+
+type ChangePasswordRequest struct {
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=6"`
 }
 
 // Response DTOs
