@@ -5,6 +5,7 @@ package service
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"fullstack-backend/internal/models"
 	"fullstack-backend/internal/repository"
 	"fullstack-backend/pkg/utils"
@@ -12,14 +13,26 @@ import (
 )
 
 type AuthService struct {
-	userRepo  *repository.UserRepository
-	jwtSecret string
+	userRepo    *repository.UserRepository
+	jwtSecret   string
+	otpService  *OTPService
+	emailService interface {
+		SendVerificationCodeEmail(to, code string) error
+		SendPasswordResetEmail(to, resetLink string) error
+		IsConfigured() bool
+	}
 }
 
-func NewAuthService(userRepo *repository.UserRepository, jwtSecret string) *AuthService {
+func NewAuthService(userRepo *repository.UserRepository, jwtSecret string, emailService interface {
+	SendVerificationCodeEmail(to, code string) error
+	SendPasswordResetEmail(to, resetLink string) error
+	IsConfigured() bool
+}) *AuthService {
 	return &AuthService{
-		userRepo:  userRepo,
-		jwtSecret: jwtSecret,
+		userRepo:     userRepo,
+		jwtSecret:    jwtSecret,
+		otpService:   NewOTPService(),
+		emailService: emailService,
 	}
 }
 
@@ -245,4 +258,92 @@ func (s *AuthService) UpdateAvatar(userID string, avatarURL string) (*models.Use
 	log.Printf("Service - ✅ Cập nhật avatar thành công - User ID: %s, Avatar URL: %s", updatedUser.ID, avatarURL)
 
 	return updatedUser, nil
+}
+
+// SendVerificationCode - Gửi mã xác thực email
+func (s *AuthService) SendVerificationCode(email string) error {
+	log.Printf("Service - Gửi mã xác thực cho email: %s", email)
+	
+	// Kiểm tra email đã tồn tại chưa (để tránh đăng ký email đã có)
+	existingUser, _ := s.userRepo.FindByEmail(email)
+	if existingUser != nil {
+		log.Printf("Service - ❌ Email đã tồn tại: %s", email)
+		return errors.New("Email đã tồn tại trong hệ thống")
+	}
+	
+	// Tạo mã OTP
+	code := s.otpService.GenerateOTP()
+	
+	// Lưu OTP
+	s.otpService.StoreOTP(email, code)
+	
+	// Gửi email mã xác thực
+	if s.emailService != nil && s.emailService.IsConfigured() {
+		err := s.emailService.SendVerificationCodeEmail(email, code)
+		if err != nil {
+			log.Printf("Service - ❌ Lỗi gửi email: %v", err)
+			// Vẫn log mã ra console để test nếu gửi email thất bại
+			log.Printf("Service - ✅ Mã xác thực cho email %s: %s", email, code)
+			return fmt.Errorf("lỗi gửi email: %v", err)
+		}
+		log.Printf("Service - ✅ Email mã xác thực đã được gửi đến: %s", email)
+	} else {
+		// Nếu email service chưa được cấu hình, log ra console
+		log.Printf("Service - ✅ Mã xác thực cho email %s: %s", email, code)
+		log.Printf("Service - ⚠️  Email service chưa được cấu hình. Mã được log ra console.")
+	}
+	
+	return nil
+}
+
+// VerifyEmailCode - Xác thực mã OTP
+func (s *AuthService) VerifyEmailCode(email, code string) error {
+	log.Printf("Service - Xác thực mã OTP cho email: %s", email)
+	
+	if !s.otpService.VerifyOTP(email, code) {
+		return errors.New("Mã xác thực không đúng hoặc đã hết hạn")
+	}
+	
+	log.Printf("Service - ✅ Email %s đã được xác thực thành công", email)
+	return nil
+}
+
+// ForgotPassword - Gửi email đặt lại mật khẩu
+func (s *AuthService) ForgotPassword(email string) error {
+	log.Printf("Service - Xử lý quên mật khẩu cho email: %s", email)
+	
+	// Kiểm tra email có tồn tại không
+	user, err := s.userRepo.FindByEmail(email)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// Không trả lỗi cụ thể để tránh email enumeration
+			log.Printf("Service - Email không tồn tại: %s (không trả lỗi để bảo mật)", email)
+		} else {
+			log.Printf("Service - ❌ Lỗi khi tìm email: %v", err)
+			return errors.New("Lỗi khi xử lý yêu cầu")
+		}
+	} else {
+		log.Printf("Service - ✅ Tìm thấy user với email: %s, User ID: %s", email, user.ID)
+		
+		// Tạo reset link (trong production, nên tạo token và lưu vào DB)
+		// Hiện tại tạm thời tạo link đơn giản
+		resetLink := fmt.Sprintf("http://localhost:3000/reset-password?email=%s&token=RESET_TOKEN_HERE", email)
+		
+		// Gửi email reset password
+		if s.emailService != nil && s.emailService.IsConfigured() {
+			err := s.emailService.SendPasswordResetEmail(email, resetLink)
+			if err != nil {
+				log.Printf("Service - ❌ Lỗi gửi email reset password: %v", err)
+				// Vẫn trả về success để tránh email enumeration
+			} else {
+				log.Printf("Service - ✅ Email đặt lại mật khẩu đã được gửi đến: %s", email)
+			}
+		} else {
+			log.Printf("Service - ⚠️  Email service chưa được cấu hình. Link reset: %s", resetLink)
+		}
+	}
+	
+	// Luôn trả về success để tránh email enumeration
+	log.Printf("Service - ✅ Email đặt lại mật khẩu đã được gửi (nếu email tồn tại)")
+	return nil
 }

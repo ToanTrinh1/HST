@@ -280,6 +280,105 @@ export const authAPI = {
       };
     }
   },
+
+  // Gửi mã xác thực email
+  sendVerificationCode: async (email) => {
+    try {
+      console.log('authAPI - Gửi POST request đến /auth/send-verification-code');
+      const response = await axiosInstance.post('/auth/send-verification-code', { email });
+      console.log('authAPI - ✅ Backend response:', response.data);
+
+      if (!response.data) {
+        return {
+          success: false,
+          error: 'Không nhận được dữ liệu từ server',
+        };
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('authAPI - ❌ SendVerificationCode error:', error);
+      
+      let errorMsg = 'Gửi mã xác thực thất bại';
+
+      if (error.response) {
+        errorMsg = error.response.data?.error || errorMsg;
+      } else if (error.request) {
+        errorMsg = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.';
+      }
+
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  },
+
+  // Xác thực mã OTP
+  verifyEmailCode: async (email, code) => {
+    try {
+      console.log('authAPI - Gửi POST request đến /auth/verify-email-code');
+      const response = await axiosInstance.post('/auth/verify-email-code', { email, code });
+      console.log('authAPI - ✅ Backend response:', response.data);
+
+      if (!response.data) {
+        return {
+          success: false,
+          error: 'Không nhận được dữ liệu từ server',
+        };
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('authAPI - ❌ VerifyEmailCode error:', error);
+      
+      let errorMsg = 'Xác thực mã thất bại';
+
+      if (error.response) {
+        errorMsg = error.response.data?.error || errorMsg;
+      } else if (error.request) {
+        errorMsg = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.';
+      }
+
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  },
+
+  // Quên mật khẩu - gửi email reset
+  forgotPassword: async (email) => {
+    try {
+      console.log('authAPI - Gửi POST request đến /auth/forgot-password');
+      const response = await axiosInstance.post('/auth/forgot-password', { email });
+      console.log('authAPI - ✅ Backend response:', response.data);
+
+      if (!response.data) {
+        return {
+          success: false,
+          error: 'Không nhận được dữ liệu từ server',
+        };
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('authAPI - ❌ ForgotPassword error:', error);
+      
+      let errorMsg = 'Gửi email đặt lại mật khẩu thất bại';
+
+      if (error.response) {
+        errorMsg = error.response.data?.error || errorMsg;
+      } else if (error.request) {
+        errorMsg = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.';
+      }
+
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  },
 };
 
 export default authAPI;

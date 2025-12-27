@@ -72,8 +72,8 @@ const LoginForm = () => {
   return (
     <div className="auth-form-container">
       <div className="auth-form">
-        <h2>Welcome Back</h2>
-        <p className="auth-subtitle">Login to your account</p>
+        <h2>Chào Mừng Trở Lại</h2>
+        <p className="auth-subtitle">Đăng nhập vào tài khoản của bạn</p>
         
         {error && <div className="error-message">{error}</div>}
         
@@ -86,31 +86,37 @@ const LoginForm = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="Enter your email"
+              placeholder="Nhập email của bạn"
               autoComplete="email"
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">Mật khẩu</label>
             <input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              placeholder="Enter your password"
+              placeholder="Nhập mật khẩu của bạn"
               autoComplete="current-password"
             />
           </div>
 
+          <div className="form-group" style={{ textAlign: 'right', marginBottom: '20px' }}>
+            <Link to="/forgot-password" style={{ color: '#667eea', textDecoration: 'none', fontSize: '14px' }}>
+              Quên mật khẩu?
+            </Link>
+          </div>
+
           <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
           </button>
         </form>
 
         <p className="auth-footer">
-          Don't have an account? <Link to="/register">Register here</Link>
+          Chưa có tài khoản? <Link to="/register">Đăng ký tại đây</Link>
         </p>
       </div>
     </div>

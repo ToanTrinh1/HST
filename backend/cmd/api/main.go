@@ -9,6 +9,7 @@ import (
 	"fullstack-backend/internal/database"
 	"fullstack-backend/internal/repository"
 	"fullstack-backend/internal/service"
+	"fullstack-backend/pkg/email"
 
 	"github.com/gin-gonic/gin"
 )
@@ -45,7 +46,21 @@ func main() {
 	withdrawalRepo := repository.NewWithdrawalRepository(db)
 	historyRepo := repository.NewBetReceiptHistoryRepository(db)
 
-	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
+	// Initialize email service
+	emailService := email.NewEmailService(
+		cfg.SMTPHost,
+		cfg.SMTPPort,
+		cfg.SMTPUser,
+		cfg.SMTPPassword,
+		cfg.SMTPFrom,
+	)
+	if emailService.IsConfigured() {
+		log.Println("✅ Email service configured")
+	} else {
+		log.Println("⚠️  Email service not configured - emails will be logged to console only")
+	}
+
+	authService := service.NewAuthService(userRepo, cfg.JWTSecret, emailService)
 	betReceiptService := service.NewBetReceiptService(betReceiptRepo, userRepo, walletRepo, historyRepo)
 	walletService := service.NewWalletService(walletRepo)
 	depositService := service.NewDepositService(depositRepo, userRepo, walletRepo)

@@ -14,6 +14,13 @@ type Config struct {
 	DBName       string
 	JWTSecret    string
 	ExchangeRate float64 // Tỷ giá VND/CNY mặc định
+	
+	// Email configuration
+	SMTPHost     string
+	SMTPPort     string
+	SMTPUser     string
+	SMTPPassword string
+	SMTPFrom     string // Email address để gửi từ
 }
 
 func Load() *Config {
@@ -32,6 +39,13 @@ func Load() *Config {
 		DBName:       getEnv("DB_NAME", "hst_db"),
 		JWTSecret:    getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
 		ExchangeRate: exchangeRate,
+		
+		// Email configuration
+		SMTPHost:     getEnv("SMTP_HOST", "smtp.gmail.com"),
+		SMTPPort:     getEnv("SMTP_PORT", "587"),
+		SMTPUser:     getEnv("SMTP_USER", ""),
+		SMTPPassword: getEnv("SMTP_PASSWORD", ""),
+		SMTPFrom:     getEnv("SMTP_FROM", ""),
 	}
 }
 

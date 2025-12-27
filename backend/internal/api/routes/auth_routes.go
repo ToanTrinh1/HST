@@ -13,6 +13,9 @@ func setupAuthRoutes(api *gin.RouterGroup, handler *handlers.AuthHandler) {
 		// Public routes - không cần authentication
 		auth.POST("/register", handler.Register)
 		auth.POST("/login", handler.Login)
+		auth.POST("/send-verification-code", handler.SendVerificationCode)
+		auth.POST("/verify-email-code", handler.VerifyEmailCode)
+		auth.POST("/forgot-password", handler.ForgotPassword)
 
 		// Protected routes - cần JWT token
 		auth.GET("/me", handler.GetCurrentUser)        // Lấy thông tin user hiện tại

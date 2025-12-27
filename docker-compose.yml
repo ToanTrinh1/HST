@@ -14,6 +14,12 @@ services:
       - DB_PASSWORD=postgres
       - DB_NAME=hst_db
       - JWT_SECRET=your-super-secret-jwt-key
+      # Email configuration (Gmail SMTP)
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USER=ukt40g412345678@gmail.com
+      - SMTP_PASSWORD=afov bzqy ajxq wgig
+      - SMTP_FROM=ukt40g412345678@gmail.com
     volumes:
       - ./backend/uploads:/app/uploads
     networks:

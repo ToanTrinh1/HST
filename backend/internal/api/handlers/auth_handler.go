@@ -461,3 +461,123 @@ func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 		"message": "Cập nhật ảnh đại diện thành công",
 	})
 }
+
+// SendVerificationCode xử lý gửi mã xác thực email
+func (h *AuthHandler) SendVerificationCode(c *gin.Context) {
+	var req models.SendVerificationCodeRequest
+
+	log.Println("=== BẮT ĐẦU XỬ LÝ GỬI MÃ XÁC THỰC ===")
+
+	// Parse request body
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("❌ VALIDATION LỖI: Dữ liệu không hợp lệ - %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Dữ liệu không hợp lệ: " + err.Error(),
+		})
+		return
+	}
+
+	log.Printf("📝 Gửi mã xác thực cho email: %s", req.Email)
+
+	// Gọi service để xử lý logic
+	err := h.authService.SendVerificationCode(req.Email)
+	if err != nil {
+		errorMsg := err.Error()
+		log.Printf("❌ GỬI MÃ XÁC THỰC THẤT BẠI: %s", errorMsg)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   errorMsg,
+		})
+		return
+	}
+
+	log.Printf("✅ GỬI MÃ XÁC THỰC THÀNH CÔNG - Email: %s", req.Email)
+	log.Println("=== KẾT THÚC XỬ LÝ GỬI MÃ XÁC THỰC ===\n")
+
+	// Trả response thành công
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Mã xác thực đã được gửi đến email của bạn",
+	})
+}
+
+// VerifyEmailCode xử lý xác thực mã OTP
+func (h *AuthHandler) VerifyEmailCode(c *gin.Context) {
+	var req models.VerifyEmailCodeRequest
+
+	log.Println("=== BẮT ĐẦU XỬ LÝ XÁC THỰC MÃ OTP ===")
+
+	// Parse request body
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("❌ VALIDATION LỖI: Dữ liệu không hợp lệ - %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Dữ liệu không hợp lệ: " + err.Error(),
+		})
+		return
+	}
+
+	log.Printf("📝 Xác thực mã OTP cho email: %s", req.Email)
+
+	// Gọi service để xử lý logic
+	err := h.authService.VerifyEmailCode(req.Email, req.Code)
+	if err != nil {
+		errorMsg := err.Error()
+		log.Printf("❌ XÁC THỰC MÃ OTP THẤT BẠI: %s", errorMsg)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   errorMsg,
+		})
+		return
+	}
+
+	log.Printf("✅ XÁC THỰC MÃ OTP THÀNH CÔNG - Email: %s", req.Email)
+	log.Println("=== KẾT THÚC XỬ LÝ XÁC THỰC MÃ OTP ===\n")
+
+	// Trả response thành công
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Email đã được xác thực thành công",
+	})
+}
+
+// ForgotPassword xử lý quên mật khẩu
+func (h *AuthHandler) ForgotPassword(c *gin.Context) {
+	var req models.ForgotPasswordRequest
+
+	log.Println("=== BẮT ĐẦU XỬ LÝ QUÊN MẬT KHẨU ===")
+
+	// Parse request body
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("❌ VALIDATION LỖI: Dữ liệu không hợp lệ - %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Dữ liệu không hợp lệ: " + err.Error(),
+		})
+		return
+	}
+
+	log.Printf("📝 Xử lý quên mật khẩu cho email: %s", req.Email)
+
+	// Gọi service để xử lý logic
+	err := h.authService.ForgotPassword(req.Email)
+	if err != nil {
+		errorMsg := err.Error()
+		log.Printf("❌ QUÊN MẬT KHẨU THẤT BẠI: %s", errorMsg)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   errorMsg,
+		})
+		return
+	}
+
+	log.Printf("✅ QUÊN MẬT KHẨU THÀNH CÔNG - Email: %s", req.Email)
+	log.Println("=== KẾT THÚC XỬ LÝ QUÊN MẬT KHẨU ===\n")
+
+	// Trả response thành công (luôn trả success để tránh email enumeration)
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Nếu email tồn tại, link đặt lại mật khẩu đã được gửi đến email của bạn",
+	})
+}

@@ -30,6 +30,8 @@ const EditProfileModal = ({ isOpen, onClose }) => {
   const timeoutRef = useRef(null);
   const isMountedRef = useRef(true);
   const errorMessageRef = useRef(null);
+  const changePasswordSectionRef = useRef(null);
+  const modalBodyRef = useRef(null);
 
   // Initialize form when modal opens
   useEffect(() => {
@@ -75,6 +77,34 @@ const EditProfileModal = ({ isOpen, onClose }) => {
       }, 100);
     }
   }, [errorMessage, isOpen]);
+
+  // Auto scroll đến phần đổi mật khẩu khi section được mở
+  useEffect(() => {
+    if (showChangePasswordSection && isOpen) {
+      // Đợi DOM render xong
+      const timer = setTimeout(() => {
+        if (changePasswordSectionRef.current && modalBodyRef.current) {
+          const modalBody = modalBodyRef.current;
+          const sectionElement = changePasswordSectionRef.current;
+          
+          // Tính toán vị trí scroll trong modal body
+          const modalBodyRect = modalBody.getBoundingClientRect();
+          const sectionRect = sectionElement.getBoundingClientRect();
+          
+          // Tính toán scrollTop cần thiết để đưa section vào giữa viewport của modal body
+          const scrollTop = modalBody.scrollTop + (sectionRect.top - modalBodyRect.top) - (modalBodyRect.height / 2) + (sectionRect.height / 2);
+          
+          // Scroll trong modal body
+          modalBody.scrollTo({
+            top: Math.max(0, scrollTop),
+            behavior: 'smooth'
+          });
+        }
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [showChangePasswordSection, isOpen]);
 
   useEffect(() => {
     if (showCropModal) {
@@ -350,7 +380,7 @@ const EditProfileModal = ({ isOpen, onClose }) => {
               ×
             </button>
           </div>
-          <div className="reason-modal-body">
+          <div className="reason-modal-body" ref={modalBodyRef}>
             {errorMessage && (
               <div
                 ref={errorMessageRef}
@@ -540,13 +570,16 @@ const EditProfileModal = ({ isOpen, onClose }) => {
               </button>
               
               {showChangePasswordSection && (
-                <div style={{
-                  marginTop: '16px',
-                  padding: '16px',
-                  backgroundColor: '#f9fafb',
-                  borderRadius: '8px',
-                  border: '1px solid #e5e7eb',
-                }}>
+                <div 
+                  ref={changePasswordSectionRef}
+                  style={{
+                    marginTop: '16px',
+                    padding: '16px',
+                    backgroundColor: '#f9fafb',
+                    borderRadius: '8px',
+                    border: '1px solid #e5e7eb',
+                  }}
+                >
                   <div style={{ marginBottom: '12px' }}>
                     <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500' }}>
                       Mật khẩu cũ

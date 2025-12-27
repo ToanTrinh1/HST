@@ -58,6 +58,8 @@ const ProfilePage = () => {
   const timeoutRef = useRef(null);
   const isMountedRef = useRef(true);
   const errorMessageRef = useRef(null);
+  const changePasswordSectionRef = useRef(null);
+  const modalBodyRef = useRef(null);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -568,6 +570,25 @@ const ProfilePage = () => {
       }, 100);
     }
   }, [errorMessage, showEditProfileModal]);
+
+  // Auto scroll đến phần đổi mật khẩu khi section được mở
+  useEffect(() => {
+    if (showChangePasswordSection && showEditProfileModal) {
+      // Đợi DOM render xong
+      const timer = setTimeout(() => {
+        if (changePasswordSectionRef.current) {
+          // Scroll để đưa phần đổi mật khẩu vào view
+          changePasswordSectionRef.current.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest'
+          });
+        }
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [showChangePasswordSection, showEditProfileModal]);
 
   // Handle mouse events cho crop
   useEffect(() => {
@@ -1244,7 +1265,7 @@ const ProfilePage = () => {
                 ×
               </button>
             </div>
-            <div className="reason-modal-body">
+            <div className="reason-modal-body" ref={modalBodyRef}>
               {errorMessage && (
                 <div
                   ref={errorMessageRef}
@@ -1434,13 +1455,16 @@ const ProfilePage = () => {
                 </button>
                 
                 {showChangePasswordSection && (
-                  <div style={{
-                    marginTop: '16px',
-                    padding: '16px',
-                    backgroundColor: '#f9fafb',
-                    borderRadius: '8px',
-                    border: '1px solid #e5e7eb',
-                  }}>
+                  <div 
+                    ref={changePasswordSectionRef}
+                    style={{
+                      marginTop: '16px',
+                      padding: '16px',
+                      backgroundColor: '#f9fafb',
+                      borderRadius: '8px',
+                      border: '1px solid #e5e7eb',
+                    }}
+                  >
                     <div style={{ marginBottom: '12px' }}>
                       <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500' }}>
                         Mật khẩu cũ
