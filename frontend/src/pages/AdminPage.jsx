@@ -121,6 +121,10 @@ const AdminPage = () => {
     minAmount: false,
   });
 
+  // Bộ lọc cho tab tài chính
+  const [financialMonthFilter, setFinancialMonthFilter] = useState('');
+  const [showFinancialMonthFilter, setShowFinancialMonthFilter] = useState(false);
+
   // Options cho dropdown gợi ý (tự động lấy từ dữ liệu hiện có)
   const withdrawalNameOptions = Array.from(
     new Set(withdrawalHistory.map((h) => (h.user_name || '').trim()).filter(Boolean))
@@ -264,6 +268,41 @@ const AdminPage = () => {
       const dateB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
       return dateA - dateB; // Tăng dần
     });
+
+  // Lọc processedBetList theo tháng cho tab tài chính
+  const filteredFinancialBetList = processedBetList.filter(bet => {
+    if (financialMonthFilter) {
+      const d = new Date(bet.completedAt);
+      if (!isNaN(d.getTime())) {
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (monthKey !== financialMonthFilter) {
+          return false;
+        }
+      } else {
+        return false; // Nếu không có completedAt hợp lệ thì loại bỏ
+      }
+    }
+    return true;
+  });
+
+  // Tính tổng doanh thu (tổng tiền kèo web) từ các đơn hàng đã xử lý đã lọc
+  const totalRevenue = filteredFinancialBetList.reduce((sum, bet) => {
+    const webBetValue = typeof bet.webBet === 'number' ? bet.webBet : parseFloat(bet.webBet) || 0;
+    return sum + (isNaN(webBetValue) ? 0 : webBetValue);
+  }, 0);
+
+  // Options cho dropdown tháng trong tab tài chính (lấy từ processedBetList)
+  const financialMonthOptions = Array.from(
+    new Set(
+      processedBetList
+        .map((bet) => {
+          const d = new Date(bet.completedAt);
+          if (isNaN(d.getTime())) return '';
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        })
+        .filter(Boolean)
+    )
+  ).sort().reverse(); // Sắp xếp giảm dần (mới nhất trước)
 
   // Filter betList theo status và các filters
   // Tab "Tổng hợp" sẽ loại bỏ các đơn hàng đã xử lí (DONE, HỦY BỎ, ĐỀN)
@@ -2670,9 +2709,77 @@ const AdminPage = () => {
         );
       case 'loi-nhuan':
         return (
-          <div className="admin-tab-content">
-            <h3>Lợi nhuận</h3>
-            <p>Nội dung lợi nhuận sẽ được cập nhật sau này</p>
+          <div className="admin-tab-content financial-tab-content">
+            <div className="financial-filter-section">
+              <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                <button 
+                  className="btn-filter-month"
+                  onClick={() => setShowFinancialMonthFilter(!showFinancialMonthFilter)}
+                >
+                  Lọc theo tháng {financialMonthFilter ? `(${financialMonthFilter})` : ''}
+                </button>
+                {showFinancialMonthFilter && (
+                  <>
+                    <input
+                      type="month"
+                      value={financialMonthFilter}
+                      onChange={(e) => setFinancialMonthFilter(e.target.value)}
+                      onBlur={() => setTimeout(() => setShowFinancialMonthFilter(false), 150)}
+                      placeholder="Chọn tháng"
+                      className="inline-filter-input"
+                      autoFocus
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ position: 'absolute', top: '100%', marginTop: '4px', zIndex: 1000 }}
+                    />
+                    {showFinancialMonthFilter && financialMonthOptions.length > 0 && (
+                      <div className="inline-suggestions" style={{ position: 'absolute', top: '100%', marginTop: '32px', zIndex: 1000 }}>
+                        <div
+                          className="inline-suggestion-item"
+                          onMouseDown={() => {
+                            setFinancialMonthFilter('');
+                            setShowFinancialMonthFilter(false);
+                          }}
+                        >
+                          Xóa lọc
+                        </div>
+                        {financialMonthOptions.map((opt) => (
+                          <div
+                            key={opt}
+                            className="inline-suggestion-item"
+                            onMouseDown={() => {
+                              setFinancialMonthFilter(opt);
+                              setShowFinancialMonthFilter(false);
+                            }}
+                          >
+                            {opt}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="bet-list-table-wrapper financial-table-wrapper">
+              <table className="bet-list-table wallet-table financial-table">
+                <thead>
+                  <tr>
+                    <th>Doanh thu</th>
+                    <th>Chi phí</th>
+                    <th>Tiền đền</th>
+                    <th>Lợi nhuận</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>{totalRevenue.toLocaleString('vi-VN')}</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         );
       default:

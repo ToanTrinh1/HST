@@ -20,3 +20,5 @@ echo ""
 echo "📝 Bây giờ bạn có thể chạy:"
 echo "   docker-compose up -d"
 
+
+

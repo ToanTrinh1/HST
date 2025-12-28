@@ -10,3 +10,5 @@ UPDATE nguoi_dung
 SET thoi_gian_doi_ten_cuoi = thoi_gian_tao 
 WHERE thoi_gian_doi_ten_cuoi IS NULL;
 
+
+
