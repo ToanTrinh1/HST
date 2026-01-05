@@ -77,7 +77,10 @@ export const authAPI = {
       console.log('authAPI - Base URL:', axiosInstance.defaults.baseURL);
       console.log('authAPI - Full URL:', axiosInstance.defaults.baseURL + '/auth/login');
       
-      const response = await axiosInstance.post('/auth/login', credentials);
+      const response = await axiosInstance.post('/auth/login', {
+        email_or_phone: credentials.email_or_phone || credentials.email,
+        password: credentials.password
+      });
       console.log('authAPI - ✅ Backend response:', response.data);
       console.log('authAPI - Response status:', response.status);
       
@@ -172,11 +175,15 @@ export const authAPI = {
     }
   },
 
-  // Cập nhật thông tin profile (tên và email)
-  updateProfile: async (name, email) => {
+  // Cập nhật thông tin profile (tên và số điện thoại, email không thể thay đổi)
+  updateProfile: async (name, phone_number) => {
     try {
       console.log('authAPI - Gửi PUT request đến /auth/me');
-      const response = await axiosInstance.put('/auth/me', { name, email });
+      const requestData = { name };
+      if (phone_number) {
+        requestData.phone_number = phone_number;
+      }
+      const response = await axiosInstance.put('/auth/me', requestData);
       console.log('authAPI - ✅ Backend response:', response.data);
 
       if (!response.data) {

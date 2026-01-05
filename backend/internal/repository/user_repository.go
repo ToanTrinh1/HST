@@ -20,12 +20,12 @@ func (r *UserRepository) Create(user *models.User) error {
 		user.Role = "user"
 	}
 	query := `
-        INSERT INTO nguoi_dung (email, mat_khau, ten, vai_tro) 
-        VALUES ($1, $2, $3, $4) 
+        INSERT INTO nguoi_dung (email, mat_khau, ten, vai_tro, so_dien_thoai) 
+        VALUES ($1, $2, $3, $4, $5) 
         RETURNING id, thoi_gian_tao, thoi_gian_cap_nhat
     `
 	return r.db.QueryRow(
-		query, user.Email, user.Password, user.Name, user.Role,
+		query, user.Email, user.Password, user.Name, user.Role, user.PhoneNumber,
 	).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
 }
 
@@ -33,21 +33,25 @@ func (r *UserRepository) Create(user *models.User) error {
 func (r *UserRepository) FindByID(id string) (*models.User, error) {
 	user := &models.User{}
 	var avatarURL sql.NullString
+	var phoneNumber sql.NullString
 	var lastNameChangeTime sql.NullTime
 	query := `
-        SELECT id, email, mat_khau, ten, vai_tro, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat, thoi_gian_doi_ten_cuoi
+        SELECT id, email, mat_khau, ten, vai_tro, so_dien_thoai, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat, thoi_gian_doi_ten_cuoi
         FROM nguoi_dung 
         WHERE id = $1
     `
 	err := r.db.QueryRow(query, id).Scan(
 		&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
-		&avatarURL, &user.CreatedAt, &user.UpdatedAt, &lastNameChangeTime,
+		&phoneNumber, &avatarURL, &user.CreatedAt, &user.UpdatedAt, &lastNameChangeTime,
 	)
 	if err != nil {
 		return nil, err
 	}
 	if avatarURL.Valid {
 		user.AvatarURL = &avatarURL.String
+	}
+	if phoneNumber.Valid {
+		user.PhoneNumber = &phoneNumber.String
 	}
 	if lastNameChangeTime.Valid {
 		user.LastNameChangeTime = &lastNameChangeTime.Time
@@ -59,14 +63,15 @@ func (r *UserRepository) FindByID(id string) (*models.User, error) {
 func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 	user := &models.User{}
 	var avatarURL sql.NullString
+	var phoneNumber sql.NullString
 	query := `
-        SELECT id, email, mat_khau, ten, vai_tro, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat 
+        SELECT id, email, mat_khau, ten, vai_tro, so_dien_thoai, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat 
         FROM nguoi_dung 
         WHERE email = $1
     `
 	err := r.db.QueryRow(query, email).Scan(
 		&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
-		&avatarURL, &user.CreatedAt, &user.UpdatedAt,
+		&phoneNumber, &avatarURL, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -74,13 +79,42 @@ func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 	if avatarURL.Valid {
 		user.AvatarURL = &avatarURL.String
 	}
+	if phoneNumber.Valid {
+		user.PhoneNumber = &phoneNumber.String
+	}
+	return user, nil
+}
+
+// FindByPhoneNumber tìm user theo số điện thoại (dùng cho login)
+func (r *UserRepository) FindByPhoneNumber(phoneNumber string) (*models.User, error) {
+	user := &models.User{}
+	var avatarURL sql.NullString
+	var phoneNumberDB sql.NullString
+	query := `
+        SELECT id, email, mat_khau, ten, vai_tro, so_dien_thoai, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat 
+        FROM nguoi_dung 
+        WHERE so_dien_thoai = $1
+    `
+	err := r.db.QueryRow(query, phoneNumber).Scan(
+		&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
+		&phoneNumberDB, &avatarURL, &user.CreatedAt, &user.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if avatarURL.Valid {
+		user.AvatarURL = &avatarURL.String
+	}
+	if phoneNumberDB.Valid {
+		user.PhoneNumber = &phoneNumberDB.String
+	}
 	return user, nil
 }
 
 // FindByName tìm user theo Name (tìm chính xác, phân biệt hoa thường)
 func (r *UserRepository) FindByName(name string) ([]*models.User, error) {
 	query := `
-        SELECT id, email, mat_khau, ten, vai_tro, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat 
+        SELECT id, email, mat_khau, ten, vai_tro, so_dien_thoai, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat 
         FROM nguoi_dung 
         WHERE ten = $1
     `
@@ -94,15 +128,19 @@ func (r *UserRepository) FindByName(name string) ([]*models.User, error) {
 	for rows.Next() {
 		user := &models.User{}
 		var avatarURL sql.NullString
+		var phoneNumber sql.NullString
 		err := rows.Scan(
 			&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
-			&avatarURL, &user.CreatedAt, &user.UpdatedAt,
+			&phoneNumber, &avatarURL, &user.CreatedAt, &user.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
 		if avatarURL.Valid {
 			user.AvatarURL = &avatarURL.String
+		}
+		if phoneNumber.Valid {
+			user.PhoneNumber = &phoneNumber.String
 		}
 		users = append(users, user)
 	}
@@ -142,6 +180,40 @@ func (r *UserRepository) UpdateUserName(id string, name string) error {
         WHERE id = $2
     `
 	result, err := r.db.Exec(query, name, id)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
+// UpdateUserProfile cập nhật tên và số điện thoại (thời gian đổi tên chỉ update khi tên thay đổi)
+func (r *UserRepository) UpdateUserProfile(id string, name string, phoneNumber *string, updateNameChangeTime bool) error {
+	var query string
+	if updateNameChangeTime {
+		query = `
+			UPDATE nguoi_dung 
+			SET ten = $1, so_dien_thoai = $2, thoi_gian_cap_nhat = CURRENT_TIMESTAMP, 
+				thoi_gian_doi_ten_cuoi = CURRENT_TIMESTAMP
+			WHERE id = $3
+		`
+	} else {
+		query = `
+			UPDATE nguoi_dung 
+			SET ten = $1, so_dien_thoai = $2, thoi_gian_cap_nhat = CURRENT_TIMESTAMP
+			WHERE id = $3
+		`
+	}
+	result, err := r.db.Exec(query, name, phoneNumber, id)
 	if err != nil {
 		return err
 	}
@@ -229,7 +301,7 @@ func (r *UserRepository) DeleteUser(id string) error {
 // GetAll lấy tất cả users (có phân trang)
 func (r *UserRepository) GetAll(limit, offset int) ([]*models.User, error) {
 	query := `
-        SELECT id, email, mat_khau, ten, vai_tro, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat 
+        SELECT id, email, mat_khau, ten, vai_tro, so_dien_thoai, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat 
         FROM nguoi_dung 
         ORDER BY thoi_gian_tao DESC
         LIMIT $1 OFFSET $2
@@ -244,15 +316,19 @@ func (r *UserRepository) GetAll(limit, offset int) ([]*models.User, error) {
 	for rows.Next() {
 		user := &models.User{}
 		var avatarURL sql.NullString
+		var phoneNumber sql.NullString
 		err := rows.Scan(
 			&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
-			&avatarURL, &user.CreatedAt, &user.UpdatedAt,
+			&phoneNumber, &avatarURL, &user.CreatedAt, &user.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
 		if avatarURL.Valid {
 			user.AvatarURL = &avatarURL.String
+		}
+		if phoneNumber.Valid {
+			user.PhoneNumber = &phoneNumber.String
 		}
 		users = append(users, user)
 	}
@@ -263,7 +339,7 @@ func (r *UserRepository) GetAll(limit, offset int) ([]*models.User, error) {
 // GetAllUsers lấy tất cả users có role = 'user' (có phân trang, sắp xếp theo tên)
 func (r *UserRepository) GetAllUsers(limit, offset int) ([]*models.User, error) {
 	query := `
-        SELECT id, email, mat_khau, ten, vai_tro, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat 
+        SELECT id, email, mat_khau, ten, vai_tro, so_dien_thoai, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat 
         FROM nguoi_dung 
         WHERE vai_tro = 'user'
         ORDER BY ten ASC
@@ -279,15 +355,19 @@ func (r *UserRepository) GetAllUsers(limit, offset int) ([]*models.User, error) 
 	for rows.Next() {
 		user := &models.User{}
 		var avatarURL sql.NullString
+		var phoneNumber sql.NullString
 		err := rows.Scan(
 			&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
-			&avatarURL, &user.CreatedAt, &user.UpdatedAt,
+			&phoneNumber, &avatarURL, &user.CreatedAt, &user.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
 		if avatarURL.Valid {
 			user.AvatarURL = &avatarURL.String
+		}
+		if phoneNumber.Valid {
+			user.PhoneNumber = &phoneNumber.String
 		}
 		users = append(users, user)
 	}

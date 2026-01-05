@@ -22,11 +22,11 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  // Login function
-  const login = async (email, password) => {
+  // Login function - hỗ trợ email hoặc số điện thoại
+  const login = async (emailOrPhone, password) => {
     try {
       setError(null);
-      const response = await authAPI.login({ email, password });
+      const response = await authAPI.login({ email_or_phone: emailOrPhone, password });
       console.log('AuthContext - Full response:', response);
       
       // Kiểm tra response có tồn tại không
@@ -81,14 +81,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Register function - KHÔNG tự động đăng nhập
-  const register = async (email, password, name) => {
+  const register = async (email, password, name, phone_number) => {
     try {
       setError(null);
       console.log('AuthContext - Gửi request đăng ký đến API...');
       console.log('AuthContext - Email:', email);
       console.log('AuthContext - Name:', name);
+      console.log('AuthContext - Phone:', phone_number);
       
-      const response = await authAPI.register({ email, password, name });
+      const response = await authAPI.register({ email, password, name, phone_number });
       console.log('AuthContext - Response từ API:', response);
       
       // Kiểm tra response có tồn tại không

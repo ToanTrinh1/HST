@@ -8,6 +8,7 @@ const RegisterForm = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone_number: '',
     password: '',
     confirmPassword: '',
   });
@@ -23,12 +24,24 @@ const RegisterForm = () => {
   const navigate = useNavigate();
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+    
+    // Nếu là phone_number, chỉ cho phép nhập số
+    if (name === 'phone_number') {
+      const numericValue = value.replace(/\D/g, ''); // Chỉ giữ lại số
+      setFormData({
+        ...formData,
+        [name]: numericValue,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    }
+    
     // Reset verification status khi email thay đổi
-    if (e.target.name === 'email') {
+    if (name === 'email') {
       setIsEmailVerified(false);
       setVerificationCode('');
       setVerificationError('');
@@ -132,6 +145,22 @@ const RegisterForm = () => {
       return;
     }
 
+    // Validate phone number
+    if (!formData.phone_number) {
+      const errorMsg = 'Vui lòng nhập số điện thoại';
+      console.error('❌ VALIDATION LỖI:', errorMsg);
+      setError(errorMsg);
+      return;
+    }
+
+    // Kiểm tra phone chỉ chứa số
+    if (!/^\d+$/.test(formData.phone_number)) {
+      const errorMsg = 'Số điện thoại chỉ được chứa chữ số';
+      console.error('❌ VALIDATION LỖI:', errorMsg);
+      setError(errorMsg);
+      return;
+    }
+
     // Kiểm tra email đã được xác thực chưa
     if (!isEmailVerified) {
       const errorMsg = 'Vui lòng xác thực email trước khi đăng ký';
@@ -147,7 +176,8 @@ const RegisterForm = () => {
       const result = await register(
         formData.email,
         formData.password,
-        formData.name
+        formData.name,
+        formData.phone_number
       );
       console.log('📦 Kết quả từ register function:', result);
 
@@ -200,6 +230,20 @@ const RegisterForm = () => {
               required
               placeholder="Nhập họ và tên của bạn"
               autoComplete="name"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="phone_number">Số điện thoại</label>
+            <input
+              id="phone_number"
+              type="tel"
+              name="phone_number"
+              value={formData.phone_number}
+              onChange={handleChange}
+              required
+              placeholder="Nhập số điện thoại (chỉ số)"
+              autoComplete="tel"
             />
           </div>
 

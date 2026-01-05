@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import './AuthForms.css';
 
 const LoginForm = () => {
-  const [email, setEmail] = useState('');
+  const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -15,7 +15,7 @@ const LoginForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log('🔥 BUTTON CLICKED! handleSubmit được gọi');
-    console.log('Email:', email);
+    console.log('Email hoặc Số điện thoại:', emailOrPhone);
     console.log('Password length:', password.length);
     
     setError('');
@@ -23,7 +23,7 @@ const LoginForm = () => {
 
     try {
       console.log('Đang gọi login function...');
-      const result = await login(email, password);
+      const result = await login(emailOrPhone, password);
       console.log('Login result:', result);
 
       if (result.success) {
@@ -79,15 +79,15 @@ const LoginForm = () => {
         
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="emailOrPhone">Email hoặc Số điện thoại</label>
             <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="emailOrPhone"
+              type="text"
+              value={emailOrPhone}
+              onChange={(e) => setEmailOrPhone(e.target.value)}
               required
-              placeholder="Nhập email của bạn"
-              autoComplete="email"
+              placeholder="Nhập email hoặc số điện thoại của bạn"
+              autoComplete="username"
             />
           </div>
 

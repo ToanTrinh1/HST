@@ -35,6 +35,7 @@ const ProfilePage = () => {
   const [showEditProfileModal, setShowEditProfileModal] = useState(false); // Modal chỉnh sửa profile
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
+  const [editPhoneNumber, setEditPhoneNumber] = useState('');
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -88,6 +89,7 @@ const ProfilePage = () => {
     setShowEditProfileModal(true);
     setEditName(user?.name || '');
     setEditEmail(user?.email || '');
+    setEditPhoneNumber(user?.phone_number || '');
     setAvatarPreview(user?.avatar_url ? `http://localhost:8080${user.avatar_url}` : null);
     setSelectedAvatar(null);
     setOldPassword('');
@@ -238,8 +240,14 @@ const ProfilePage = () => {
   };
 
   const handleUpdateProfile = async () => {
-    if (!editName.trim() || !editEmail.trim()) {
-      setErrorMessage('Vui lòng nhập đầy đủ tên và email');
+    if (!editName.trim()) {
+      setErrorMessage('Vui lòng nhập tên');
+      return;
+    }
+
+    // Validate phone chỉ chứa số (nếu có nhập)
+    if (editPhoneNumber.trim() && !/^\d+$/.test(editPhoneNumber.trim())) {
+      setErrorMessage('Số điện thoại chỉ được chứa chữ số');
       return;
     }
 
@@ -248,7 +256,7 @@ const ProfilePage = () => {
     setSuccessMessage('');
 
     try {
-      const response = await authAPI.updateProfile(editName.trim(), editEmail.trim());
+      const response = await authAPI.updateProfile(editName.trim(), editPhoneNumber.trim() || undefined);
       if (response.success) {
         updateUser(response.data);
         setSuccessMessage('Cập nhật thông tin thành công!');
@@ -695,6 +703,10 @@ const ProfilePage = () => {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
       }
+      // Reset refs để tránh lỗi DOM
+      errorMessageRef.current = null;
+      changePasswordSectionRef.current = null;
+      modalBodyRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
@@ -719,11 +731,16 @@ const ProfilePage = () => {
   useEffect(() => {
     if (errorMessage && errorMessageRef.current && showEditProfileModal) {
       const timer = setTimeout(() => {
-        if (isMountedRef.current && errorMessageRef.current) {
-          errorMessageRef.current.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-          });
+        if (isMountedRef.current && errorMessageRef.current && errorMessageRef.current.parentNode) {
+          try {
+            errorMessageRef.current.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+            });
+          } catch (error) {
+            // Ignore scroll errors if element is not in DOM
+            console.warn('Scroll error:', error);
+          }
         }
       }, 100);
       return () => clearTimeout(timer);
@@ -735,13 +752,18 @@ const ProfilePage = () => {
     if (showChangePasswordSection && showEditProfileModal) {
       // Đợi DOM render xong
       const timer = setTimeout(() => {
-        if (isMountedRef.current && changePasswordSectionRef.current) {
-          // Scroll để đưa phần đổi mật khẩu vào view
-          changePasswordSectionRef.current.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-            inline: 'nearest'
-          });
+        if (isMountedRef.current && changePasswordSectionRef.current && changePasswordSectionRef.current.parentNode) {
+          try {
+            // Scroll để đưa phần đổi mật khẩu vào view
+            changePasswordSectionRef.current.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+              inline: 'nearest'
+            });
+          } catch (error) {
+            // Ignore scroll errors if element is not in DOM
+            console.warn('Scroll error:', error);
+          }
         }
       }, 300);
       
@@ -1562,6 +1584,34 @@ const ProfilePage = () => {
                     type="email"
                     value={editEmail}
                     onChange={(e) => setEditEmail(e.target.value)}
+                    disabled
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      fontSize: '14px',
+                      border: '1px solid #ddd',
+                      borderRadius: '8px',
+                      boxSizing: 'border-box',
+                      backgroundColor: '#f3f4f6',
+                      cursor: 'not-allowed',
+                    }}
+                    placeholder="Email không thể thay đổi"
+                  />
+                  <p style={{ color: '#666', fontSize: '12px', marginTop: '4px', marginBottom: 0 }}>
+                    Email không thể thay đổi
+                  </p>
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500' }}>
+                    Số điện thoại
+                  </label>
+                  <input
+                    type="tel"
+                    value={editPhoneNumber}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, ''); // Chỉ cho phép số
+                      setEditPhoneNumber(value);
+                    }}
                     style={{
                       width: '100%',
                       padding: '10px 12px',
@@ -1570,7 +1620,7 @@ const ProfilePage = () => {
                       borderRadius: '8px',
                       boxSizing: 'border-box',
                     }}
-                    placeholder="Nhập email của bạn"
+                    placeholder="Nhập số điện thoại (chỉ số)"
                   />
                 </div>
                 <button

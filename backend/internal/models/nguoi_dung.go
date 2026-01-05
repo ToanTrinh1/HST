@@ -13,6 +13,7 @@ type User struct {
 	Email             string     `json:"email" db:"email"`
 	Password          string     `json:"-" db:"mat_khau"`
 	Name              string     `json:"name" db:"ten"`
+	PhoneNumber       *string    `json:"phone_number" db:"so_dien_thoai"` // Nullable
 	Role              string     `json:"vai_tro" db:"vai_tro"`
 	AvatarURL         *string    `json:"avatar_url" db:"avatar_url"` // Nullable
 	CreatedAt         time.Time  `json:"created_at" db:"thoi_gian_tao"`
@@ -22,18 +23,20 @@ type User struct {
 
 // Request DTOs
 type RegisterRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6"`
-	Name     string `json:"name" binding:"required"`
+	Email       string `json:"email" binding:"required,email"`
+	Password    string `json:"password" binding:"required,min=6"`
+	Name        string `json:"name" binding:"required"`
+	PhoneNumber string `json:"phone_number" binding:"required"` // Validate numeric in service layer
 }
 
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
+	EmailOrPhone string `json:"email_or_phone" binding:"required"` // Có thể là email hoặc số điện thoại
+	Password     string `json:"password" binding:"required"`
 }
 
 type UpdateProfileRequest struct {
-	Name string `json:"name" binding:"required"`
+	Name        string `json:"name" binding:"required"`
+	PhoneNumber string `json:"phone_number" binding:"omitempty"` // Optional, validate numeric in service layer
 	// Email không được phép thay đổi, chỉ để validate format nếu có
 }
 

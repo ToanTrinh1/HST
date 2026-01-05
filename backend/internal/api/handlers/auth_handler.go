@@ -45,7 +45,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	// Log thông tin đăng ký (không log password)
-	log.Printf("📝 Thông tin đăng ký - Email: %s, Name: %s", req.Email, req.Name)
+	log.Printf("📝 Thông tin đăng ký - Email: %s, Name: %s, Phone: %s", req.Email, req.Name, req.PhoneNumber)
 
 	// Gọi service để xử lý logic
 	response, err := h.authService.Register(&req)
@@ -91,7 +91,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	log.Printf("📝 Thông tin đăng nhập - Email: %s", req.Email)
+	log.Printf("📝 Thông tin đăng nhập - Email hoặc Số điện thoại: %s", req.EmailOrPhone)
 
 	// Gọi service để xử lý logic
 	response, err := h.authService.Login(&req)
