@@ -927,6 +927,44 @@ select.status-select.status-waiting-ref {
   min-width: 200px;
 }
 
+/* Cột Thao tác trong bảng lịch sử chỉnh sửa (trang đơn hàng đã xử lí) - cột 7 */
+.history-edit-table th:nth-child(7),
+.history-edit-table td:nth-child(7) {
+  min-width: 120px;
+  width: 120px;
+  overflow: visible !important;
+  white-space: normal !important;
+}
+
+/* Cột Thao tác trong bảng trang thông tin - cột 15 */
+.bet-list-table th:nth-child(15),
+.bet-list-table td:nth-child(15) {
+  min-width: 200px;
+  width: 200px;
+  overflow: visible !important; /* Cho phép hiển thị đầy đủ các nút */
+  height: auto !important; /* Cho phép chiều cao tự động */
+  max-height: none !important; /* Bỏ giới hạn chiều cao */
+  padding: 4px 6px !important; /* Tăng padding để các nút có không gian */
+  white-space: normal !important; /* Cho phép wrap nếu cần */
+}
+
+/* Điều chỉnh các nút trong cột Thao tác */
+.bet-list-table td:nth-child(15) div {
+  display: flex !important;
+  gap: 6px !important;
+  justify-content: center !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  min-height: 30px !important;
+}
+
+.bet-list-table td:nth-child(15) button {
+  padding: 4px 10px !important;
+  font-size: 11px !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
 .btn-nap-tien:active,
 .btn-rut-tien:active {
   transform: translateY(0);
@@ -951,59 +989,212 @@ select.status-select.status-waiting-ref {
 
 /* Tab Tài chính (Lợi nhuận) */
 .financial-tab-content {
-  padding: 20px;
+  padding: 20px 0 20px 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.financial-filter-section {
-  display: flex;
-  justify-content: center;
-  padding: 0 20px;
-}
+/* Sub-tabs cho Bảng (Bảng 1, Bảng 2, Bảng 3) - sử dụng style từ admin-top-tabs */
 
-.btn-filter-month {
-  padding: 10px 24px;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
+.financial-sub-tab {
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
+  color: #666;
+}
+
+.financial-sub-tab:hover {
+  background: #f0f0f0;
+  border-color: #667eea;
+}
+
+.financial-sub-tab.active {
   background: #667eea;
   color: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-color: #667eea;
 }
 
-.btn-filter-month:hover {
+.financial-sub-tab.active:hover {
   background: #5568d3;
-  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
-  transform: translateY(-1px);
-}
-
-.btn-filter-month:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .financial-table-wrapper {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: flex-start;
-  padding: 0 40px 40px 40px;
-  max-width: 80%;
-  margin: 0 auto;
+  padding: 0 0 40px 0;
+  max-width: 100%;
+  margin: 0;
 }
 
 .financial-table {
-  width: 70% !important;
-  transform: scale(0.95);
-  transform-origin: top center;
+  width: auto !important;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transform: scale(0.95);  
+  transform-origin: top left;
 }
 
-.financial-table th,
+/* Xoay tiêu đề cột thành dọc - chỉ áp dụng cho các cột có text */
+.financial-table th:not(.financial-header-empty) {
+  transform: rotate(-90deg);
+  transform-origin: center center;
+  width: 50px !important;
+  min-width: 50px !important;
+  height: 150px !important;
+  padding: 10px 5px !important;
+  white-space: nowrap;
+  position: relative;
+  vertical-align: middle;
+  text-align: center;
+  background: linear-gradient(to bottom, #f8f9fa, #f1f3f5);
+  border: 1px solid #e0e0e0;
+  font-weight: 600;
+  font-size: 12px;
+  color: #333;
+}
+
+/* Cột header trống không xoay */
+.financial-table th.financial-header-empty {
+  width: auto !important;
+  min-width: 50px !important;
+  height: 40px !important;
+  padding: 10px 5px !important;
+  background: linear-gradient(to bottom, #f8f9fa, #f1f3f5);
+  border: 1px solid #e0e0e0;
+  transform: none !important;
+}
+
+.financial-table th.financial-header-empty:first-child {
+  width: auto !important;
+  min-width: auto !important;
+}
+
+.financial-table th.financial-header-empty:last-child {
+  width: auto !important;
+  min-width: auto !important;
+}
+
 .financial-table td {
   padding: 12px 18px !important;
+  border: 1px solid #e0e0e0;
+  text-align: left !important;
+  min-width: 100px;
+  font-size: 14px;
+  color: #555;
+  vertical-align: top;
+  background: #ffffff !important; /* Màu trắng */
+}
+
+/* Main category - Background vàng sáng, text xanh đậm/đen, in đậm */
+.financial-table tbody tr.financial-row-main {
+  background: #ffeb3b !important; /* Màu vàng sáng */
+}
+
+.financial-table tbody tr.financial-row-main td {
+  background: #ffeb3b !important;
+}
+
+.financial-table tbody tr.financial-row-main .financial-label-cell {
+  color: #003366 !important; /* Màu xanh đậm */
+  font-weight: 700 !important;
+}
+
+/* Sub-category - Background vàng nhạt/beige, text đỏ, in đậm */
+.financial-table tbody tr.financial-row-sub {
+  background: #fff9c4 !important; /* Màu vàng nhạt/beige */
+}
+
+.financial-table tbody tr.financial-row-sub td {
+  background: #fff9c4 !important;
+}
+
+.financial-table tbody tr.financial-row-sub .financial-label-cell {
+  color: #d32f2f !important; /* Màu đỏ */
+  font-weight: 700 !important;
+}
+
+/* Individual items - Background xám nhạt, text bình thường */
+.financial-table tbody tr.financial-row-item {
+  background: #f5f5f5 !important; /* Màu xám nhạt */
+}
+
+.financial-table tbody tr.financial-row-item td {
+  background: #f5f5f5 !important;
+}
+
+.financial-table tbody tr.financial-row-item .financial-label-cell {
+  color: #000 !important;
+  font-weight: 400 !important;
+}
+
+/* Lợi nhuận - Background xám nhạt, text đen, in đậm */
+.financial-table tbody tr.financial-row-profit {
+  background: #f5f5f5 !important; /* Màu xám nhạt */
+}
+
+.financial-table tbody tr.financial-row-profit td {
+  background: #f5f5f5 !important;
+}
+
+.financial-table tbody tr.financial-row-profit .financial-label-cell {
+  color: #000 !important;
+  font-weight: 700 !important;
+}
+
+/* Cột label (cột đầu tiên) */
+.financial-table td.financial-label-cell {
+  text-align: left !important;
+  width: auto;
+  min-width: auto;
+  max-width: 0px;
+  padding: 8px 4px !important;
+  white-space: nowrap;
+}
+
+/* Main category và Sub-category - căn sát lề trái */
+.financial-table tbody tr.financial-row-main .financial-label-cell,
+.financial-table tbody tr.financial-row-sub .financial-label-cell {
+  padding-left: 2px !important; /* Sát lề trái */
+  padding-right: 4px !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+}
+
+/* Individual items - lùi vào một chút */
+.financial-table tbody tr.financial-row-item .financial-label-cell {
+  padding-left: 30px !important; /* Lùi vào */
+  padding-right: 4px !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+}
+
+/* Lợi nhuận - căn sát lề trái */
+.financial-table tbody tr.financial-row-profit .financial-label-cell {
+  padding-left: 2px !important; /* Sát lề trái */
+  padding-right: 4px !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+}
+
+/* Cột công thức */
+.financial-table td.financial-formula-cell {
+  font-size: 12px;
+  text-align: left !important;
+  white-space: normal;
+  line-height: 1.5;
+  width: auto;
+  min-width: auto;
+  max-width: none;
+  padding: 8px 6px !important;
 }
 

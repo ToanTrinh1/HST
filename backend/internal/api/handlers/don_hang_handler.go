@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -583,5 +584,98 @@ func (h *BetReceiptHandler) RecalculateActualAmountCNY(c *gin.Context) {
 		"success": true,
 		"data":    betReceipt,
 		"message": "Đã tính lại tệ thành công",
+	})
+}
+
+// GetTop5UsersByMonthlyReceivedAmount lấy top 5 users theo số tiền đã nhận trong tháng
+func (h *BetReceiptHandler) GetTop5UsersByMonthlyReceivedAmount(c *gin.Context) {
+	// Lấy tháng từ query parameter, mặc định là tháng hiện tại
+	month := c.DefaultQuery("month", "")
+	if month == "" {
+		// Nếu không có tháng, dùng tháng hiện tại
+		now := time.Now()
+		month = now.Format("2006-01")
+	}
+
+	log.Printf("=== BẮT ĐẦU LẤY TOP 5 USERS CHO THÁNG: %s ===", month)
+
+	// Gọi service
+	topUsers, err := h.betReceiptService.GetTop5UsersByMonthlyReceivedAmount(month)
+	if err != nil {
+		log.Printf("❌ LỖI LẤY TOP 5 USERS: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Lỗi khi lấy top 5 users: " + err.Error(),
+		})
+		return
+	}
+
+	log.Printf("✅ LẤY TOP 5 USERS THÀNH CÔNG - Số lượng: %d", len(topUsers))
+	log.Println("=== KẾT THÚC LẤY TOP 5 USERS ===\n")
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    topUsers,
+		"month":   month,
+	})
+}
+
+// GetMonthlyTotalByUserID tính tổng số tiền đã nhận theo tháng cho user hiện tại
+func (h *BetReceiptHandler) GetMonthlyTotalByUserID(c *gin.Context) {
+	// Lấy tháng từ query parameter, có thể rỗng (tính tất cả)
+	month := c.Query("month")
+
+	// Kiểm tra JWT token để lấy user ID
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Yêu cầu xác thực",
+		})
+		return
+	}
+
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	if tokenString == authHeader {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Định dạng token không hợp lệ",
+		})
+		return
+	}
+
+	claims, err := utils.ValidateJWT(tokenString, h.jwtSecret)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"error":   "Token không hợp lệ hoặc đã hết hạn",
+		})
+		return
+	}
+
+	userID := claims.UserID
+	log.Printf("=== BẮT ĐẦU TÍNH TỔNG THEO THÁNG CHO USER: %s, THÁNG: %s ===", userID, month)
+
+	// Gọi service
+	total, err := h.betReceiptService.GetMonthlyTotalByUserID(userID, month)
+	if err != nil {
+		log.Printf("❌ LỖI TÍNH TỔNG THEO THÁNG: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Lỗi khi tính tổng theo tháng: " + err.Error(),
+		})
+		return
+	}
+
+	log.Printf("✅ TÍNH TỔNG THEO THÁNG THÀNH CÔNG - User: %s, Tháng: %s, Tổng: %.2f ¥", userID, month, total)
+	log.Println("=== KẾT THÚC TÍNH TỔNG THEO THÁNG ===\n")
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"user_id": userID,
+			"month":   month,
+			"total":   total,
+		},
 	})
 }

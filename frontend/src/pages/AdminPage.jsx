@@ -7,6 +7,7 @@ import { depositAPI } from '../api/endpoints/deposit.api';
 import { withdrawalAPI } from '../api/endpoints/withdrawal.api';
 import { userAPI } from '../api/endpoints/user.api';
 import betReceiptHistoryAPI from '../api/endpoints/bet_receipt_history.api';
+import * as XLSX from 'xlsx';
 import './HomePage.css';
 import './AdminPage.css';
 
@@ -17,6 +18,7 @@ const AdminPage = () => {
   const [activeTab, setActiveTab] = useState('danh-sach-keo');
   const [activeDonHangTab, setActiveDonHangTab] = useState('tong-hop'); // Sub-tab trong tab danh sách kèo
   const [activeRutTienTab, setActiveRutTienTab] = useState('danh-sach'); // Sub-tab trong tab rút tiền: 'danh-sach', 'lich-su-rut', 'lich-su-nap'
+  const [activeFinancialTab, setActiveFinancialTab] = useState('bang-1'); // Tab bảng trong tab lợi nhuận: 'bang-1', 'bang-2', 'bang-3'
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   
@@ -121,9 +123,6 @@ const AdminPage = () => {
     minAmount: false,
   });
 
-  // Bộ lọc cho tab tài chính
-  const [financialMonthFilter, setFinancialMonthFilter] = useState('');
-  const [showFinancialMonthFilter, setShowFinancialMonthFilter] = useState(false);
 
   // Options cho dropdown gợi ý (tự động lấy từ dữ liệu hiện có)
   const withdrawalNameOptions = Array.from(
@@ -247,6 +246,7 @@ const AdminPage = () => {
     webBet: '',
     orderCode: '',
     status: '', // Filter theo status
+    month: '', // Filter theo tháng (cho đơn hàng đã xử lí)
   });
   const [showFilterInputs, setShowFilterInputs] = useState({
     name: false,
@@ -254,6 +254,7 @@ const AdminPage = () => {
     webBet: false,
     orderCode: false,
     status: false,
+    month: false,
   });
 
   // Danh sách các status đã xử lí (sẽ không hiển thị ở tab Tổng hợp)
@@ -269,40 +270,19 @@ const AdminPage = () => {
       return dateA - dateB; // Tăng dần
     });
 
-  // Lọc processedBetList theo tháng cho tab tài chính
-  const filteredFinancialBetList = processedBetList.filter(bet => {
-    if (financialMonthFilter) {
-      const d = new Date(bet.completedAt);
-      if (!isNaN(d.getTime())) {
-        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        if (monthKey !== financialMonthFilter) {
-          return false;
-        }
-      } else {
-        return false; // Nếu không có completedAt hợp lệ thì loại bỏ
-      }
-    }
-    return true;
-  });
-
-  // Tính tổng doanh thu (tổng tiền kèo web) từ các đơn hàng đã xử lý đã lọc
-  const totalRevenue = filteredFinancialBetList.reduce((sum, bet) => {
-    const webBetValue = typeof bet.webBet === 'number' ? bet.webBet : parseFloat(bet.webBet) || 0;
-    return sum + (isNaN(webBetValue) ? 0 : webBetValue);
-  }, 0);
-
-  // Options cho dropdown tháng trong tab tài chính (lấy từ processedBetList)
-  const financialMonthOptions = Array.from(
+  // Danh sách các tháng có sẵn từ processedBetList (dựa trên completedAt)
+  const processedBetMonthOptions = Array.from(
     new Set(
       processedBetList
-        .map((bet) => {
-          const d = new Date(bet.completedAt);
+        .map((b) => {
+          if (!b.completedAt) return '';
+          const d = new Date(b.completedAt);
           if (isNaN(d.getTime())) return '';
           return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         })
         .filter(Boolean)
     )
-  ).sort().reverse(); // Sắp xếp giảm dần (mới nhất trước)
+  ).sort().reverse(); // Sắp xếp từ mới nhất đến cũ nhất
 
   // Filter betList theo status và các filters
   // Tab "Tổng hợp" sẽ loại bỏ các đơn hàng đã xử lí (DONE, HỦY BỎ, ĐỀN)
@@ -366,6 +346,16 @@ const AdminPage = () => {
     if (filters.status && bet.status !== filters.status) {
       return false;
     }
+    // Filter theo tháng (Ngày hoàn thành)
+    if (filters.month) {
+      if (!bet.completedAt) return false;
+      const d = new Date(bet.completedAt);
+      if (isNaN(d.getTime())) return false;
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (monthKey !== filters.month) {
+        return false;
+      }
+    }
     return true;
   });
 
@@ -384,6 +374,82 @@ const AdminPage = () => {
   const handleProfileClick = () => {
     navigate('/profile');
     setShowDropdown(false);
+  };
+
+  // Hàm xuất Excel cho đơn hàng đã xử lí
+  const handleExportToExcel = () => {
+    try {
+      // Định nghĩa các cột cần xuất
+      const exportColumns = [
+        { key: 'stt', label: 'STT' },
+        { key: 'name', label: 'Tên' },
+        { key: 'task', label: 'Nhiệm vụ' },
+        { key: 'betType', label: 'Loại kèo' },
+        { key: 'webBet', label: 'Tiền kèo web' },
+        { key: 'status', label: 'Tiến độ hoàn thành' },
+        { key: 'actualReceived', label: 'Tiền kèo thực nhận' },
+        { key: 'compensation', label: 'Tiền đền' },
+        { key: 'actualAmount', label: 'Công thực nhận' }
+      ];
+
+      // Map dữ liệu từ filteredProcessedBetList
+      const exportData = filteredProcessedBetList.map((bet, index) => {
+        const row = {};
+        exportColumns.forEach(col => {
+          let value = bet[col.key];
+          
+          // Format dữ liệu
+          if (col.key === 'stt') {
+            value = bet.stt || bet.id || (index + 1);
+          } else if (col.key === 'webBet' || col.key === 'actualReceived' || col.key === 'compensation' || col.key === 'actualAmount') {
+            // Format số: nếu là số thì giữ nguyên, nếu không thì hiển thị rỗng hoặc 0
+            value = value !== null && value !== undefined && value !== '' ? (typeof value === 'number' ? value : parseFloat(value) || 0) : '';
+          } else if (col.key === 'compensation') {
+            // Tiền đền chỉ hiển thị khi status là ĐỀN
+            value = bet.status === 'ĐỀN' ? (bet.compensation || '') : '';
+          } else {
+            value = value || '';
+          }
+          
+          row[col.label] = value;
+        });
+        return row;
+      });
+
+      // Tạo worksheet
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      
+      // Đặt độ rộng cột
+      const colWidths = [
+        { wch: 8 },  // STT
+        { wch: 20 }, // Tên
+        { wch: 15 }, // Nhiệm vụ
+        { wch: 12 }, // Loại kèo
+        { wch: 15 }, // Tiền kèo web
+        { wch: 20 }, // Tiến độ hoàn thành
+        { wch: 20 }, // Tiền kèo thực nhận
+        { wch: 15 }, // Tiền đền
+        { wch: 18 }  // Công thực nhận
+      ];
+      ws['!cols'] = colWidths;
+
+      // Tạo workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Đơn hàng đã xử lí');
+
+      // Tạo tên file với tháng nếu có filter
+      const fileName = filters.month 
+        ? `Don_hang_da_xu_li_${filters.month}.xlsx`
+        : `Don_hang_da_xu_li_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+      // Xuất file
+      XLSX.writeFile(wb, fileName);
+      
+      alert(`Đã xuất ${exportData.length} đơn hàng thành công!`);
+    } catch (error) {
+      console.error('Lỗi khi xuất Excel:', error);
+      alert('Có lỗi xảy ra khi xuất file Excel. Vui lòng thử lại.');
+    }
   };
 
   // Đóng dropdown khi click bên ngoài
@@ -1367,7 +1433,7 @@ const AdminPage = () => {
   }, [showCreateModal, showExchangeRateModal]);
 
   // Helper function để render bảng đơn hàng (tái sử dụng cho cả "Trang thông tin" và "Đơn hàng đã xử lí")
-  const renderBetTable = (betListToRender, showSubTabs = true, allowStatusChange = true) => {
+  const renderBetTable = (betListToRender, showSubTabs = true, allowStatusChange = true, showRecalculateButton = true) => {
     return (
       <div className="admin-tab-content">
         {/* Sub-tabs cho Danh sách kèo (chỉ hiển thị khi showSubTabs = true) */}
@@ -1938,7 +2004,7 @@ const AdminPage = () => {
                         >
                           ✏️ Chỉnh sửa
                         </button>
-                        {(bet.status === 'DONE' || bet.status === 'HỦY BỎ' || bet.status === 'ĐỀN') && (
+                        {showRecalculateButton && (bet.status === 'DONE' || bet.status === 'HỦY BỎ' || bet.status === 'ĐỀN') && (
                           <button
                             onClick={() => handleRecalculateAmount(bet.id)}
                             style={{
@@ -2003,7 +2069,7 @@ const AdminPage = () => {
   const renderTabContent = () => {
     // Nếu đang ở tab "Đơn hàng đã xử lí" và đang ở tab "Danh sách kèo", hiển thị bảng đơn hàng đã xử lí
     if (activeTopTab === 'don-hang-da-xu-li' && activeTab === 'danh-sach-keo') {
-      return renderBetTable(filteredProcessedBetList, false, false); // false = không cho phép thay đổi status
+      return renderBetTable(filteredProcessedBetList, false, false, false); // false = không cho phép thay đổi status, false = không hiển thị nút tính tệ
     }
 
     // Nếu đang ở tab "Lịch sử chỉnh sửa" và đang ở tab "Danh sách kèo", hiển thị bảng lịch sử
@@ -2710,76 +2776,140 @@ const AdminPage = () => {
       case 'loi-nhuan':
         return (
           <div className="admin-tab-content financial-tab-content">
-            <div className="financial-filter-section">
-              <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                <button 
-                  className="btn-filter-month"
-                  onClick={() => setShowFinancialMonthFilter(!showFinancialMonthFilter)}
-                >
-                  Lọc theo tháng {financialMonthFilter ? `(${financialMonthFilter})` : ''}
-                </button>
-                {showFinancialMonthFilter && (
-                  <>
-                    <input
-                      type="month"
-                      value={financialMonthFilter}
-                      onChange={(e) => setFinancialMonthFilter(e.target.value)}
-                      onBlur={() => setTimeout(() => setShowFinancialMonthFilter(false), 150)}
-                      placeholder="Chọn tháng"
-                      className="inline-filter-input"
-                      autoFocus
-                      onClick={(e) => e.stopPropagation()}
-                      style={{ position: 'absolute', top: '100%', marginTop: '4px', zIndex: 1000 }}
-                    />
-                    {showFinancialMonthFilter && financialMonthOptions.length > 0 && (
-                      <div className="inline-suggestions" style={{ position: 'absolute', top: '100%', marginTop: '32px', zIndex: 1000 }}>
-                        <div
-                          className="inline-suggestion-item"
-                          onMouseDown={() => {
-                            setFinancialMonthFilter('');
-                            setShowFinancialMonthFilter(false);
-                          }}
-                        >
-                          Xóa lọc
-                        </div>
-                        {financialMonthOptions.map((opt) => (
-                          <div
-                            key={opt}
-                            className="inline-suggestion-item"
-                            onMouseDown={() => {
-                              setFinancialMonthFilter(opt);
-                              setShowFinancialMonthFilter(false);
-                            }}
-                          >
-                            {opt}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-            <div className="bet-list-table-wrapper financial-table-wrapper">
-              <table className="bet-list-table wallet-table financial-table">
+            {/* Nội dung tab Bảng 1 */}
+            {activeFinancialTab === 'bang-1' && (
+              <div className="bet-list-table-wrapper financial-table-wrapper">
+                <table className="bet-list-table wallet-table financial-table">
                 <thead>
                   <tr>
-                    <th>Doanh thu</th>
-                    <th>Chi phí</th>
-                    <th>Tiền đền</th>
-                    <th>Lợi nhuận</th>
+                    <th className="financial-header-empty"></th>
+                    <th className="financial-header-empty"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td>{totalRevenue.toLocaleString('vi-VN')}</td>
-                    <td>-</td>
-                    <td>-</td>
-                    <td>-</td>
+                  <tr className="financial-row-main">
+                    <td className="financial-label-cell">
+                      <strong>1.Doanh thu thuần</strong>
+                    </td>
+                    <td className="financial-formula-cell">
+                    </td>
+                  </tr>
+                  <tr className="financial-row-item">
+                    <td className="financial-label-cell">
+                      1.1 Tiền kèo web thực nhận
+                    </td>
+                    <td className="financial-formula-cell">
+                    </td>
+                  </tr>
+                  <tr className="financial-row-item">
+                    <td className="financial-label-cell">
+                      1.2Phí đền
+                    </td>
+                    <td className="financial-formula-cell">
+                    </td>
+                  </tr>
+                  <tr className="financial-row-main">
+                    <td className="financial-label-cell">
+                      <strong>2. Chi phí</strong>
+                    </td>
+                    <td className="financial-formula-cell">
+                    </td>
+                  </tr>
+                  <tr className="financial-row-sub">
+                    <td className="financial-label-cell">
+                      <strong>2.1. Chi phí nhận kèo</strong>
+                    </td>
+                    <td className="financial-formula-cell">
+                    </td>
+                  </tr>
+                  <tr className="financial-row-item">
+                    <td className="financial-label-cell">
+                      2.1. Nhân công (ko bao gồm Tèo)
+                    </td>
+                    <td className="financial-formula-cell">
+                    </td>
+                  </tr>
+                  <tr className="financial-row-item">
+                    <td className="financial-label-cell">
+                      2.2. Phí web
+                    </td>
+                    <td className="financial-formula-cell">
+                    </td>
+                  </tr>
+                  <tr className="financial-row-sub">
+                    <td className="financial-label-cell">
+                      <strong>2.2. Chi phí quản lý tài khoản</strong>
+                    </td>
+                    <td className="financial-formula-cell">
+                    </td>
+                  </tr>
+                  <tr className="financial-row-item">
+                    <td className="financial-label-cell">
+                      2.2.1. Phí duy trì tài khoản
+                    </td>
+                    <td className="financial-formula-cell">
+                    </td>
+                  </tr>
+                  <tr className="financial-row-sub">
+                    <td className="financial-label-cell">
+                      <strong>2.3. Chi phí nộp tiền vào TK Dialog</strong>
+                    </td>
+                    <td className="financial-formula-cell">
+                    </td>
+                  </tr>
+                  <tr className="financial-row-item">
+                    <td className="financial-label-cell">
+                      - Phí nộp tiền vào TK
+                    </td>
+                    <td className="financial-formula-cell">
+                    </td>
+                  </tr>
+                  <tr className="financial-row-sub">
+                    <td className="financial-label-cell">
+                      <strong>2.4. Chi phí rút tiền</strong>
+                    </td>
+                    <td className="financial-formula-cell">
+                    </td>
+                  </tr>
+                  <tr className="financial-row-item">
+                    <td className="financial-label-cell">
+                      - Phí rút web 
+                    </td>
+                    <td className="financial-formula-cell">
+                    </td>
+                  </tr>
+                  <tr className="financial-row-item">
+                    <td className="financial-label-cell">
+                      - Phí MG rút về Alipay
+                    </td>
+                    <td className="financial-formula-cell">
+                    </td>
+                  </tr>
+                  <tr className="financial-row-profit">
+                    <td className="financial-label-cell">
+                      <strong>Lợi nhuận</strong>
+                    </td>
+                    <td className="financial-formula-cell">
+                    </td>
                   </tr>
                 </tbody>
               </table>
-            </div>
+              </div>
+            )}
+
+            {/* Nội dung tab Bảng 2 */}
+            {activeFinancialTab === 'bang-2' && (
+              <div className="bet-list-table-wrapper financial-table-wrapper">
+                <p style={{ textAlign: 'center', padding: '20px' }}>Bảng 2 - Nội dung sẽ được thêm sau</p>
+              </div>
+            )}
+
+            {/* Nội dung tab Bảng 3 */}
+            {activeFinancialTab === 'bang-3' && (
+              <div className="bet-list-table-wrapper financial-table-wrapper">
+                <p style={{ textAlign: 'center', padding: '20px' }}>Bảng 3 - Nội dung sẽ được thêm sau</p>
+              </div>
+            )}
           </div>
         );
       default:
@@ -2805,6 +2935,162 @@ const AdminPage = () => {
                   className="search-input"
                 />
               </form>
+              {/* Nút lọc theo tháng - chỉ hiển thị khi ở tab "Đơn hàng đã xử lí" */}
+              {activeTopTab === 'don-hang-da-xu-li' && (
+                <div style={{ position: 'relative', marginLeft: '10px' }}>
+                  <button
+                    onClick={() => setShowFilterInputs({ ...showFilterInputs, month: !showFilterInputs.month })}
+                    style={{
+                      padding: '8px 16px',
+                      background: filters.month ? '#667eea' : '#f0f0f0',
+                      color: filters.month ? 'white' : '#333',
+                      border: '1px solid #ddd',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.2s ease'
+                    }}
+                    title="Lọc theo tháng (Ngày hoàn thành)"
+                  >
+                    📅 {filters.month ? `Tháng: ${filters.month}` : 'Lọc theo tháng'}
+                  </button>
+                  {showFilterInputs.month && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      marginTop: '4px',
+                      background: 'white',
+                      border: '1px solid #ddd',
+                      borderRadius: '6px',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                      zIndex: 1000,
+                      minWidth: '200px',
+                      padding: '12px'
+                    }}>
+                      <input
+                        type="month"
+                        value={filters.month}
+                        onChange={(e) => setFilters({ ...filters, month: e.target.value })}
+                        onBlur={() => {
+                          setTimeout(() => {
+                            setShowFilterInputs({ ...showFilterInputs, month: false });
+                          }, 200);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '14px',
+                          boxSizing: 'border-box'
+                        }}
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      {processedBetMonthOptions.length > 0 && (
+                        <div style={{
+                          marginTop: '8px',
+                          maxHeight: '200px',
+                          overflowY: 'auto',
+                          border: '1px solid #f0f0f0',
+                          borderRadius: '4px'
+                        }}>
+                          <div
+                            onClick={() => {
+                              setFilters({ ...filters, month: '' });
+                              setShowFilterInputs({ ...showFilterInputs, month: false });
+                            }}
+                            style={{
+                              padding: '8px 12px',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              color: '#666',
+                              borderBottom: '1px solid #f0f0f0'
+                            }}
+                            onMouseEnter={(e) => e.target.style.background = '#f5f5f5'}
+                            onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                          >
+                            Tất cả tháng
+                          </div>
+                          {processedBetMonthOptions.map((opt) => (
+                            <div
+                              key={opt}
+                              onClick={() => {
+                                setFilters({ ...filters, month: opt });
+                                setShowFilterInputs({ ...showFilterInputs, month: false });
+                              }}
+                              style={{
+                                padding: '8px 12px',
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                                color: '#333',
+                                borderBottom: '1px solid #f0f0f0'
+                              }}
+                              onMouseEnter={(e) => e.target.style.background = '#f5f5f5'}
+                              onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                            >
+                              {opt}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {filters.month && (
+                        <button
+                          onClick={() => {
+                            setFilters({ ...filters, month: '' });
+                            setShowFilterInputs({ ...showFilterInputs, month: false });
+                          }}
+                          style={{
+                            marginTop: '8px',
+                            width: '100%',
+                            padding: '6px',
+                            background: '#f44336',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          Xóa bộ lọc
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Nút xuất Excel - chỉ hiển thị khi ở tab "Đơn hàng đã xử lí" */}
+              {activeTopTab === 'don-hang-da-xu-li' && (
+                <button
+                  onClick={handleExportToExcel}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#4caf50',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s ease',
+                    marginLeft: '10px'
+                  }}
+                  title={`Xuất ${filteredProcessedBetList.length} đơn hàng ra file Excel`}
+                  onMouseEnter={(e) => e.target.style.background = '#45a049'}
+                  onMouseLeave={(e) => e.target.style.background = '#4caf50'}
+                >
+                  📊 Xuất Excel ({filteredProcessedBetList.length})
+                </button>
+              )}
               <div className="avatar-container" ref={dropdownRef}>
                 <div
                   className="avatar"
@@ -4169,6 +4455,32 @@ const AdminPage = () => {
               onClick={() => setActiveTopTab('don-hang-da-xu-li')}
             >
               Đơn hàng đã xử lí
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Top tabs phía trên footer - chỉ hiển thị khi ở tab "Lợi nhuận" */}
+      {activeTab === 'loi-nhuan' && (
+        <div className="admin-top-tabs financial-sub-tabs">
+          <div className="admin-top-tabs-inner">
+            <button
+              className={`financial-sub-tab ${activeFinancialTab === 'bang-1' ? 'active' : ''}`}
+              onClick={() => setActiveFinancialTab('bang-1')}
+            >
+              Bảng 1
+            </button>
+            <button
+              className={`financial-sub-tab ${activeFinancialTab === 'bang-2' ? 'active' : ''}`}
+              onClick={() => setActiveFinancialTab('bang-2')}
+            >
+              Bảng 2
+            </button>
+            <button
+              className={`financial-sub-tab ${activeFinancialTab === 'bang-3' ? 'active' : ''}`}
+              onClick={() => setActiveFinancialTab('bang-3')}
+            >
+              Bảng 3
             </button>
           </div>
         </div>

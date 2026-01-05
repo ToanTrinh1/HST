@@ -341,6 +341,86 @@ export const donHangAPI = {
       };
     }
   },
+
+  // Lấy top 5 users theo số tiền đã nhận trong tháng
+  layTop5UsersThang: async (month = null) => {
+    try {
+      const params = month ? { month } : {};
+      console.log('donHangAPI - 📡 Gửi GET request đến /bet-receipts/top-5-monthly với params:', params);
+      const response = await axiosInstance.get('/bet-receipts/top-5-monthly', {
+        params
+      });
+      console.log('donHangAPI - ✅ GET /bet-receipts/top-5-monthly response:', response.data);
+      
+      if (!response.data) {
+        console.error('donHangAPI - ❌ response.data is null or undefined');
+        return {
+          success: false,
+          error: 'Không nhận được dữ liệu từ server',
+        };
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('donHangAPI - ❌ GetTop5UsersThang error:', error);
+      console.error('donHangAPI - Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      
+      let errorMsg = 'Lấy top 5 users thất bại';
+      
+      if (error.response) {
+        errorMsg = error.response.data?.error || errorMsg;
+      }
+      
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  },
+
+  // Lấy tổng số tiền đã nhận theo tháng cho user hiện tại
+  layTongTienTheoThang: async (month = null) => {
+    try {
+      const params = month ? { month } : {};
+      console.log('donHangAPI - 📡 Gửi GET request đến /bet-receipts/monthly-total với params:', params);
+      const response = await axiosInstance.get('/bet-receipts/monthly-total', {
+        params
+      });
+      console.log('donHangAPI - ✅ GET /bet-receipts/monthly-total response:', response.data);
+      
+      if (!response.data) {
+        console.error('donHangAPI - ❌ response.data is null or undefined');
+        return {
+          success: false,
+          error: 'Không nhận được dữ liệu từ server',
+        };
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('donHangAPI - ❌ GetMonthlyTotal error:', error);
+      console.error('donHangAPI - Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      
+      let errorMsg = 'Lấy tổng số tiền theo tháng thất bại';
+      
+      if (error.response) {
+        errorMsg = error.response.data?.error || errorMsg;
+      }
+      
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  },
 };
 
 export default donHangAPI;

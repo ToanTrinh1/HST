@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import BottomNavigation from '../components/BottomNavigation';
 import { donHangAPI } from '../api/endpoints/don_hang.api';
@@ -10,6 +10,7 @@ import './ProfilePage.css';
 import './HomePage.css';
 
 const ProfilePage = () => {
+  console.log('🎬 ProfilePage component render');
   const [searchQuery, setSearchQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [doneTasks, setDoneTasks] = useState([]);
@@ -28,6 +29,8 @@ const ProfilePage = () => {
   const [isLoadingWithdrawal, setIsLoadingWithdrawal] = useState(false);
   const [monthFilter, setMonthFilter] = useState(''); // Filter theo tháng cho đơn hàng đã xử lí
   const [showMonthFilter, setShowMonthFilter] = useState(false); // Hiển thị dropdown filter tháng
+  const [monthlyTotal, setMonthlyTotal] = useState(0); // Tổng số tiền đã nhận theo tháng (từ backend)
+  const [isLoadingMonthlyTotal, setIsLoadingMonthlyTotal] = useState(false); // Loading state cho monthly total
   const [showTaskModal, setShowTaskModal] = useState(false); // Hiển thị modal bảng nhiệm vụ
   const [showEditProfileModal, setShowEditProfileModal] = useState(false); // Modal chỉnh sửa profile
   const [editName, setEditName] = useState('');
@@ -60,6 +63,7 @@ const ProfilePage = () => {
   const errorMessageRef = useRef(null);
   const changePasswordSectionRef = useRef(null);
   const modalBodyRef = useRef(null);
+  const previousDoneTasksRef = useRef([]); // Lưu danh sách doneTasks trước đó để so sánh
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -144,18 +148,18 @@ const ProfilePage = () => {
     });
   };
 
-  const handleCropMouseMove = (e) => {
+  const handleCropMouseMove = useCallback((e) => {
     if (isDragging) {
       setCropPosition({
         x: e.clientX - dragStart.x,
         y: e.clientY - dragStart.y,
       });
     }
-  };
+  }, [isDragging, dragStart]);
 
-  const handleCropMouseUp = () => {
+  const handleCropMouseUp = useCallback(() => {
     setIsDragging(false);
-  };
+  }, []);
 
   const handleCropImage = () => {
     if (!cropImage || !cropImageRef.current || !cropContainerRef.current) return;
@@ -252,7 +256,9 @@ const ProfilePage = () => {
           clearTimeout(timeoutRef.current);
         }
         timeoutRef.current = setTimeout(() => {
-          setShowEditProfileModal(false);
+          if (isMountedRef.current) {
+            setShowEditProfileModal(false);
+          }
           timeoutRef.current = null;
         }, 1500);
       } else {
@@ -296,7 +302,9 @@ const ProfilePage = () => {
           clearTimeout(timeoutRef.current);
         }
         timeoutRef.current = setTimeout(() => {
-          setShowEditProfileModal(false);
+          if (isMountedRef.current) {
+            setShowEditProfileModal(false);
+          }
           timeoutRef.current = null;
         }, 1500);
       } else {
@@ -329,7 +337,9 @@ const ProfilePage = () => {
           clearTimeout(timeoutRef.current);
         }
         timeoutRef.current = setTimeout(() => {
-          setShowEditProfileModal(false);
+          if (isMountedRef.current) {
+            setShowEditProfileModal(false);
+          }
           timeoutRef.current = null;
         }, 1500);
       } else {
@@ -360,13 +370,24 @@ const ProfilePage = () => {
     };
   }, [showMonthFilter]);
 
-  const fetchDoneTasks = async () => {
+  const fetchDoneTasks = async (isInitialLoad = false) => {
+    // Kiểm tra component còn mounted không
+    if (!isMountedRef.current) {
+      console.log('⚠️ Component đã unmount, bỏ qua fetchDoneTasks');
+      return;
+    }
+    
+    console.log('📥 [fetchDoneTasks] Bắt đầu fetch, isInitialLoad:', isInitialLoad);
+    
     setIsLoadingTasks(true);
     try {
       const res = await donHangAPI.layDanhSachDonHang(50, 0);
       if (res.success && Array.isArray(res.data)) {
         // Backend đã filter theo user hiện tại, chỉ cần filter theo status
         const done = res.data.filter((item) => item.status === 'DONE' || item.status === 'HỦY BỎ' || item.status === 'ĐỀN');
+        
+        console.log('📥 [fetchDoneTasks] Tổng số đơn hàng từ API:', res.data.length);
+        console.log('📥 [fetchDoneTasks] Số đơn hàng đã hoàn thành (DONE/HỦY BỎ/ĐỀN):', done.length);
         
         // Debug: Log dữ liệu để kiểm tra các trường mới
         if (done.length > 0) {
@@ -377,22 +398,36 @@ const ProfilePage = () => {
           console.log('🔍 Completed_at:', done[0].completed_at);
           console.log('🔍 User name in task:', done[0].user_name || done[0].name);
         }
-        setDoneTasks(done);
+
+        // Cập nhật danh sách trước đó (chỉ khi component còn mounted)
+        if (isMountedRef.current) {
+          previousDoneTasksRef.current = [...done]; // Copy array để tránh reference issue
+          setDoneTasks(done);
+        }
       } else {
-        setDoneTasks([]);
+        if (isMountedRef.current) {
+          setDoneTasks([]);
+          previousDoneTasksRef.current = [];
+        }
       }
     } catch (error) {
       console.error('❌ Lỗi khi lấy danh sách kèo DONE/HỦY BỎ/ĐỀN:', error);
-      setDoneTasks([]);
+      if (isMountedRef.current) {
+        setDoneTasks([]);
+      }
     } finally {
-      setIsLoadingTasks(false);
+      if (isMountedRef.current) {
+        setIsLoadingTasks(false);
+      }
     }
   };
 
   const fetchPendingTasks = async () => {
+    if (!isMountedRef.current) return;
     setIsLoadingPendingTasks(true);
     try {
       const res = await donHangAPI.layDanhSachDonHang(50, 0);
+      if (!isMountedRef.current) return;
       if (res.success && Array.isArray(res.data)) {
         // Backend đã filter theo user hiện tại
         // Lấy các status đang chờ xử lí (loại bỏ DONE, HỦY BỎ, ĐỀN, ĐANG THỰC HIỆN)
@@ -406,16 +441,22 @@ const ProfilePage = () => {
       }
     } catch (error) {
       console.error('❌ Lỗi khi lấy danh sách kèo đang xử lý:', error);
-      setPendingTasks([]);
+      if (isMountedRef.current) {
+        setPendingTasks([]);
+      }
     } finally {
-      setIsLoadingPendingTasks(false);
+      if (isMountedRef.current) {
+        setIsLoadingPendingTasks(false);
+      }
     }
   };
 
   const fetchInProgressTasks = async () => {
+    if (!isMountedRef.current) return;
     setIsLoadingInProgressTasks(true);
     try {
       const res = await donHangAPI.layDanhSachDonHang(50, 0);
+      if (!isMountedRef.current) return;
       if (res.success && Array.isArray(res.data)) {
         // Backend đã filter theo user hiện tại
         // Chỉ lấy các đơn hàng có status "ĐANG THỰC HIỆN"
@@ -428,21 +469,26 @@ const ProfilePage = () => {
       }
     } catch (error) {
       console.error('❌ Lỗi khi lấy danh sách kèo đang thực hiện:', error);
-      setInProgressTasks([]);
+      if (isMountedRef.current) {
+        setInProgressTasks([]);
+      }
     } finally {
-      setIsLoadingInProgressTasks(false);
+      if (isMountedRef.current) {
+        setIsLoadingInProgressTasks(false);
+      }
     }
   };
 
   const fetchCurrentUserBalance = async () => {
-    if (!user?.id) {
-      console.log('⚠️ Chưa có user ID, không thể lấy số dư');
+    if (!user?.id || !isMountedRef.current) {
+      console.log('⚠️ Chưa có user ID hoặc component đã unmount, không thể lấy số dư');
       return;
     }
 
     setIsLoadingBalance(true);
     try {
       const response = await walletAPI.layDanhSachWallets(100, 0);
+      if (!isMountedRef.current) return;
       if (response.success && Array.isArray(response.data)) {
         // Tìm wallet của user hiện tại
         const userWallet = response.data.find(
@@ -463,27 +509,34 @@ const ProfilePage = () => {
         }
       } else {
         console.error('❌ Lỗi khi lấy danh sách wallets:', response.error);
-        setCurrentBalance(0);
-        setTotalReceivedCNY(0);
+        if (isMountedRef.current) {
+          setCurrentBalance(0);
+          setTotalReceivedCNY(0);
+        }
       }
     } catch (error) {
       console.error('❌ Lỗi khi lấy số dư:', error);
-      setCurrentBalance(0);
-      setTotalReceivedCNY(0);
+      if (isMountedRef.current) {
+        setCurrentBalance(0);
+        setTotalReceivedCNY(0);
+      }
     } finally {
-      setIsLoadingBalance(false);
+      if (isMountedRef.current) {
+        setIsLoadingBalance(false);
+      }
     }
   };
 
   const fetchWithdrawalHistory = async () => {
-    if (!user?.id) {
-      console.log('⚠️ Chưa có user ID, không thể lấy lịch sử rút tiền');
+    if (!user?.id || !isMountedRef.current) {
+      console.log('⚠️ Chưa có user ID hoặc component đã unmount, không thể lấy lịch sử rút tiền');
       return;
     }
 
     setIsLoadingWithdrawal(true);
     try {
       const response = await withdrawalAPI.layTatCaLichSu();
+      if (!isMountedRef.current) return;
       if (response.success && Array.isArray(response.data)) {
         // Filter lịch sử rút tiền của user hiện tại
         const userWithdrawals = response.data.filter(
@@ -499,13 +552,97 @@ const ProfilePage = () => {
         console.log('✅ Lấy lịch sử rút tiền thành công:', userWithdrawals.length, 'bản ghi');
       } else {
         console.error('❌ Lỗi khi lấy lịch sử rút tiền:', response.error);
-        setWithdrawalHistory([]);
+        if (isMountedRef.current) {
+          setWithdrawalHistory([]);
+        }
       }
     } catch (error) {
       console.error('❌ Lỗi khi lấy lịch sử rút tiền:', error);
-      setWithdrawalHistory([]);
+      if (isMountedRef.current) {
+        setWithdrawalHistory([]);
+      }
     } finally {
-      setIsLoadingWithdrawal(false);
+      if (isMountedRef.current) {
+        setIsLoadingWithdrawal(false);
+      }
+    }
+  };
+
+  /**
+   * Tính "Số ¥ đã nhận"
+   * 
+   * CÁCH TÍNH:
+   * 1. Backend query: SUM(cong_thuc_nhan_te) từ bảng thong_tin_nhan_keo
+   * 2. Điều kiện:
+   *    - id_nguoi_dung = user hiện tại
+   *    - tien_do_hoan_thanh IN ('DONE', 'HỦY BỎ', 'ĐỀN')
+   *    - thoi_gian_hoan_thanh IS NOT NULL
+   *    - Nếu có month: TO_CHAR(thoi_gian_hoan_thanh, 'YYYY-MM') = tháng được chọn
+   *    - Nếu month = null: tính tổng tất cả tháng
+   * 
+   * cong_thuc_nhan_te (Công thực nhận) được tính khi status chuyển sang DONE/HỦY BỎ/ĐỀN:
+   * - DONE: cong_thuc_nhan_te = f(WebBetAmountCNY) (tính theo loại kèo)
+   * - HỦY BỎ: cong_thuc_nhan_te = f(ActualReceivedCNY) (nếu ActualReceivedCNY = 0 thì = 0)
+   * - ĐỀN: cong_thuc_nhan_te = -CompensationCNY (số âm, sẽ trừ đi)
+   */
+  const fetchMonthlyTotal = async (month = null) => {
+    if (!user?.id || !isMountedRef.current) {
+      console.log('⚠️ Chưa có user ID hoặc component đã unmount, không thể lấy tổng số tiền theo tháng');
+      return;
+    }
+
+    // Nếu month là null hoặc rỗng, truyền null để backend tính tổng tất cả tháng
+    // Nếu có month, sử dụng month đó
+    const monthToFetch = (month && month !== '') ? month : null;
+
+    setIsLoadingMonthlyTotal(true);
+    try {
+      console.log('📡 [fetchMonthlyTotal] Gọi API với tháng:', monthToFetch || 'TẤT CẢ THÁNG', 'user ID:', user.id);
+      const response = await donHangAPI.layTongTienTheoThang(monthToFetch);
+      if (!isMountedRef.current) return;
+      console.log('📥 [fetchMonthlyTotal] API Response đầy đủ:', JSON.stringify(response, null, 2));
+      console.log('📥 [fetchMonthlyTotal] response.success:', response.success);
+      console.log('📥 [fetchMonthlyTotal] response.data:', response.data);
+      console.log('📥 [fetchMonthlyTotal] response.data?.total:', response.data?.total);
+      
+      if (response.success) {
+        // Backend trả về: { success: true, data: { user_id, month, total } }
+        let total = 0;
+        
+        // Thử nhiều cách để lấy total
+        if (typeof response.data === 'object' && response.data !== null) {
+          if ('total' in response.data) {
+            total = Number(response.data.total) || 0;
+          } else if (typeof response.data === 'number') {
+            total = Number(response.data) || 0;
+          }
+        } else if (typeof response.data === 'number') {
+          total = Number(response.data) || 0;
+        }
+        
+        console.log('💰 [fetchMonthlyTotal] Tổng số tiền đã parse:', total);
+        
+        if (isMountedRef.current) {
+          setMonthlyTotal(total);
+          console.log('✅ [fetchMonthlyTotal] Lấy tổng số tiền theo tháng thành công:', total, `(tháng: ${monthToFetch || 'TẤT CẢ THÁNG'})`);
+        }
+      } else {
+        console.error('❌ [fetchMonthlyTotal] Lỗi khi lấy tổng số tiền theo tháng:', response.error);
+        if (isMountedRef.current) {
+          setMonthlyTotal(0);
+        }
+      }
+    } catch (error) {
+      console.error('❌ [fetchMonthlyTotal] Exception khi lấy tổng số tiền theo tháng:', error);
+      console.error('❌ [fetchMonthlyTotal] Error response:', error.response?.data);
+      console.error('❌ [fetchMonthlyTotal] Error message:', error.message);
+      if (isMountedRef.current) {
+        setMonthlyTotal(0);
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsLoadingMonthlyTotal(false);
+      }
     }
   };
 
@@ -517,20 +654,31 @@ const ProfilePage = () => {
   // Fetch danh sách kèo đã hoàn thành (DONE) và đang xử lý, lắng nghe sự kiện/global focus
   useEffect(() => {
     isMountedRef.current = true;
-    fetchDoneTasks();
+    fetchDoneTasks(true); // Lần đầu load
     fetchPendingTasks();
     fetchInProgressTasks();
     if (user?.id) {
       fetchCurrentUserBalance();
+      fetchMonthlyTotal(monthFilter || null); // Nếu monthFilter rỗng/null, sẽ tự động tính tháng hiện tại
     }
 
     const handleRefresh = (event) => {
-      console.log('🔄 ProfilePage - Nhận được event bet-receipt-status-changed:', event?.detail);
-      fetchDoneTasks();
+      // Kiểm tra component còn mounted không
+      if (!isMountedRef.current) {
+        console.log('⚠️ Component đã unmount, bỏ qua handleRefresh');
+        return;
+      }
+      
+      console.log('🔄 ProfilePage - Nhận được event:', event?.type || 'focus');
+      
+      // Fetch lại danh sách
+      fetchDoneTasks(false);
+      
       fetchPendingTasks();
       fetchInProgressTasks();
       if (user?.id) {
         fetchCurrentUserBalance();
+        fetchMonthlyTotal(monthFilter || null); // Nếu monthFilter rỗng/null, sẽ tự động tính tháng hiện tại
       }
     };
 
@@ -551,6 +699,14 @@ const ProfilePage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  // Fetch monthly total khi monthFilter thay đổi
+  useEffect(() => {
+    if (user?.id) {
+      fetchMonthlyTotal(monthFilter || null); // Nếu monthFilter rỗng/null, sẽ tự động tính tháng hiện tại
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthFilter, user?.id]);
+
   // Cleanup timeout khi modal đóng
   useEffect(() => {
     if (!showEditProfileModal && timeoutRef.current) {
@@ -562,12 +718,15 @@ const ProfilePage = () => {
   // Auto scroll đến error message khi có lỗi
   useEffect(() => {
     if (errorMessage && errorMessageRef.current && showEditProfileModal) {
-      setTimeout(() => {
-        errorMessageRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-        });
+      const timer = setTimeout(() => {
+        if (isMountedRef.current && errorMessageRef.current) {
+          errorMessageRef.current.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          });
+        }
       }, 100);
+      return () => clearTimeout(timer);
     }
   }, [errorMessage, showEditProfileModal]);
 
@@ -576,7 +735,7 @@ const ProfilePage = () => {
     if (showChangePasswordSection && showEditProfileModal) {
       // Đợi DOM render xong
       const timer = setTimeout(() => {
-        if (changePasswordSectionRef.current) {
+        if (isMountedRef.current && changePasswordSectionRef.current) {
           // Scroll để đưa phần đổi mật khẩu vào view
           changePasswordSectionRef.current.scrollIntoView({
             behavior: 'smooth',
@@ -604,7 +763,7 @@ const ProfilePage = () => {
         window.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [showCropModal, isDragging, dragStart, cropPosition]);
+  }, [showCropModal, handleCropMouseMove, handleCropMouseUp]);
 
   // Lấy chữ cái đầu tiên của tên để hiển thị trong avatar
   const getInitials = (name) => {
@@ -761,11 +920,11 @@ const ProfilePage = () => {
                 <div
                   className="avatar"
                   onClick={() => setShowDropdown(!showDropdown)}
-                  style={{
-                    backgroundImage: getAvatarDisplay() ? `url(${getAvatarDisplay()})` : 'none',
+                  style={getAvatarDisplay() ? {
+                    backgroundImage: `url(${getAvatarDisplay()})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
-                  }}
+                  } : {}}
                 >
                   {!getAvatarDisplay() && getInitials(user?.name)}
                 </div>
@@ -911,8 +1070,8 @@ const ProfilePage = () => {
                     <div className="task-list-header">
                       <span>Nhiệm vụ</span>
                       <span>Loại kèo</span>
-                      <span>Tiền kèo</span>
-                      <span>Công thực nhận</span>
+                      <span>Tiền kèo (¥)</span>
+                      <span>¥ thực nhận</span>
                       <span>Chi tiết</span>
                     </div>
                     <div className="task-list-body">
@@ -969,7 +1128,13 @@ const ProfilePage = () => {
             ) : (
               <div style={{ fontSize: '14px', color: '#666', lineHeight: '1.6' }}>
                 <div style={{ marginBottom: '12px' }}>
-                  <span>Số ¥ đã nhận: <strong style={{ color: '#b7791f' }}>{formatNumber(totalReceivedCNY)}</strong></span>
+                  <span>Số ¥ đã nhận{monthFilter ? ` tháng ${monthFilter}` : ' (tất cả tháng)'}: <strong style={{ color: '#b7791f' }}>
+                    {isLoadingMonthlyTotal ? (
+                      'Đang tải...'
+                    ) : (
+                      formatNumber(monthlyTotal)
+                    )}
+                  </strong></span>
                 </div>
                 <button
                   type="button"

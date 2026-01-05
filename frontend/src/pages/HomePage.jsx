@@ -5,12 +5,16 @@ import BottomNavigation from '../components/BottomNavigation';
 import Card from '../components/Card';
 import BetCalculationWrapper from '../components/BetCalculationWrapper';
 import EditProfileModal from '../components/EditProfileModal';
+import { donHangAPI } from '../api/endpoints/don_hang.api';
 import './HomePage.css';
 
 const HomePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [topUsers, setTopUsers] = useState([]);
+  const [isLoadingTopUsers, setIsLoadingTopUsers] = useState(false);
+  const [dataMonth, setDataMonth] = useState(null); // Lưu tháng của dữ liệu
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
@@ -43,6 +47,46 @@ const HomePage = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Fetch top 5 users - tự động cập nhật khi tháng thay đổi
+  useEffect(() => {
+    const fetchTopUsers = async () => {
+      setIsLoadingTopUsers(true);
+      try {
+        // Lấy tháng hiện tại
+        const now = new Date();
+        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        
+        const response = await donHangAPI.layTop5UsersThang(currentMonth);
+        if (response.success && response.data) {
+          console.log('Top users data:', response.data);
+          setTopUsers(response.data);
+          // Lưu tháng của dữ liệu (từ response hoặc dùng currentMonth)
+          setDataMonth(response.month || currentMonth);
+        } else {
+          console.error('Lỗi khi lấy top users:', response.error);
+          setTopUsers([]);
+          setDataMonth(null);
+        }
+      } catch (error) {
+        console.error('Lỗi khi fetch top users:', error);
+        setTopUsers([]);
+      } finally {
+        setIsLoadingTopUsers(false);
+      }
+    };
+
+    fetchTopUsers();
+
+    // Kiểm tra mỗi phút xem tháng có thay đổi không
+    const intervalId = setInterval(() => {
+      fetchTopUsers();
+    }, 60000); // Check mỗi 60 giây
+
+    return () => {
+      clearInterval(intervalId);
     };
   }, []);
 
@@ -82,11 +126,11 @@ const HomePage = () => {
                 <div
                   className="avatar"
                   onClick={() => setShowDropdown(!showDropdown)}
-                  style={{
-                    backgroundImage: getAvatarDisplay() ? `url(${getAvatarDisplay()})` : 'none',
+                  style={getAvatarDisplay() ? {
+                    backgroundImage: `url(${getAvatarDisplay()})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
-                  }}
+                  } : {}}
                 >
                   {!getAvatarDisplay() && getInitials(user?.name)}
                 </div>
@@ -156,23 +200,84 @@ const HomePage = () => {
           <h4 className="top-chart-title">5 côn đồ mạnh nhất</h4>
           <p className="top-chart-note">Top 1 sẽ được 200k mỗi tháng dựa theo số ¥ cày được</p>
           <div className="top-chart-bars">
-            {[1, 2, 3, 4, 5].map((i) => {
-              const icon = i === 1 ? '🐃' : '🐔';
-              const progressWidth = `${90 - i * 10}%`;
-              return (
-                <div key={i} className="top-chart-bar">
-                  <span className="bar-rank">#{i}</span>
-                  <div className="bar-track">
-                    <div className="bar-fill" style={{ width: progressWidth }}>
-                      <span className="bar-icon">{icon}</span>
-                    </div>
-                    <span className="bar-finish">🏁</span>
-                  </div>
-                  <span className="bar-name"></span>
-                  <span className="bar-score"></span>
-                </div>
-              );
-            })}
+            {isLoadingTopUsers ? (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+                Đang tải...
+              </div>
+            ) : (
+              (() => {
+                // Kiểm tra xem tháng đã kết thúc chưa
+                const now = new Date();
+                const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                const isMonthEnded = dataMonth && currentMonth !== dataMonth;
+                
+                // Tính max amount để normalize progress width
+                const maxAmount = topUsers.length > 0 ? Math.max(...topUsers.map(u => u.amount_cny || 0)) : 1;
+                // Luôn hiển thị đủ 5 hàng
+                return Array.from({ length: 5 }, (_, i) => {
+                  if (i < topUsers.length) {
+                    // Có dữ liệu thực
+                    const user = topUsers[i];
+                    const rank = i + 1;
+                    const amount = user.amount_cny || 0;
+                    
+                    // Nếu hết tháng và là top 1, cho chạm đích (100%)
+                    // Nếu không, dùng công thức bình thường (90% max)
+                    let progressWidth;
+                    if (isMonthEnded && rank === 1 && amount > 0) {
+                      progressWidth = '100%'; // Top 1 chạm đích khi hết tháng
+                    } else {
+                      progressWidth = maxAmount > 0 ? `${(amount / maxAmount) * 90}%` : '0%';
+                    }
+                    
+                    const avatarUrl = user.avatar_url ? `http://localhost:8080${user.avatar_url}` : null;
+                    const userInitials = user.user_name ? user.user_name.charAt(0).toUpperCase() : 'U';
+                    const isWinner = isMonthEnded && rank === 1 && amount > 0;
+                    
+                    return (
+                      <div key={`user-${user.user_id}-${i}`} className="top-chart-bar">
+                        <span className="bar-rank">{user.user_name || 'N/A'}</span>
+                        <div className={`bar-track ${isWinner ? 'bar-track-winner' : ''}`}>
+                          <div 
+                            className={`bar-fill ${isWinner ? 'bar-fill-winner' : ''}`}
+                            style={{ width: progressWidth }}
+                          >
+                            <div 
+                              className="bar-avatar"
+                              style={avatarUrl ? {
+                                backgroundImage: `url(${avatarUrl})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                              } : {}}
+                            >
+                              {!avatarUrl && userInitials}
+                            </div>
+                          </div>
+                          <span className="bar-finish">🏁</span>
+                        </div>
+                      </div>
+                    );
+                  } else {
+                    // Chưa có dữ liệu - hiển thị "đang cập nhật"
+                    return (
+                      <div key={`placeholder-${i}`} className="top-chart-bar">
+                        <span className="bar-rank" style={{ color: '#999', fontStyle: 'italic' }}>
+                          Đang cập nhật
+                        </span>
+                        <div className="bar-track">
+                          <div className="bar-fill" style={{ width: '0%' }}>
+                            <div className="bar-avatar">
+                              ?
+                            </div>
+                          </div>
+                          <span className="bar-finish">🏁</span>
+                        </div>
+                      </div>
+                    );
+                  }
+                });
+              })()
+            )}
           </div>
         </div>
 

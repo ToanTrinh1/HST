@@ -724,3 +724,49 @@ func (s *BetReceiptService) RecalculateActualAmountCNY(id string) (*models.BetRe
 
 	return betReceipt, nil
 }
+
+// TopUserMonthlyResponse - Response DTO cho top user theo tháng
+type TopUserMonthlyResponse struct {
+	UserID    string  `json:"user_id"`
+	UserName  string  `json:"user_name"`
+	AmountCNY float64 `json:"amount_cny"`
+	AvatarURL *string `json:"avatar_url"`
+}
+
+// GetTop5UsersByMonthlyReceivedAmount lấy top 5 users theo số tiền đã nhận trong tháng
+// month: format "YYYY-MM" (ví dụ: "2026-01")
+func (s *BetReceiptService) GetTop5UsersByMonthlyReceivedAmount(month string) ([]*TopUserMonthlyResponse, error) {
+	results, err := s.betReceiptRepo.GetTop5UsersByMonthlyReceivedAmount(month)
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi khi lấy top 5 users: %v", err)
+		return nil, err
+	}
+
+	// Convert repository results to service response
+	response := make([]*TopUserMonthlyResponse, len(results))
+	for i, result := range results {
+		response[i] = &TopUserMonthlyResponse{
+			UserID:    result.UserID,
+			UserName:  result.UserName,
+			AmountCNY: result.AmountCNY,
+			AvatarURL: result.AvatarURL,
+		}
+	}
+
+	log.Printf("Service - ✅ Đã lấy %d top users cho tháng %s", len(response), month)
+	return response, nil
+}
+
+// GetMonthlyTotalByUserID tính tổng số tiền đã nhận theo tháng cho user cụ thể
+// month: format "YYYY-MM" (ví dụ: "2026-01"), nếu rỗng thì tính tất cả
+// userID: ID của user cần tính
+func (s *BetReceiptService) GetMonthlyTotalByUserID(userID string, month string) (float64, error) {
+	total, err := s.betReceiptRepo.GetMonthlyTotalByUserID(userID, month)
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi khi tính tổng theo tháng cho user %s, tháng %s: %v", userID, month, err)
+		return 0, err
+	}
+
+	log.Printf("Service - ✅ Đã tính tổng cho user %s, tháng %s: %.2f ¥", userID, month, total)
+	return total, nil
+}

@@ -535,3 +535,108 @@ func (r *BetReceiptRepository) Delete(id string) error {
 	log.Printf("Repository - ✅ Đã xóa đơn hàng thành công cho ID: %s", id)
 	return nil
 }
+
+// TopUserMonthlyResult - Kết quả top user theo tháng
+type TopUserMonthlyResult struct {
+	UserID    string
+	UserName  string
+	AmountCNY float64
+	AvatarURL *string
+}
+
+// GetTop5UsersByMonthlyReceivedAmount lấy top 5 users theo số tiền đã nhận trong tháng
+// month: format "YYYY-MM" (ví dụ: "2026-01")
+func (r *BetReceiptRepository) GetTop5UsersByMonthlyReceivedAmount(month string) ([]*TopUserMonthlyResult, error) {
+	query := `
+		SELECT 
+			ttnk.id_nguoi_dung,
+			COALESCE(MAX(nd.ten), 'N/A') as user_name,
+			COALESCE(SUM(ttnk.cong_thuc_nhan_te), 0) as total_amount_cny,
+			MAX(nd.avatar_url) as avatar_url
+		FROM thong_tin_nhan_keo ttnk
+		LEFT JOIN nguoi_dung nd ON ttnk.id_nguoi_dung = nd.id
+		WHERE 
+			ttnk.tien_do_hoan_thanh IN ('DONE', 'HỦY BỎ', 'ĐỀN')
+			AND ttnk.thoi_gian_hoan_thanh IS NOT NULL
+			AND TO_CHAR(ttnk.thoi_gian_hoan_thanh, 'YYYY-MM') = $1
+		GROUP BY ttnk.id_nguoi_dung
+		ORDER BY total_amount_cny DESC
+		LIMIT 5
+	`
+
+	rows, err := r.db.Query(query, month)
+	if err != nil {
+		log.Printf("Repository - ❌ Lỗi khi lấy top 5 users: %v", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	results := []*TopUserMonthlyResult{}
+	for rows.Next() {
+		result := &TopUserMonthlyResult{}
+		var avatarURL sql.NullString
+		err := rows.Scan(
+			&result.UserID,
+			&result.UserName,
+			&result.AmountCNY,
+			&avatarURL,
+		)
+		if err != nil {
+			log.Printf("Repository - ❌ Lỗi scan top user: %v", err)
+			continue
+		}
+		if avatarURL.Valid {
+			result.AvatarURL = &avatarURL.String
+		}
+		results = append(results, result)
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Printf("Repository - ❌ Lỗi khi iterate top users: %v", err)
+		return nil, err
+	}
+
+	log.Printf("Repository - ✅ Đã lấy %d top users cho tháng %s", len(results), month)
+	return results, nil
+}
+
+// GetMonthlyTotalByUserID tính tổng số tiền đã nhận (actual_amount_cny) theo tháng cho user cụ thể
+// month: format "YYYY-MM" (ví dụ: "2026-01"), nếu rỗng thì tính tất cả
+// userID: ID của user cần tính
+func (r *BetReceiptRepository) GetMonthlyTotalByUserID(userID string, month string) (float64, error) {
+	var query string
+	var args []interface{}
+
+	if month != "" {
+		// Tính theo tháng cụ thể
+		query = `
+			SELECT COALESCE(SUM(cong_thuc_nhan_te), 0) as total_amount_cny
+			FROM thong_tin_nhan_keo
+			WHERE id_nguoi_dung = $1
+				AND tien_do_hoan_thanh IN ('DONE', 'HỦY BỎ', 'ĐỀN')
+				AND thoi_gian_hoan_thanh IS NOT NULL
+				AND TO_CHAR(thoi_gian_hoan_thanh, 'YYYY-MM') = $2
+		`
+		args = []interface{}{userID, month}
+	} else {
+		// Tính tất cả (không filter theo tháng)
+		query = `
+			SELECT COALESCE(SUM(cong_thuc_nhan_te), 0) as total_amount_cny
+			FROM thong_tin_nhan_keo
+			WHERE id_nguoi_dung = $1
+				AND tien_do_hoan_thanh IN ('DONE', 'HỦY BỎ', 'ĐỀN')
+				AND thoi_gian_hoan_thanh IS NOT NULL
+		`
+		args = []interface{}{userID}
+	}
+
+	var totalAmountCNY float64
+	err := r.db.QueryRow(query, args...).Scan(&totalAmountCNY)
+	if err != nil {
+		log.Printf("Repository - ❌ Lỗi khi tính tổng theo tháng cho user %s, tháng %s: %v", userID, month, err)
+		return 0, err
+	}
+
+	log.Printf("Repository - ✅ Đã tính tổng cho user %s, tháng %s: %.2f ¥", userID, month, totalAmountCNY)
+	return totalAmountCNY, nil
+}
