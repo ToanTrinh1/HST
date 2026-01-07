@@ -79,6 +79,31 @@ func main() {
 	// 4. Setup router
 	router := gin.Default()
 
+	// Configure trusted proxies to fix the warning
+	// Trust localhost and Docker network ranges (172.x.x.x)
+	router.SetTrustedProxies([]string{"127.0.0.1", "::1", "172.16.0.0/12"})
+	log.Println("✅ Proxy trust configured")
+
+	// Health check endpoints
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status":  "ok",
+			"service": "HST API",
+		})
+	})
+
+	// Root endpoint
+	router.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "HST API Server",
+			"version": "1.0.0",
+			"endpoints": gin.H{
+				"health": "/health",
+				"api":    "/api",
+			},
+		})
+	})
+
 	// Add CORS middleware
 	router.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")

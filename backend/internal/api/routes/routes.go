@@ -19,6 +19,14 @@ func SetupRoutes(
 	// API group - prefix /api cho tất cả endpoints
 	api := router.Group("/api")
 
+	// Health check endpoint
+	api.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status":  "ok",
+			"service": "HST API",
+		})
+	})
+
 	// Setup routes theo từng module
 	setupAuthRoutes(api, authHandler)
 	setupDonHangRoutes(api, betReceiptHandler)
