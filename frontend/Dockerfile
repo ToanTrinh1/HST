@@ -11,6 +11,9 @@ RUN npm ci --legacy-peer-deps || npm install --legacy-peer-deps
 # Copy all source code
 COPY . .
 
+# Set environment variable to listen on all interfaces
+ENV HOST=0.0.0.0
+
 EXPOSE 3000
 
 # Use exec form to properly handle signals
