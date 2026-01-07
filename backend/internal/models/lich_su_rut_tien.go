@@ -23,7 +23,7 @@ type CreateWithdrawalRequest struct {
 	// TODO: Khi tạo withdrawal, cần update tien_keo:
 	// tong_da_rut_vnd += so_tien_rut_vnd
 	// so_du_hien_tai_vnd -= so_tien_rut_vnd (hoặc tính lại)
-	// Validation: Kiểm tra so_du_hien_tai_vnd >= amount_vnd trước khi cho phép rút
+	// Lưu ý: Cho phép rút tiền ngay cả khi số dư không đủ (số dư có thể âm)
 }
 
 // TODO: Query helper để lấy withdrawals theo tháng

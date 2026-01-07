@@ -2,7 +2,6 @@ package repository
 
 import (
 	"database/sql"
-	"errors"
 	"fullstack-backend/internal/models"
 	"time"
 )
@@ -339,8 +338,18 @@ func (r *WalletRepository) AddToTotalWithdrawnVND(userID string, amountVND float
 	}
 
 	if wallet == nil {
-		// Wallet chưa tồn tại, không thể rút tiền
-		return errors.New("Wallet không tồn tại, không thể rút tiền")
+		// Wallet chưa tồn tại, tạo mới với số dư âm (cho phép rút tiền ngay cả khi chưa có wallet)
+		wallet = &models.Wallet{
+			ID:                "", // Sẽ được generate bởi database
+			UserID:            userID,
+			TotalReceivedCNY:  0,
+			TotalWithdrawnCNY: 0,
+			TotalReceivedVND:  0,
+			TotalDepositVND:   0,
+			TotalWithdrawnVND: amountVND, // Số tiền rút đầu tiên
+			CurrentBalanceVND: -amountVND, // Số dư âm (cho phép rút tiền vượt quá số dư)
+		}
+		return r.CreateWallet(wallet)
 	}
 
 	// Wallet đã tồn tại, update
