@@ -29,18 +29,30 @@ cd HST
 
 #### Option 1: Sử dụng docker-compose.prod.yml (Khuyến nghị)
 
+File này sử dụng **production build** với nginx để serve static files (tối ưu hơn development server):
+
 ```bash
 # Sử dụng file docker-compose cho production
 docker-compose -f docker-compose.prod.yml up -d --build
 ```
 
-#### Option 2: Sử dụng docker-compose.yml với biến môi trường
+**Lưu ý**: Production build sẽ:
+- Build React app thành static files tối ưu
+- Serve với nginx (nhanh hơn và ổn định hơn development server)
+- Không có hot-reload (phù hợp cho production)
 
-File `docker-compose.yml` đã được cấu hình với IP server. Chỉ cần chạy:
+#### Option 2: Sử dụng docker-compose.yml (Development mode)
+
+File này sử dụng development server (chỉ dùng cho development):
 
 ```bash
 docker-compose up -d --build
 ```
+
+⚠️ **Không khuyến nghị dùng cho production** vì:
+- Chạy development server (chậm hơn)
+- Không tối ưu
+- Tiêu tốn nhiều tài nguyên hơn
 
 ### 4. Kiểm tra Services
 
@@ -86,14 +98,18 @@ Nếu IP server thay đổi, cần cập nhật:
    - REACT_APP_API_URL=http://<IP_MỚI>:8080
    ```
 
-2. **docker-compose.prod.yml** - Dòng 50:
+2. **docker-compose.prod.yml** - Trong phần `build.args`:
    ```yaml
-   - REACT_APP_API_URL=http://<IP_MỚI>:8080
+   build:
+     context: ./frontend
+     dockerfile: Dockerfile.prod
+     args:
+       - REACT_APP_API_URL=http://<IP_MỚI>:8080
    ```
 
 3. Sau đó rebuild frontend:
    ```bash
-   docker-compose up -d --build frontend
+   docker-compose -f docker-compose.prod.yml up -d --build frontend
    ```
 
 ## Lưu ý Bảo mật
@@ -108,11 +124,24 @@ Nếu IP server thay đổi, cần cập nhật:
 
 ### Frontend không kết nối được Backend
 
-1. Kiểm tra REACT_APP_API_URL trong docker-compose.yml
+1. Kiểm tra REACT_APP_API_URL trong docker-compose.prod.yml (trong phần `build.args`)
 2. Rebuild frontend container:
    ```bash
-   docker-compose up -d --build frontend
+   docker-compose -f docker-compose.prod.yml up -d --build frontend
    ```
+
+### Frontend vẫn chạy development server
+
+Nếu bạn thấy thông báo "development build is not optimized", có nghĩa là đang dùng `docker-compose.yml` thay vì `docker-compose.prod.yml`.
+
+**Giải pháp**:
+```bash
+# Dừng containers hiện tại
+docker-compose down
+
+# Chạy với production file
+docker-compose -f docker-compose.prod.yml up -d --build
+```
 
 ### Backend không kết nối được Database
 

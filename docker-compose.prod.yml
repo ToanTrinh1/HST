@@ -44,17 +44,14 @@ services:
     restart: unless-stopped
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        - REACT_APP_API_URL=http://150.95.111.119:8080
     container_name: fullstack-frontend-prod
     ports:
-      - "3000:3000"
-    environment:
-      - REACT_APP_API_URL=http://150.95.111.119:8080
-      - WATCHPACK_POLLING=true
-    volumes:
-      - ./frontend/src:/app/src
-      - ./frontend/public:/app/public
-      - frontend_node_modules:/app/node_modules
+      - "3000:80"
     networks:
       - app-network
     depends_on:
