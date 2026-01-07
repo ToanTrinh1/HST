@@ -36,6 +36,12 @@ help:
 	@echo "  make db-down          - Stop PostgreSQL"
 	@echo "  make db-logs          - View database logs"
 	@echo ""
+	@echo "$(YELLOW)Production Deployment:$(NC)"
+	@echo "  make prod-up          - Start all services for production"
+	@echo "  make prod-down        - Stop production services"
+	@echo "  make prod-logs        - View production logs"
+	@echo "  make prod-rebuild     - Rebuild production services"
+	@echo ""
 	@echo "$(YELLOW)Utilities:$(NC)"
 	@echo "  make clean            - Clean all containers and volumes"
 	@echo "  make ps               - Show running containers"
@@ -136,6 +142,28 @@ db-logs:
 ps:
 	@echo "$(GREEN)📊 Running containers:$(NC)"
 	docker-compose ps
+
+# Production deployment commands
+prod-up:
+	@echo "$(GREEN)🚀 Starting production services...$(NC)"
+	docker-compose -f docker-compose.prod.yml up -d --build
+	@echo "$(GREEN)✅ Production services started!$(NC)"
+	@echo "Backend: http://150.95.111.119:8080"
+	@echo "Frontend: http://150.95.111.119:3000"
+
+prod-down:
+	@echo "$(YELLOW)🛑 Stopping production services...$(NC)"
+	docker-compose -f docker-compose.prod.yml down
+
+prod-logs:
+	@echo "$(GREEN)📋 Production logs:$(NC)"
+	docker-compose -f docker-compose.prod.yml logs -f
+
+prod-rebuild:
+	@echo "$(YELLOW)🔨 Rebuilding production services...$(NC)"
+	docker-compose -f docker-compose.prod.yml down
+	docker-compose -f docker-compose.prod.yml up -d --build
+	@echo "$(GREEN)✅ Production services rebuilt!$(NC)"
 
 # Clean everything
 clean:
