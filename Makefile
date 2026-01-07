@@ -110,6 +110,14 @@ frontend-rebuild:
 	docker-compose up -d frontend
 	@echo "$(GREEN)✅ Frontend rebuilt!$(NC)"
 
+frontend-rebuild-clean:
+	@echo "$(YELLOW)🔨 Rebuilding frontend with clean node_modules...$(NC)"
+	docker-compose stop frontend
+	docker volume rm hst_frontend_node_modules 2>/dev/null || true
+	docker-compose build --no-cache frontend
+	docker-compose up -d frontend
+	@echo "$(GREEN)✅ Frontend rebuilt with clean dependencies!$(NC)"
+
 # Database only commands
 db-up:
 	@echo "$(GREEN)🐘 Starting PostgreSQL...$(NC)"

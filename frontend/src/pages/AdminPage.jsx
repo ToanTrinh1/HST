@@ -7,7 +7,6 @@ import { depositAPI } from '../api/endpoints/deposit.api';
 import { withdrawalAPI } from '../api/endpoints/withdrawal.api';
 import { userAPI } from '../api/endpoints/user.api';
 import betReceiptHistoryAPI from '../api/endpoints/bet_receipt_history.api';
-import * as XLSX from 'xlsx';
 import './HomePage.css';
 import './AdminPage.css';
 
@@ -374,82 +373,6 @@ const AdminPage = () => {
   const handleProfileClick = () => {
     navigate('/profile');
     setShowDropdown(false);
-  };
-
-  // Hàm xuất Excel cho đơn hàng đã xử lí
-  const handleExportToExcel = () => {
-    try {
-      // Định nghĩa các cột cần xuất
-      const exportColumns = [
-        { key: 'stt', label: 'STT' },
-        { key: 'name', label: 'Tên' },
-        { key: 'task', label: 'Nhiệm vụ' },
-        { key: 'betType', label: 'Loại kèo' },
-        { key: 'webBet', label: 'Tiền kèo web' },
-        { key: 'status', label: 'Tiến độ hoàn thành' },
-        { key: 'actualReceived', label: 'Tiền kèo thực nhận' },
-        { key: 'compensation', label: 'Tiền đền' },
-        { key: 'actualAmount', label: 'Công thực nhận' }
-      ];
-
-      // Map dữ liệu từ filteredProcessedBetList
-      const exportData = filteredProcessedBetList.map((bet, index) => {
-        const row = {};
-        exportColumns.forEach(col => {
-          let value = bet[col.key];
-          
-          // Format dữ liệu
-          if (col.key === 'stt') {
-            value = bet.stt || bet.id || (index + 1);
-          } else if (col.key === 'webBet' || col.key === 'actualReceived' || col.key === 'compensation' || col.key === 'actualAmount') {
-            // Format số: nếu là số thì giữ nguyên, nếu không thì hiển thị rỗng hoặc 0
-            value = value !== null && value !== undefined && value !== '' ? (typeof value === 'number' ? value : parseFloat(value) || 0) : '';
-          } else if (col.key === 'compensation') {
-            // Tiền đền chỉ hiển thị khi status là ĐỀN
-            value = bet.status === 'ĐỀN' ? (bet.compensation || '') : '';
-          } else {
-            value = value || '';
-          }
-          
-          row[col.label] = value;
-        });
-        return row;
-      });
-
-      // Tạo worksheet
-      const ws = XLSX.utils.json_to_sheet(exportData);
-      
-      // Đặt độ rộng cột
-      const colWidths = [
-        { wch: 8 },  // STT
-        { wch: 20 }, // Tên
-        { wch: 15 }, // Nhiệm vụ
-        { wch: 12 }, // Loại kèo
-        { wch: 15 }, // Tiền kèo web
-        { wch: 20 }, // Tiến độ hoàn thành
-        { wch: 20 }, // Tiền kèo thực nhận
-        { wch: 15 }, // Tiền đền
-        { wch: 18 }  // Công thực nhận
-      ];
-      ws['!cols'] = colWidths;
-
-      // Tạo workbook
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Đơn hàng đã xử lí');
-
-      // Tạo tên file với tháng nếu có filter
-      const fileName = filters.month 
-        ? `Don_hang_da_xu_li_${filters.month}.xlsx`
-        : `Don_hang_da_xu_li_${new Date().toISOString().split('T')[0]}.xlsx`;
-
-      // Xuất file
-      XLSX.writeFile(wb, fileName);
-      
-      alert(`Đã xuất ${exportData.length} đơn hàng thành công!`);
-    } catch (error) {
-      console.error('Lỗi khi xuất Excel:', error);
-      alert('Có lỗi xảy ra khi xuất file Excel. Vui lòng thử lại.');
-    }
   };
 
   // Đóng dropdown khi click bên ngoài
@@ -3065,32 +2988,7 @@ const AdminPage = () => {
                   )}
                 </div>
               )}
-              {/* Nút xuất Excel - chỉ hiển thị khi ở tab "Đơn hàng đã xử lí" */}
-              {activeTopTab === 'don-hang-da-xu-li' && (
-                <button
-                  onClick={handleExportToExcel}
-                  style={{
-                    padding: '8px 16px',
-                    background: '#4caf50',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    transition: 'all 0.2s ease',
-                    marginLeft: '10px'
-                  }}
-                  title={`Xuất ${filteredProcessedBetList.length} đơn hàng ra file Excel`}
-                  onMouseEnter={(e) => e.target.style.background = '#45a049'}
-                  onMouseLeave={(e) => e.target.style.background = '#4caf50'}
-                >
-                  📊 Xuất Excel ({filteredProcessedBetList.length})
-                </button>
-              )}
+             
               <div className="avatar-container" ref={dropdownRef}>
                 <div
                   className="avatar"
