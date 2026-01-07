@@ -22,7 +22,6 @@ const ProfilePage = () => {
   const [showCancelReasonModal, setShowCancelReasonModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [currentBalance, setCurrentBalance] = useState(0);
-  const [totalReceivedCNY, setTotalReceivedCNY] = useState(0);
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
   const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
   const [withdrawalHistory, setWithdrawalHistory] = useState([]);
@@ -505,28 +504,22 @@ const ProfilePage = () => {
         
         if (userWallet && userWallet.wallet) {
           const balance = userWallet.wallet.current_balance_vnd || 0;
-          const receivedCNY = userWallet.wallet.total_received_cny || 0;
           setCurrentBalance(balance);
-          setTotalReceivedCNY(receivedCNY);
           console.log('✅ Lấy số dư thành công:', balance);
-          console.log('✅ Lấy công thực nhận (tệ) thành công:', receivedCNY);
         } else {
           console.log('⚠️ Không tìm thấy wallet cho user:', user.id);
           setCurrentBalance(0);
-          setTotalReceivedCNY(0);
         }
       } else {
         console.error('❌ Lỗi khi lấy danh sách wallets:', response.error);
         if (isMountedRef.current) {
           setCurrentBalance(0);
-          setTotalReceivedCNY(0);
         }
       }
     } catch (error) {
       console.error('❌ Lỗi khi lấy số dư:', error);
       if (isMountedRef.current) {
         setCurrentBalance(0);
-        setTotalReceivedCNY(0);
       }
     } finally {
       if (isMountedRef.current) {
