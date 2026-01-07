@@ -50,7 +50,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.prod
       args:
-        - REACT_APP_API_URL=http://150.95.111.119:8080
+        - REACT_APP_API_URL=http://teocaothu.io.vn
     container_name: fullstack-frontend-prod
     ports:
       - "3000:80"
