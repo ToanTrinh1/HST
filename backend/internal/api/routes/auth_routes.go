@@ -16,6 +16,7 @@ func setupAuthRoutes(api *gin.RouterGroup, handler *handlers.AuthHandler) {
 		auth.POST("/send-verification-code", handler.SendVerificationCode)
 		auth.POST("/verify-email-code", handler.VerifyEmailCode)
 		auth.POST("/forgot-password", handler.ForgotPassword)
+		auth.POST("/reset-password", handler.ResetPassword)
 
 		// Protected routes - cần JWT token
 		auth.GET("/me", handler.GetCurrentUser)        // Lấy thông tin user hiện tại

@@ -299,7 +299,10 @@ const ProfilePage = () => {
     setSuccessMessage('');
 
     try {
+      console.log('ProfilePage - Bắt đầu đổi mật khẩu');
       const response = await authAPI.changePassword(oldPassword, newPassword);
+      console.log('ProfilePage - Response từ API:', response);
+      
       if (response.success) {
         setSuccessMessage('Đổi mật khẩu thành công!');
         setOldPassword('');
@@ -315,10 +318,13 @@ const ProfilePage = () => {
           timeoutRef.current = null;
         }, 1500);
       } else {
-        setErrorMessage(response.error || 'Đổi mật khẩu thất bại');
+        const errorMsg = response.error || 'Đổi mật khẩu thất bại';
+        console.error('ProfilePage - Lỗi đổi mật khẩu:', errorMsg);
+        setErrorMessage(errorMsg);
       }
     } catch (error) {
-      setErrorMessage('Có lỗi xảy ra khi đổi mật khẩu');
+      console.error('ProfilePage - Exception khi đổi mật khẩu:', error);
+      setErrorMessage(error.message || 'Có lỗi xảy ra khi đổi mật khẩu');
     } finally {
       setIsChangingPassword(false);
     }

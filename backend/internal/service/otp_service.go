@@ -84,6 +84,69 @@ func (s *OTPService) VerifyOTP(email, code string) bool {
 	return true
 }
 
+// GenerateResetToken tạo token reset password (32 ký tự ngẫu nhiên)
+func (s *OTPService) GenerateResetToken() string {
+	token := make([]byte, 16)
+	rand.Read(token)
+	return fmt.Sprintf("%x", token)
+}
+
+// StoreResetToken lưu reset token với thời gian hết hạn (1 giờ)
+func (s *OTPService) StoreResetToken(email, token string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
+	s.otps[email+"_reset"] = &OTPData{
+		Code:      token,
+		Email:     email,
+		ExpiresAt: time.Now().Add(1 * time.Hour), // 1 giờ
+	}
+	log.Printf("OTP Service - Đã lưu reset token cho email: %s", email)
+}
+
+// VerifyResetToken kiểm tra reset token có đúng không
+func (s *OTPService) VerifyResetToken(email, token string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
+	key := email + "_reset"
+	log.Printf("OTP Service - 🔍 Đang tìm reset token với key: %s", key)
+	log.Printf("OTP Service - 📋 Số lượng tokens hiện có: %d", len(s.otps))
+	
+	// Debug: in ra tất cả keys
+	for k := range s.otps {
+		log.Printf("OTP Service - 🔑 Key trong map: %s", k)
+	}
+	
+	otpData, exists := s.otps[key]
+	if !exists {
+		log.Printf("OTP Service - ❌ Không tìm thấy reset token cho email: %s (key: %s)", email, key)
+		return false
+	}
+	
+	log.Printf("OTP Service - ✅ Tìm thấy token, đang kiểm tra...")
+	log.Printf("OTP Service - 📝 Token trong DB: %s (length: %d)", otpData.Code, len(otpData.Code))
+	log.Printf("OTP Service - 📝 Token nhận được: %s (length: %d)", token, len(token))
+	log.Printf("OTP Service - ⏰ Expires at: %v, Now: %v", otpData.ExpiresAt, time.Now())
+	
+	if time.Now().After(otpData.ExpiresAt) {
+		log.Printf("OTP Service - ❌ Reset token đã hết hạn cho email: %s", email)
+		delete(s.otps, key)
+		return false
+	}
+	
+	if otpData.Code != token {
+		log.Printf("OTP Service - ❌ Reset token không đúng cho email: %s", email)
+		log.Printf("OTP Service - ❌ So sánh: '%s' != '%s'", otpData.Code, token)
+		return false
+	}
+	
+	log.Printf("OTP Service - ✅ Reset token đúng cho email: %s", email)
+	// Xóa token sau khi verify thành công
+	delete(s.otps, key)
+	return true
+}
+
 // cleanupExpiredOTPs xóa các OTP đã hết hạn
 func (s *OTPService) cleanupExpiredOTPs() {
 	ticker := time.NewTicker(5 * time.Minute)

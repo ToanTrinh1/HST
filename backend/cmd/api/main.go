@@ -40,6 +40,7 @@ func main() {
 
 	// 3. Initialize layers (Dependency Injection)
 	userRepo := repository.NewUserRepository(db)
+	passwordResetRepo := repository.NewPasswordResetRepository(db)
 	betReceiptRepo := repository.NewBetReceiptRepository(db)
 	walletRepo := repository.NewWalletRepository(db)
 	depositRepo := repository.NewDepositRepository(db)
@@ -60,7 +61,7 @@ func main() {
 		log.Println("⚠️  Email service not configured - emails will be logged to console only")
 	}
 
-	authService := service.NewAuthService(userRepo, cfg.JWTSecret, emailService)
+	authService := service.NewAuthService(userRepo, passwordResetRepo, cfg.JWTSecret, emailService)
 	betReceiptService := service.NewBetReceiptService(betReceiptRepo, userRepo, walletRepo, historyRepo)
 	walletService := service.NewWalletService(walletRepo)
 	depositService := service.NewDepositService(depositRepo, userRepo, walletRepo)

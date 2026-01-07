@@ -581,3 +581,43 @@ func (h *AuthHandler) ForgotPassword(c *gin.Context) {
 		"message": "Nếu email tồn tại, link đặt lại mật khẩu đã được gửi đến email của bạn",
 	})
 }
+
+// ResetPassword xử lý đặt lại mật khẩu
+func (h *AuthHandler) ResetPassword(c *gin.Context) {
+	var req models.ResetPasswordRequest
+
+	log.Println("=== BẮT ĐẦU XỬ LÝ ĐẶT LẠI MẬT KHẨU ===")
+
+	// Parse request body
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("❌ VALIDATION LỖI: Dữ liệu không hợp lệ - %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "Dữ liệu không hợp lệ: " + err.Error(),
+		})
+		return
+	}
+
+	log.Printf("📝 Xử lý đặt lại mật khẩu cho email: %s", req.Email)
+
+	// Gọi service để xử lý logic
+	err := h.authService.ResetPassword(req.Email, req.Token, req.NewPassword)
+	if err != nil {
+		errorMsg := err.Error()
+		log.Printf("❌ ĐẶT LẠI MẬT KHẨU THẤT BẠI: %s", errorMsg)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   errorMsg,
+		})
+		return
+	}
+
+	log.Printf("✅ ĐẶT LẠI MẬT KHẨU THÀNH CÔNG - Email: %s", req.Email)
+	log.Println("=== KẾT THÚC XỬ LÝ ĐẶT LẠI MẬT KHẨU ===\n")
+
+	// Trả response thành công
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Đặt lại mật khẩu thành công. Vui lòng đăng nhập với mật khẩu mới.",
+	})
+}

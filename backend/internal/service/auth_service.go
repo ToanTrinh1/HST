@@ -10,32 +10,35 @@ import (
 	"fullstack-backend/internal/repository"
 	"fullstack-backend/pkg/utils"
 	"log"
+	"os"
 	"regexp"
 	"strings"
 	"time"
 )
 
 type AuthService struct {
-	userRepo     *repository.UserRepository
-	jwtSecret    string
-	otpService   *OTPService
-	emailService interface {
+	userRepo          *repository.UserRepository
+	passwordResetRepo *repository.PasswordResetRepository
+	jwtSecret         string
+	otpService        *OTPService
+	emailService      interface {
 		SendVerificationCodeEmail(to, code string) error
 		SendPasswordResetEmail(to, resetLink string) error
 		IsConfigured() bool
 	}
 }
 
-func NewAuthService(userRepo *repository.UserRepository, jwtSecret string, emailService interface {
+func NewAuthService(userRepo *repository.UserRepository, passwordResetRepo *repository.PasswordResetRepository, jwtSecret string, emailService interface {
 	SendVerificationCodeEmail(to, code string) error
 	SendPasswordResetEmail(to, resetLink string) error
 	IsConfigured() bool
 }) *AuthService {
 	return &AuthService{
-		userRepo:     userRepo,
-		jwtSecret:    jwtSecret,
-		otpService:   NewOTPService(),
-		emailService: emailService,
+		userRepo:          userRepo,
+		passwordResetRepo: passwordResetRepo,
+		jwtSecret:         jwtSecret,
+		otpService:        NewOTPService(),
+		emailService:      emailService,
 	}
 }
 
@@ -449,9 +452,34 @@ func (s *AuthService) ForgotPassword(email string) error {
 	} else {
 		log.Printf("Service - ✅ Tìm thấy user với email: %s, User ID: %s", email, user.ID)
 
-		// Tạo reset link (trong production, nên tạo token và lưu vào DB)
-		// Hiện tại tạm thời tạo link đơn giản
-		resetLink := fmt.Sprintf("http://localhost:3000/reset-password?email=%s&token=RESET_TOKEN_HERE", email)
+		// Tạo reset token
+		resetToken := s.otpService.GenerateResetToken()
+		log.Printf("Service - ✅ Đã tạo reset token: %s (length: %d)", resetToken, len(resetToken))
+
+		// Lưu token vào database (thay vì memory)
+		expiresAt := time.Now().Add(1 * time.Hour)
+		err = s.passwordResetRepo.StoreToken(email, resetToken, expiresAt)
+		if err != nil {
+			log.Printf("Service - ❌ Lỗi lưu reset token vào database: %v", err)
+			// Vẫn tiếp tục gửi email để tránh email enumeration
+		} else {
+			log.Printf("Service - ✅ Đã lưu reset token vào database cho email: %s", email)
+		}
+
+		// Tạo reset link - sử dụng frontend URL từ environment hoặc tính từ API URL
+		frontendURL := os.Getenv("FRONTEND_URL")
+		if frontendURL == "" {
+			// Nếu không có FRONTEND_URL, tính từ REACT_APP_API_URL hoặc dùng mặc định
+			apiURL := os.Getenv("REACT_APP_API_URL")
+			if apiURL != "" {
+				// Thay :8080 thành :3000
+				frontendURL = strings.Replace(apiURL, ":8080", ":3000", 1)
+			} else {
+				frontendURL = "http://150.95.111.119:3000" // Fallback
+			}
+		}
+		resetLink := fmt.Sprintf("%s/reset-password?email=%s&token=%s", frontendURL, email, resetToken)
+		log.Printf("Service - 📧 Reset link: %s", resetLink)
 
 		// Gửi email reset password
 		if s.emailService != nil && s.emailService.IsConfigured() {
@@ -469,5 +497,52 @@ func (s *AuthService) ForgotPassword(email string) error {
 
 	// Luôn trả về success để tránh email enumeration
 	log.Printf("Service - ✅ Email đặt lại mật khẩu đã được gửi (nếu email tồn tại)")
+	return nil
+}
+
+// ResetPassword - Đặt lại mật khẩu sử dụng token từ email
+func (s *AuthService) ResetPassword(email, token, newPassword string) error {
+	log.Printf("Service - 🔄 Đặt lại mật khẩu cho email: %s, token length: %d", email, len(token))
+
+	// 1. Kiểm tra email có tồn tại không
+	user, err := s.userRepo.FindByEmail(email)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Printf("Service - ❌ Email không tồn tại: %s", email)
+			return errors.New("Email không tồn tại trong hệ thống")
+		}
+		log.Printf("Service - ❌ Lỗi khi tìm email: %v", err)
+		return errors.New("Lỗi khi xử lý yêu cầu")
+	}
+	log.Printf("Service - ✅ Tìm thấy user: %s (ID: %s)", email, user.ID)
+
+	// 2. Verify reset token từ database
+	log.Printf("Service - 🔍 Đang verify reset token cho email: %s", email)
+	valid, err := s.passwordResetRepo.VerifyToken(email, token)
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi khi verify token: %v", err)
+		return errors.New("Lỗi khi xác thực token. Vui lòng thử lại")
+	}
+	if !valid {
+		log.Printf("Service - ❌ Reset token không hợp lệ hoặc đã hết hạn cho email: %s", email)
+		return errors.New("Link đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu link mới")
+	}
+	log.Printf("Service - ✅ Reset token hợp lệ")
+
+	// 3. Hash mật khẩu mới
+	hashedPassword, err := utils.HashPassword(newPassword)
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi hash password: %v", err)
+		return errors.New("Lỗi khi mã hóa mật khẩu")
+	}
+
+	// 4. Cập nhật mật khẩu trong database
+	err = s.userRepo.UpdatePassword(user.ID, hashedPassword)
+	if err != nil {
+		log.Printf("Service - ❌ Lỗi cập nhật mật khẩu trong DB: %v", err)
+		return errors.New("Lỗi khi cập nhật mật khẩu: " + err.Error())
+	}
+
+	log.Printf("Service - ✅ Đặt lại mật khẩu thành công - Email: %s, User ID: %s", email, user.ID)
 	return nil
 }

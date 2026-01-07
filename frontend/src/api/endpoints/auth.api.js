@@ -216,6 +216,10 @@ export const authAPI = {
   changePassword: async (oldPassword, newPassword) => {
     try {
       console.log('authAPI - Gửi PUT request đến /auth/change-password');
+      console.log('authAPI - Base URL:', axiosInstance.defaults.baseURL);
+      console.log('authAPI - Full URL:', axiosInstance.defaults.baseURL + '/auth/change-password');
+      console.log('authAPI - REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
+      
       const response = await axiosInstance.put('/auth/change-password', {
         old_password: oldPassword,
         new_password: newPassword,
@@ -232,13 +236,25 @@ export const authAPI = {
       return response.data;
     } catch (error) {
       console.error('authAPI - ❌ ChangePassword error:', error);
+      console.error('authAPI - Error response:', error.response?.data);
+      console.error('authAPI - Error status:', error.response?.status);
+      console.error('authAPI - Error message:', error.message);
+      console.error('authAPI - Error request:', error.request);
       
       let errorMsg = 'Đổi mật khẩu thất bại';
 
       if (error.response?.status === 401) {
         errorMsg = 'Token không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.';
       } else if (error.response) {
+        // Server trả về response nhưng có lỗi
         errorMsg = error.response.data?.error || errorMsg;
+      } else if (error.request) {
+        // Request được gửi nhưng không nhận được response
+        console.error('authAPI - Không nhận được phản hồi từ server');
+        errorMsg = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng hoặc đảm bảo backend đang chạy.';
+      } else {
+        // Lỗi khi setup request
+        errorMsg = error.message || 'Lỗi khi gửi yêu cầu đổi mật khẩu';
       }
 
       return {
@@ -373,6 +389,49 @@ export const authAPI = {
       console.error('authAPI - ❌ ForgotPassword error:', error);
       
       let errorMsg = 'Gửi email đặt lại mật khẩu thất bại';
+
+      if (error.response) {
+        errorMsg = error.response.data?.error || errorMsg;
+      } else if (error.request) {
+        errorMsg = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.';
+      }
+
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+  },
+
+  // Đặt lại mật khẩu - sử dụng token từ email
+  resetPassword: async (email, token, newPassword) => {
+    try {
+      console.log('authAPI - Gửi POST request đến /auth/reset-password');
+      console.log('authAPI - Data gửi đi:', {
+        email,
+        token: token.substring(0, 10) + '...',
+        tokenLength: token.length,
+        new_password: '***'
+      });
+      const response = await axiosInstance.post('/auth/reset-password', {
+        email,
+        token,
+        new_password: newPassword,
+      });
+      console.log('authAPI - ✅ Backend response:', response.data);
+
+      if (!response.data) {
+        return {
+          success: false,
+          error: 'Không nhận được dữ liệu từ server',
+        };
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('authAPI - ❌ ResetPassword error:', error);
+      
+      let errorMsg = 'Đặt lại mật khẩu thất bại';
 
       if (error.response) {
         errorMsg = error.response.data?.error || errorMsg;
