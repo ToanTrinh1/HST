@@ -163,7 +163,7 @@ const ProfilePage = () => {
   }, []);
 
   const handleCropImage = () => {
-    if (!cropImage || !cropImageRef.current || !cropContainerRef.current) return;
+    if (!cropImage || !cropImageRef.current || !cropContainerRef.current || !isMountedRef.current) return;
 
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -173,6 +173,8 @@ const ProfilePage = () => {
 
     const img = new Image();
     img.onload = () => {
+      if (!isMountedRef.current || !cropContainerRef.current || !cropImageRef.current) return;
+      
       const container = cropContainerRef.current;
       const containerWidth = container.clientWidth;
       const containerHeight = container.clientHeight;
@@ -226,7 +228,7 @@ const ProfilePage = () => {
 
       // Lấy data URL
       canvas.toBlob((blob) => {
-        if (blob) {
+        if (blob && isMountedRef.current) {
           const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
           setSelectedAvatar(file);
           setAvatarPreview(URL.createObjectURL(blob));
@@ -702,10 +704,8 @@ const ProfilePage = () => {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
       }
-      // Reset refs để tránh lỗi DOM
-      errorMessageRef.current = null;
-      changePasswordSectionRef.current = null;
-      modalBodyRef.current = null;
+      // Don't reset refs to null as they might be accessed during unmount
+      // React will handle cleanup automatically
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
@@ -730,12 +730,15 @@ const ProfilePage = () => {
   useEffect(() => {
     if (errorMessage && errorMessageRef.current && showEditProfileModal) {
       const timer = setTimeout(() => {
-        if (isMountedRef.current && errorMessageRef.current && errorMessageRef.current.parentNode) {
+        if (isMountedRef.current && errorMessageRef.current) {
           try {
-            errorMessageRef.current.scrollIntoView({
-              behavior: 'smooth',
-              block: 'center',
-            });
+            // Check if element is still in DOM
+            if (errorMessageRef.current.parentNode && document.body.contains(errorMessageRef.current)) {
+              errorMessageRef.current.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+              });
+            }
           } catch (error) {
             // Ignore scroll errors if element is not in DOM
             console.warn('Scroll error:', error);
@@ -751,14 +754,17 @@ const ProfilePage = () => {
     if (showChangePasswordSection && showEditProfileModal) {
       // Đợi DOM render xong
       const timer = setTimeout(() => {
-        if (isMountedRef.current && changePasswordSectionRef.current && changePasswordSectionRef.current.parentNode) {
+        if (isMountedRef.current && changePasswordSectionRef.current) {
           try {
-            // Scroll để đưa phần đổi mật khẩu vào view
-            changePasswordSectionRef.current.scrollIntoView({
-              behavior: 'smooth',
-              block: 'center',
-              inline: 'nearest'
-            });
+            // Check if element is still in DOM
+            if (changePasswordSectionRef.current.parentNode && document.body.contains(changePasswordSectionRef.current)) {
+              // Scroll để đưa phần đổi mật khẩu vào view
+              changePasswordSectionRef.current.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+                inline: 'nearest'
+              });
+            }
           } catch (error) {
             // Ignore scroll errors if element is not in DOM
             console.warn('Scroll error:', error);
@@ -1428,7 +1434,7 @@ const ProfilePage = () => {
       )}
 
       {/* Modal chỉnh sửa profile */}
-      {showEditProfileModal && (
+      {showEditProfileModal && isMountedRef.current && (
         <div
           className="reason-modal-overlay"
           onClick={(e) => {
@@ -1772,7 +1778,7 @@ const ProfilePage = () => {
       )}
 
       {/* Modal crop avatar */}
-      {showCropModal && cropImage && (
+      {showCropModal && cropImage && isMountedRef.current && (
         <div
           className="reason-modal-overlay"
           onClick={(e) => {

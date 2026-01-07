@@ -69,12 +69,23 @@ const EditProfileModal = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     if (errorMessage && errorMessageRef.current && isOpen) {
-      setTimeout(() => {
-        errorMessageRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-        });
+      const timer = setTimeout(() => {
+        if (isMountedRef.current && errorMessageRef.current) {
+          try {
+            // Check if element is still in DOM
+            if (errorMessageRef.current.parentNode && document.body.contains(errorMessageRef.current)) {
+              errorMessageRef.current.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+              });
+            }
+          } catch (error) {
+            // Ignore scroll errors if element is not in DOM
+            console.warn('Scroll error:', error);
+          }
+        }
       }, 100);
+      return () => clearTimeout(timer);
     }
   }, [errorMessage, isOpen]);
 
@@ -83,22 +94,31 @@ const EditProfileModal = ({ isOpen, onClose }) => {
     if (showChangePasswordSection && isOpen) {
       // Đợi DOM render xong
       const timer = setTimeout(() => {
-        if (changePasswordSectionRef.current && modalBodyRef.current) {
-          const modalBody = modalBodyRef.current;
-          const sectionElement = changePasswordSectionRef.current;
-          
-          // Tính toán vị trí scroll trong modal body
-          const modalBodyRect = modalBody.getBoundingClientRect();
-          const sectionRect = sectionElement.getBoundingClientRect();
-          
-          // Tính toán scrollTop cần thiết để đưa section vào giữa viewport của modal body
-          const scrollTop = modalBody.scrollTop + (sectionRect.top - modalBodyRect.top) - (modalBodyRect.height / 2) + (sectionRect.height / 2);
-          
-          // Scroll trong modal body
-          modalBody.scrollTo({
-            top: Math.max(0, scrollTop),
-            behavior: 'smooth'
-          });
+        if (isMountedRef.current && changePasswordSectionRef.current && modalBodyRef.current) {
+          try {
+            const modalBody = modalBodyRef.current;
+            const sectionElement = changePasswordSectionRef.current;
+            
+            // Check if elements are still in DOM
+            if (modalBody.parentNode && document.body.contains(modalBody) &&
+                sectionElement.parentNode && document.body.contains(sectionElement)) {
+              // Tính toán vị trí scroll trong modal body
+              const modalBodyRect = modalBody.getBoundingClientRect();
+              const sectionRect = sectionElement.getBoundingClientRect();
+              
+              // Tính toán scrollTop cần thiết để đưa section vào giữa viewport của modal body
+              const scrollTop = modalBody.scrollTop + (sectionRect.top - modalBodyRect.top) - (modalBodyRect.height / 2) + (sectionRect.height / 2);
+              
+              // Scroll trong modal body
+              modalBody.scrollTo({
+                top: Math.max(0, scrollTop),
+                behavior: 'smooth'
+              });
+            }
+          } catch (error) {
+            // Ignore scroll errors if element is not in DOM
+            console.warn('Scroll error:', error);
+          }
         }
       }, 300);
       
@@ -180,7 +200,7 @@ const EditProfileModal = ({ isOpen, onClose }) => {
   };
 
   const handleCropImage = () => {
-    if (!cropImage || !cropImageRef.current || !cropContainerRef.current) return;
+    if (!cropImage || !cropImageRef.current || !cropContainerRef.current || !isMountedRef.current) return;
 
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -190,6 +210,8 @@ const EditProfileModal = ({ isOpen, onClose }) => {
 
     const img = new Image();
     img.onload = () => {
+      if (!isMountedRef.current || !cropContainerRef.current || !cropImageRef.current) return;
+      
       const container = cropContainerRef.current;
       const containerWidth = container.clientWidth;
       const containerHeight = container.clientHeight;
@@ -232,7 +254,7 @@ const EditProfileModal = ({ isOpen, onClose }) => {
       );
 
       canvas.toBlob((blob) => {
-        if (blob) {
+        if (blob && isMountedRef.current) {
           const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
           setSelectedAvatar(file);
           setAvatarPreview(URL.createObjectURL(blob));
@@ -354,7 +376,7 @@ const EditProfileModal = ({ isOpen, onClose }) => {
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !isMountedRef.current) return null;
 
   return (
     <>
@@ -682,7 +704,7 @@ const EditProfileModal = ({ isOpen, onClose }) => {
       </div>
 
       {/* Modal crop avatar */}
-      {showCropModal && cropImage && (
+      {showCropModal && cropImage && isMountedRef.current && (
         <div
           className="reason-modal-overlay"
           onClick={(e) => {
