@@ -47,7 +47,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - REACT_APP_API_URL=http://teocaothu.io.vn
+      - REACT_APP_API_URL=http://teocaothu.io.vn/api
       - HOST=0.0.0.0
       - PORT=3000
       - BROWSER=none
