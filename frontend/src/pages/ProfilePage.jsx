@@ -810,7 +810,7 @@ const ProfilePage = () => {
     <div className="page-with-bottom-nav">
       <div className="home-navbar">
         <div className="navbar-brand">
-          <h2>My App</h2>
+          <h2>Tèo Cao Thủ</h2>
         </div>
         <div className="navbar-menu">
           {isAuthenticated ? (
