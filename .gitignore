@@ -1,0 +1,25 @@
+# Node modules
+frontend/node_modules/
+
+# Backup database
+backup_teo_hst_db_*.sql
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build output
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.*.local
