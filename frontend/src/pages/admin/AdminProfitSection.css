@@ -1,0 +1,360 @@
+/* AdminProfitSection - CSS riêng, không dùng chung AdminPage.css */
+
+.admin-profit-only-two-tables {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 20px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 12px;
+  width: 100%;
+  max-width: 100%;
+  align-items: flex-start;
+}
+
+.admin-profit-left {
+  flex: 1;
+  min-width: 280px;
+  max-width: 720px;
+}
+
+/* Panel config bên phải */
+.admin-profit-config-panel {
+  flex: 0 0 auto;
+  width: 280px;
+  max-width: 100%;
+  padding: 16px;
+  background: linear-gradient(145deg, #f8f9ff 0%, #fff 100%);
+  border-radius: 12px;
+  border: 1px solid #eef1ff;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.08);
+}
+.admin-profit-config-title {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #2d2f3a;
+}
+.admin-profit-config-loading {
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+.admin-profit-config-list {
+  margin: 0 0 12px 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-profit-config-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px dashed #e5e7eb;
+  font-size: 13px;
+}
+.admin-profit-config-list li:last-child {
+  border-bottom: none;
+}
+.admin-profit-config-label {
+  color: #6b7280;
+  margin-right: 8px;
+}
+.admin-profit-config-value {
+  font-weight: 600;
+  color: #2d2f3a;
+}
+.admin-profit-config-note {
+  margin: 0 0 14px 0;
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1.4;
+  font-style: italic;
+}
+.admin-profit-config-btn {
+  width: 100%;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+}
+.admin-profit-config-btn:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+
+/* Modal cập nhật config */
+.admin-profit-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.admin-profit-modal-content {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
+  width: 90%;
+  max-width: 600px;
+  overflow: hidden;
+}
+.admin-profit-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.admin-profit-modal-header h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #1f2933;
+}
+.admin-profit-modal-close {
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  color: #9ca3af;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+}
+.admin-profit-modal-close:hover {
+  color: #4b5563;
+}
+.admin-profit-modal-body {
+  padding: 20px;
+}
+.admin-profit-config-error {
+  margin: 0 0 12px 0;
+  padding: 10px 12px;
+  background: #fee;
+  color: #c33;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.admin-profit-form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+}
+.admin-profit-form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+.admin-profit-form-group input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+.admin-profit-modal-hint {
+  margin: 0 0 16px 0;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+.admin-profit-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+.admin-profit-modal-btn {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.2s;
+}
+.admin-profit-modal-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.admin-profit-modal-btn.secondary {
+  background: #f3f4f6;
+  color: #374151;
+}
+.admin-profit-modal-btn.secondary:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+.admin-profit-modal-btn.primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+}
+.admin-profit-modal-btn.primary:hover:not(:disabled) {
+  opacity: 0.95;
+}
+
+.admin-profit-stats-filter {
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.admin-profit-stats-filter-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2d2f3a;
+}
+.admin-profit-stats-filter-select {
+  padding: 5px 10px;
+  font-size: 13px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  min-width: 160px;
+  background: white;
+  cursor: pointer;
+}
+
+/* Section: giảm padding & margin để bớt chiều dọc */
+.admin-profit-stats-section {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  background: linear-gradient(145deg, #f8f9ff 0%, #fff 100%);
+  border-radius: 12px;
+  border: 1px solid #eef1ff;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.08);
+  max-width: 720px;
+}
+.admin-profit-stats-section-title {
+  margin: 0 0 6px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #2d2f3a;
+}
+.admin-profit-stats-formula {
+  margin: 0 0 8px 0;
+  font-size: 11px;
+  color: #6b7280;
+  font-style: italic;
+}
+.admin-profit-by-month-error {
+  margin: 0 0 8px 0;
+  padding: 6px 10px;
+  background: #fee;
+  color: #c33;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+/* Bảng không kéo rộng sang ngang: giới hạn max-width, cuộn ngang nếu cần */
+.admin-profit-stats-table-wrapper {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  max-width: 680px;
+}
+
+.admin-profit-stats-table {
+  width: auto;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: white;
+}
+.admin-profit-stats-table thead,
+.admin-profit-stats-table thead th {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+.admin-profit-stats-table th {
+  padding: 8px 10px;
+  text-align: center !important;
+  font-weight: 600;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.25;
+}
+.admin-profit-stats-table td {
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  color: #1f2933;
+  text-align: center !important;
+}
+.admin-profit-stats-table tbody tr:nth-child(even) {
+  background: #f9fafb;
+}
+.admin-profit-stats-table tbody tr:hover {
+  background: #f0f4ff;
+}
+.admin-profit-stats-table .admin-profit-cell-admin {
+  font-weight: 600;
+  color: #4c51bf;
+  text-align: center !important;
+}
+.admin-profit-stats-table .admin-profit-cell-total {
+  font-weight: 700;
+  color: #b7791f;
+  text-align: center !important;
+}
+.admin-profit-stats-table .admin-profit-cell-negative {
+  font-weight: 600;
+  color: #dc2626;
+  text-align: center !important;
+}
+.admin-profit-stats-table .admin-profit-cell-positive {
+  font-weight: 600;
+  color: #16a34a;
+  text-align: center !important;
+}
+.admin-profit-config-note-inline {
+  font-size: 11px;
+  color: #6b7280;
+  margin-left: 6px;
+}
+.admin-profit-modal-hint-inline {
+  display: block;
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+/* Bảng to ra (chữ & ô dễ nhìn), không rộng sang ngang: cột vừa đủ, font và padding lớn hơn */
+.admin-profit-stats-table-narrow {
+  font-size: 13px;
+  width: auto;
+}
+.admin-profit-stats-table-narrow th,
+.admin-profit-stats-table-narrow td {
+  padding: 8px 10px;
+  text-align: center !important;
+  white-space: normal;
+  word-break: break-word;
+  min-width: 70px;
+  max-width: 100px;
+}
+.admin-profit-stats-table-narrow th:first-child,
+.admin-profit-stats-table-narrow td:first-child {
+  min-width: 76px;
+  max-width: 100px;
+  text-align: center !important;
+}
+.admin-profit-stats-table-narrow th {
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.admin-profit-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px 20px; /* row-gap | column-gap */
+}

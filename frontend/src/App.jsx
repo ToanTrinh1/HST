@@ -6,9 +6,11 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
-import HomePage from './pages/HomePage';
+import HomePage from './pages/user/HomePage';
 import DashboardPage from './pages/DashboardPage';
-import ProfilePage from './pages/ProfilePage';
+import ProfilePage from './pages/user/ProfilePage';
+import OrdersPage from './pages/user/OrdersPage';
+import ChatPage from './pages/ChatPage';
 import AdminPage from './pages/AdminPage';
 
 function App() {
@@ -48,6 +50,26 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* My Orders - Protected */}
+          <Route
+            path="/orders"
+            element={
+              <ProtectedRoute>
+                <OrdersPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Chat - Protected */}
+          <Route
+            path="/chat"
+            element={
+              <ProtectedRoute>
+                <ChatPage />
               </ProtectedRoute>
             }
           />

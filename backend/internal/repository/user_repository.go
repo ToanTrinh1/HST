@@ -374,3 +374,110 @@ func (r *UserRepository) GetAllUsers(limit, offset int) ([]*models.User, error) 
 
 	return users, nil
 }
+
+// GetAdminTong lấy danh sách admin tổng (vai_tro = 'admin_tong')
+func (r *UserRepository) GetAdminTong(limit, offset int) ([]*models.User, error) {
+	query := `
+        SELECT id, email, mat_khau, ten, vai_tro, so_dien_thoai, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat 
+        FROM nguoi_dung 
+        WHERE vai_tro = 'admin_tong'
+        ORDER BY ten ASC
+        LIMIT $1 OFFSET $2
+    `
+	rows, err := r.db.Query(query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	users := []*models.User{}
+	for rows.Next() {
+		user := &models.User{}
+		var avatarURL sql.NullString
+		var phoneNumber sql.NullString
+		err := rows.Scan(
+			&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
+			&phoneNumber, &avatarURL, &user.CreatedAt, &user.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if avatarURL.Valid {
+			user.AvatarURL = &avatarURL.String
+		}
+		if phoneNumber.Valid {
+			user.PhoneNumber = &phoneNumber.String
+		}
+		users = append(users, user)
+	}
+
+	return users, nil
+}
+
+// GetFirstAdmin lấy admin đầu tiên (vai_tro = 'admin' hoặc 'admin_tong')
+func (r *UserRepository) GetFirstAdmin() (*models.User, error) {
+	query := `
+        SELECT id, email, mat_khau, ten, vai_tro, so_dien_thoai, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat 
+        FROM nguoi_dung 
+        WHERE vai_tro IN ('admin', 'admin_tong')
+        ORDER BY thoi_gian_tao ASC
+        LIMIT 1
+    `
+	row := r.db.QueryRow(query)
+
+	user := &models.User{}
+	var avatarURL sql.NullString
+	var phoneNumber sql.NullString
+	if err := row.Scan(
+		&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
+		&phoneNumber, &avatarURL, &user.CreatedAt, &user.UpdatedAt,
+	); err != nil {
+		return nil, err
+	}
+	if avatarURL.Valid {
+		user.AvatarURL = &avatarURL.String
+	}
+	if phoneNumber.Valid {
+		user.PhoneNumber = &phoneNumber.String
+	}
+	return user, nil
+}
+
+// GetAdmins lấy danh sách admin (bao gồm admin và admin_tong)
+func (r *UserRepository) GetAdmins(limit, offset int) ([]*models.User, error) {
+	query := `
+        SELECT id, email, mat_khau, ten, vai_tro, so_dien_thoai, avatar_url, thoi_gian_tao, thoi_gian_cap_nhat 
+        FROM nguoi_dung 
+        WHERE vai_tro IN ('admin', 'admin_tong')
+        ORDER BY ten ASC
+        LIMIT $1 OFFSET $2
+    `
+	rows, err := r.db.Query(query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	users := []*models.User{}
+	for rows.Next() {
+		user := &models.User{}
+		var avatarURL sql.NullString
+		var phoneNumber sql.NullString
+		err := rows.Scan(
+			&user.ID, &user.Email, &user.Password, &user.Name, &user.Role,
+			&phoneNumber, &avatarURL, &user.CreatedAt, &user.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if avatarURL.Valid {
+			user.AvatarURL = &avatarURL.String
+		}
+		if phoneNumber.Valid {
+			user.PhoneNumber = &phoneNumber.String
+		}
+		users = append(users, user)
+	}
+
+	return users, nil
+}

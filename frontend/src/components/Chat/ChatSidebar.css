@@ -1,0 +1,96 @@
+.chat-sidebar {
+  width: 350px;
+  min-width: 350px;
+  max-width: 400px;
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid #e4e6eb;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  height: calc(100vh - 200px); /* Chiều cao cố định, gần bằng bottom nav */
+  min-height: calc(100vh - 200px);
+  max-height: calc(100vh - 200px);
+}
+
+.chat-sidebar-header {
+  padding: 12px 14px;
+  font-weight: 700;
+  border-bottom: 1px solid #f1f5f9;
+  background: #f8fafc;
+}
+
+.chat-sidebar-search {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.chat-sidebar-search input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.chat-sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.chat-sidebar-empty {
+  color: #888;
+  font-size: 12px;
+  padding: 20px;
+  text-align: center;
+}
+
+.chat-sidebar-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f8fafc;
+  cursor: pointer;
+  align-items: center;
+}
+
+.chat-sidebar-item.active {
+  background: #eef2ff;
+}
+
+.chat-sidebar-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #4f46e5;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.chat-sidebar-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-sidebar-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.chat-sidebar-role {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

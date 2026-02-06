@@ -4,6 +4,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  background-color: #f0f2f5;
 }
 
 .admin-content {
@@ -15,12 +16,14 @@
   flex-direction: column;
   margin-top: 0;
   margin-bottom: 0;
+  background-color: #f0f2f5;
   /* Tính toán height để không bị che bởi header (khoảng 60px), top tabs (40px) và bottom nav (50px) */
   max-height: calc(100vh - 150px);
 }
 
+
 .admin-tab-content {
-  background: white;
+  background: #f0f2f5;
   border-radius: 0;
   padding: 0;
   box-shadow: none;
@@ -29,6 +32,13 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+.admin-tab-content.chat-admin-wrapper {
+  flex-direction: row;   /* 🔥 ĐẢO LẠI NGANG */
+  flex: 1;
+  width: 100%;
+  min-width: 0;
 }
 
 .admin-tab-content h3 {
@@ -46,6 +56,7 @@
 
 .bet-list-table-wrapper {
   width: 100%;
+  max-width: 100%;
   overflow-x: auto; /* Thanh cuộn ngang */
   overflow-y: auto; /* Thanh cuộn dọc */
   border-radius: 12px;
@@ -103,8 +114,9 @@
 }
 
 .bet-list-table {
-  width: 90%;
-  margin: 0 auto;
+  width: max-content;
+  min-width: 2200px;
+  margin: 0;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 11px; /* Tăng font-size lên 11px */
@@ -309,8 +321,236 @@ select.status-select.status-compensation {
 
 .status-select.status-pending,
 select.status-select.status-pending {
-  background: #9c27b0 !important; /* Tím - CHỜ CHẤP NHẬN */
+  background: #9c27b0 !important; /* Tím - Chờ chấp nhận */
   color: white !important;
+}
+
+/* Bỏ CHỜ LOGIN (luồng mới) */
+
+/* Admin Chat */
+.chat-admin-wrapper {
+  display: flex;
+  gap: 16px;
+  height: 680px;
+  align-items: stretch;
+}
+
+.chat-admin-sidebar {
+  width: 320px;
+  min-width: 320px;
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid #edf2f7;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  height: 680px;
+}
+
+.chat-admin-sidebar-header {
+  padding: 12px 14px;
+  font-weight: 700;
+  border-bottom: 1px solid #f1f5f9;
+  background: #f8fafc;
+}
+
+.chat-user-search {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.chat-user-search input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.chat-admin-sidebar-list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.chat-admin-user {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f8fafc;
+  cursor: pointer;
+  align-items: center;
+  position: relative;
+}
+
+.chat-admin-user.active {
+  background: #eef2ff;
+}
+
+.chat-admin-user-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #4f46e5;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.chat-admin-user-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-admin-user-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.chat-admin-user-last {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-admin-unread {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: #e53935;
+  color: white;
+  border-radius: 10px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  text-align: center;
+}
+
+.chat-admin-main {
+  flex: 1;
+  background: #fff;
+  border: 1px solid #edf2f7;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  height: 680px;
+  min-width: 600px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.chat-admin-main-header {
+  padding: 12px 14px;
+  font-weight: 700;
+  border-bottom: 1px solid #f1f5f9;
+  background: #f8fafc;
+}
+
+.chat-admin-messages {
+  flex: 1;
+  padding: 14px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  background: #f8fafc;
+  scroll-behavior: smooth;
+}
+
+.chat-loading-more {
+  text-align: center;
+  padding: 10px;
+  color: #9ca3af;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.chat-admin-message {
+  max-width: 70%;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.chat-admin-message.mine {
+  align-self: flex-end;
+  text-align: right;
+}
+
+.chat-admin-message.theirs {
+  align-self: flex-start;
+}
+
+.chat-admin-bubble {
+  padding: 10px 14px;
+  border-radius: 14px 14px 14px 4px;
+  background: #ffffff;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+}
+
+.chat-admin-message.mine .chat-admin-bubble {
+  background: #4f46e5;
+  color: white;
+  border-radius: 14px 14px 4px 14px;
+}
+
+.chat-admin-time {
+  font-size: 10px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+.chat-admin-input {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid #f1f5f9;
+  background: #f8fafc;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+  flex-shrink: 0;
+}
+
+.chat-admin-input input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 13px;
+  background: white;
+}
+
+.chat-admin-input button {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  background: #4f46e5;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+}
+
+.chat-admin-empty {
+  color: #777;
+  font-size: 13px;
 }
 
 .status-select.status-cancelled,
@@ -328,6 +568,12 @@ select.status-select.status-scanning {
 .status-select.status-waiting-ref,
 select.status-select.status-waiting-ref {
   background: #795548 !important; /* Nâu - CHỜ TRỌNG TÀI */
+  color: white !important;
+}
+
+.status-select.status-waiting-login,
+select.status-select.status-waiting-login {
+  background: #0284c7 !important; /* Xanh dương - (legacy) */
   color: white !important;
 }
 
@@ -361,8 +607,8 @@ select.status-select.status-waiting-ref {
   justify-content: center;
   align-items: center;
   background-color: #ffffff;
-  border-top: 1px solid #e0e0e0;
-  border-bottom: 1px solid #e0e0e0;
+  border-top: 1px solid #e4e6eb;
+  border-bottom: 1px solid #e4e6eb;
   padding: 8px 0;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
   z-index: 999;
@@ -712,6 +958,10 @@ select.status-select.status-waiting-ref {
   cursor: pointer;
   transition: all 0.3s ease;
   color: #666;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
 }
 
 .rut-tien-sub-tab:hover {
@@ -727,6 +977,28 @@ select.status-select.status-waiting-ref {
 
 .rut-tien-sub-tab.active:hover {
   background: #5568d3;
+}
+
+/* Badge đỏ số đơn chờ duyệt trên tab Chờ duyệt */
+.cho-duyet-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: #dc2626;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  line-height: 1;
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.4);
+}
+
+.rut-tien-sub-tab.active .cho-duyet-badge {
+  background: rgba(255, 255, 255, 0.95);
+  color: #dc2626;
 }
 
 /* Bảng rút tiền - Các cột VND có độ rộng bằng nhau */
@@ -908,6 +1180,61 @@ select.status-select.status-waiting-ref {
 .history-edit-table td {
   padding: 10px 12px;
   min-width: 120px;
+}
+
+.history-edit-table thead tr {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.history-edit-table thead th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Badge hành động: Cập nhật / Xóa */
+.history-action-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 72px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.history-action-update {
+  background: #2196f3;
+  color: #fff;
+  border: 1px solid #1976d2;
+}
+
+.history-action-delete {
+  background: #f44336;
+  color: #fff;
+  border: 1px solid #d32f2f;
+}
+
+/* Nút Chi tiết trong cột Thao tác */
+.history-detail-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 72px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  background: #2196f3;
+  color: #fff;
+  border: 1px solid #1976d2;
+}
+
+.history-detail-btn:hover {
+  background: #5568d3;
+  transform: translateY(-1px);
 }
 
 .history-edit-table th:nth-child(1),

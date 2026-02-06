@@ -57,8 +57,9 @@ const AdminRoute = ({ children }) => {
 
   console.log('AdminRoute - Checking user vai_tro:', user?.vai_tro);
   console.log('AdminRoute - User object:', user);
-  if (user?.vai_tro !== 'admin') {
-    console.log('AdminRoute - User vai_tro is not admin, redirecting to home');
+  const isAdmin = user?.vai_tro === 'admin' || user?.vai_tro === 'admin_tong';
+  if (!isAdmin) {
+    console.log('AdminRoute - User vai_tro is not admin/admin_tong, redirecting to home');
     return <Navigate to="/" replace />;
   }
 

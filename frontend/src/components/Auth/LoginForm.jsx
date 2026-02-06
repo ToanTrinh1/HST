@@ -46,13 +46,14 @@ const LoginForm = () => {
         // Tạm thời check role trước nếu backend chưa update
         const userRole = userToCheck?.vai_tro || userToCheck?.role;
         console.log('LoginForm - Final userRole to check:', userRole);
-        console.log('LoginForm - Is admin?', userRole === 'admin');
+        const isAdmin = userRole === 'admin' || userRole === 'admin_tong';
+        console.log('LoginForm - Is admin?', isAdmin);
         console.log('LoginForm - userToCheck.vai_tro:', userToCheck?.vai_tro);
         console.log('LoginForm - userToCheck.role:', userToCheck?.role);
         
-        if (userRole === 'admin') {
+        if (isAdmin) {
           console.log('✅ Admin detected, redirecting to /admin');
-          navigate('/admin', { replace: true }); // Redirect admin to admin page
+          navigate('/admin', { replace: true }); // Redirect admin / admin_tong to admin page
         } else {
           console.log('❌ Regular user (vai_tro/role:', userRole, '), redirecting to home');
           navigate('/', { replace: true }); // Redirect regular user to home page

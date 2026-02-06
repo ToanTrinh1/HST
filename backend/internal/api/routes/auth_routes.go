@@ -22,7 +22,7 @@ func setupAuthRoutes(api *gin.RouterGroup, handler *handlers.AuthHandler) {
 		auth.GET("/me", handler.GetCurrentUser)        // Lấy thông tin user hiện tại
 		auth.PUT("/me", handler.UpdateProfile)        // Cập nhật thông tin profile
 		auth.PUT("/change-password", handler.ChangePassword) // Đổi mật khẩu
-		auth.POST("/upload-avatar", handler.UploadAvatar) // Upload ảnh đại diện
+		auth.POST("/upload-avatar", handler.UploadAvatar) // Upload ảnh đại diện (lưu MinIO khi đã cấu hình)
 		auth.GET("/users", handler.GetAllUsers)        // Lấy danh sách tất cả users (role = 'user')
 
 		// TODO: Thêm các auth endpoints khác khi cần

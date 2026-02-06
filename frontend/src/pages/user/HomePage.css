@@ -1,0 +1,449 @@
+.home-container {
+  min-height: 100vh;
+  background: #f0f2f5;
+}
+
+.home-navbar {
+  background: #ffffff;
+  padding: 10px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  position: relative;
+  z-index: 100;
+  border-bottom: 1px solid #e4e6eb;
+}
+
+.navbar-brand h2 {
+  margin: 0;
+  color: #667eea;
+  font-size: 18px;
+}
+
+.navbar-menu {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+}
+
+.search-form {
+  display: flex;
+  align-items: center;
+}
+
+.search-input {
+  padding: 6px 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 12px;
+  width: 160px;
+  transition: all 0.3s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.avatar-container {
+  position: relative;
+  z-index: 1000;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.avatar:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+  z-index: 10000;
+  overflow: hidden;
+}
+
+.dropdown-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  color: #333;
+  font-size: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover {
+  background-color: #f5f5f5;
+  color: #667eea;
+}
+
+.user-name {
+  color: #333;
+  font-weight: 500;
+  padding: 8px 16px;
+  background: #f5f5f5;
+  border-radius: 20px;
+}
+
+.btn-nav {
+  padding: 6px 16px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.btn-nav:hover {
+  background: #5568d3;
+  transform: translateY(-2px);
+  text-decoration: none;
+}
+
+.btn-logout-nav {
+  padding: 8px 20px;
+  background: white;
+  color: #667eea;
+  border: 2px solid #667eea;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-logout-nav:hover {
+  background: #667eea;
+  color: white;
+}
+
+.home-content {
+  max-width: 100%; /* Cho phép kéo dài đến hết trang */
+  margin: 0;
+  padding: 20px 20px 20px 20px; /* Thêm padding bottom để có khoảng cách với bottom navigation */
+  display: flex;
+  flex-direction: column; /* Đổi thành column để biểu đồ nằm dưới card */
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 60px; /* Tăng khoảng cách giữa card và biểu đồ */
+  background-color: #f0f2f5;
+}
+
+/* Thu nhỏ toàn bộ nội dung bên trong home-content khoảng 20% */
+.home-content-inner {
+  display: flex;
+  gap: 20px;
+  width: calc(100% / 0.65); /* Bù lại scale để card có thể kéo dài hết */
+  transform: scale(0.65); /* 0.8 (lần trước) * 0.7 (nhỏ thêm ~30%) ≈ 0.56 */
+  transform-origin: top left;
+  /* Tính toán margin-bottom: (1 - scale) * chiều cao ước tính ≈ (1 - 0.65) * 600px = 210px */
+  margin-bottom: -210px; /* Tăng margin-bottom âm để bù lại khoảng trắng do transform scale */
+}
+
+.home-content-inner > .card {
+  flex: 1 1 50%;
+  min-width: 0;
+}
+
+.top-chart {
+  margin-top: 0; /* Bỏ margin-top vì đã dùng gap trong home-content */
+  width: 100%;
+  max-width: 100%; /* Kéo dài hết container */
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e4e6eb;
+  padding: 14px 16px 16px 16px;
+}
+
+.top-chart-title {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #d32f2f;
+  text-align: center; /* Căn giữa tiêu đề */
+}
+
+.top-chart-note {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  color: #666;
+  text-align: center; /* Căn giữa chú thích */
+}
+
+.top-chart-subtitle {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  color: #666;
+}
+
+.top-chart-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.top-chart-bar {
+  display: grid;
+  grid-template-columns: 100px 1fr; /* rank (name), track */
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.bar-rank {
+  font-weight: 600;
+  color: #333;
+  font-size: 12px;
+  text-align: left;
+}
+
+.bar-track {
+  position: relative;
+  height: 24px;
+  background: #e3f2fd;
+  border-radius: 12px;
+  overflow: visible;
+  width: 100%;
+  flex: 1;
+}
+
+.bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 2px;
+  transition: width 1s ease-out;
+}
+
+.bar-fill-winner {
+  animation: reachFinish 1.5s ease-out forwards;
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+
+@keyframes reachFinish {
+  0% {
+    width: 90%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+.bar-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-repeat: no-repeat;
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.bar-finish {
+  position: absolute;
+  right: -20px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  z-index: 10;
+  transition: transform 0.3s ease;
+}
+
+.bar-track-winner .bar-finish {
+  animation: celebrateFinish 0.6s ease-in-out 1.5s;
+}
+
+@keyframes celebrateFinish {
+  0%, 100% {
+    transform: translateY(-50%) scale(1.2);
+  }
+  50% {
+    transform: translateY(-50%) scale(1.4) rotate(10deg);
+  }
+}
+
+.bar-name {
+  font-size: 13px;
+  color: #333;
+  font-weight: 600;
+}
+
+.bar-score {
+  font-size: 13px;
+  color: #999;
+  text-align: right;
+}
+
+.welcome-section {
+  text-align: center;
+  background: white;
+  padding: 60px 40px;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  margin-bottom: 40px;
+}
+
+.welcome-section h1 {
+  margin: 0 0 24px 0;
+  font-size: 36px;
+  color: #333;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.welcome-text {
+  font-size: 20px;
+  color: #555;
+  margin: 16px 0;
+}
+
+.welcome-text strong {
+  color: #667eea;
+}
+
+.subtitle {
+  color: #666;
+  font-size: 16px;
+  margin-top: 8px;
+}
+
+.btn-primary-home {
+  margin-top: 24px;
+  padding: 14px 40px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-primary-home:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+
+.features-section {
+  background: white;
+  padding: 40px;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.features-section h3 {
+  text-align: center;
+  margin: 0 0 32px 0;
+  font-size: 28px;
+  color: #333;
+}
+
+.feature-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 24px;
+}
+
+.feature-card {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 30px;
+  border-radius: 16px;
+  text-align: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.feature-card h4 {
+  margin: 0 0 12px 0;
+  font-size: 20px;
+  color: #333;
+}
+
+.feature-card p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .home-navbar {
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px 20px;
+  }
+
+  .navbar-menu {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .welcome-section h1 {
+    font-size: 28px;
+  }
+
+  .welcome-text {
+    font-size: 18px;
+  }
+
+  .feature-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+

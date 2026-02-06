@@ -6,6 +6,8 @@ export { default as walletAPI } from './wallet.api';
 export { default as depositAPI } from './deposit.api';
 export { default as withdrawalAPI } from './withdrawal.api';
 export { default as betReceiptHistoryAPI } from './bet_receipt_history.api';
+export { default as notificationAPI } from './notification.api';
+export { default as chatAPI } from './chat.api';
 
 // TODO: Thêm các API khác khi cần
 // export { default as productAPI } from './product.api';

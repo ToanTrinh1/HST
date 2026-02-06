@@ -1,0 +1,184 @@
+/* ChatPage thống nhất - user (full page) và admin (embedded) */
+
+.chat-unified-page {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  flex: 1;
+}
+
+.chat-unified-embedded-page {
+  height: 100%;
+}
+
+.chat-unified-wrapper {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+  padding: 16px;
+  overflow: hidden;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.chat-unified-wrapper.chat-unified-embedded {
+  height: 100%;
+  align-items: flex-start;
+}
+
+.chat-unified-sidebar {
+  width: 350px;
+  min-width: 350px;
+  max-width: 400px;
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid #e4e6eb;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  height: calc(100vh - 200px);
+  min-height: calc(100vh - 200px);
+  max-height: calc(100vh - 200px);
+}
+
+.chat-unified-embedded .chat-unified-sidebar,
+.chat-unified-embedded-page .chat-unified-sidebar {
+  height: calc(100vh - 200px) !important;
+  min-height: calc(100vh - 200px) !important;
+  max-height: calc(100vh - 200px) !important;
+}
+
+.chat-unified-main {
+  flex: 1;
+  background: #fff;
+  border: 1px solid #e4e6eb;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  min-width: 0;
+  overflow: hidden;
+  min-height: 0;
+  height: calc(100vh - 200px);
+  max-height: calc(100vh - 200px);
+}
+
+.chat-unified-header {
+  padding: 12px 14px;
+  font-weight: 700;
+  border-bottom: 1px solid #f1f5f9;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+
+.chat-unified-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.chat-unified-input {
+  flex-shrink: 0;
+  border-top: 1px solid #e4e6eb;
+  background: #f0f2f5;
+  border-bottom-left-radius: 18px;
+  border-bottom-right-radius: 18px;
+  min-height: 56px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.chat-unified-input .chat-input-container {
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border-bottom-left-radius: 16px !important;
+  border-bottom-right-radius: 16px !important;
+  width: 100% !important;
+  display: flex !important;
+  flex-shrink: 0 !important;
+}
+
+.chat-unified-messages .chat-message.mine {
+  align-self: flex-end !important;
+  text-align: right !important;
+}
+
+.chat-unified-messages .chat-message.theirs {
+  align-self: flex-start !important;
+}
+
+.chat-unified-messages .chat-message.mine .chat-bubble {
+  background: #0084ff !important;
+  color: white !important;
+  border-radius: 18px 18px 4px 18px !important;
+  border: none !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+}
+
+.chat-unified-messages .chat-message.theirs .chat-bubble {
+  background: #f0f2f5 !important;
+  color: #050505 !important;
+  border-radius: 18px 18px 18px 4px !important;
+  border: none !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Tin nhắn có ảnh: bubble luôn nền trắng (mình hoặc đối phương) */
+.chat-unified-messages .chat-message.mine .chat-bubble:has(.chat-bubble-image-wrap),
+.chat-unified-messages .chat-message.theirs .chat-bubble:has(.chat-bubble-image-wrap) {
+  background: #fff !important;
+  color: #050505 !important;
+}
+
+
+.chat-sidebar-item {
+  position: relative;
+}
+
+.chat-sidebar-unread {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: #e53935;
+  color: white;
+  border-radius: 10px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  text-align: center;
+}
+
+.page-with-bottom-nav .chat-page-content {
+  display: block !important;
+  max-width: 1400px !important;
+  margin: 10px auto 0 !important;
+  padding: 0 16px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  background-color: transparent !important;
+  flex: none !important;
+  align-self: auto !important;
+  grid-template-columns: none !important;
+  grid-template-rows: none !important;
+  gap: 0 !important;
+  perspective: none !important;
+  align-items: stretch !important;
+  position: static !important;
+}
+
+.admin-tab-content.admin-chat-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+}

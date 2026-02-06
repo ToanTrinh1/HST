@@ -1,0 +1,520 @@
+.orders-page-content {
+  padding: 16px 20px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.orders-page-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.orders-create-bet-btn {
+  padding: 12px 16px;
+  background-color: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.orders-create-bet-btn:hover {
+  background-color: #1976D2;
+}
+
+.orders-search-input {
+  width: 280px;
+  max-width: 280px;
+  padding: 10px 12px;
+  border: 1px solid #e4e6eb;
+  border-radius: 8px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.orders-status-filter-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 999px;
+  border: 1px solid #e4e6eb;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.orders-status-filter-btn.active {
+  border: 1px solid #4f46e5;
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.orders-status-filter-btn:hover {
+  background: #f9fafb;
+}
+
+.orders-month-filter-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  background-color: #f0f2f5;
+  border: 1px solid #e4e6eb;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.orders-month-filter-btn.active {
+  color: #667eea;
+  background-color: #e8edff;
+}
+
+.orders-month-filter-btn:hover {
+  background-color: #e4e6eb;
+}
+
+.orders-month-filter-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  background-color: white;
+  border: 1px solid #e4e6eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.orders-month-filter-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  margin-bottom: 4px;
+  font-weight: 400;
+  transition: background 0.2s ease;
+}
+
+.orders-month-filter-item:hover {
+  background: #f5f5f5;
+}
+
+.orders-month-filter-item.active {
+  background-color: #e8edff;
+  color: #667eea;
+  font-weight: 600;
+}
+
+.orders-table-wrapper {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e4e6eb;
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.orders-table {
+  width: 100%;
+  min-width: 1100px; /* thu hẹp tổng chiều rộng giống bảng trong tab cá nhân */
+  border-collapse: collapse;
+}
+
+.orders-table thead {
+  background: linear-gradient(90deg, #667eea, #764ba2);
+}
+
+.orders-table thead tr:first-child th:first-child {
+  border-top-left-radius: 12px;
+}
+
+.orders-table thead tr:first-child th:last-child {
+  border-top-right-radius: 12px;
+}
+
+.orders-table th {
+  padding: 12px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.orders-table td {
+  padding: 12px;
+  font-size: 13px;
+  border-bottom: 1px dashed #e5e7eb;
+}
+
+/* Căn giữa các cột Nhiệm vụ, Loại kèo, Tiền kèo, Trạng thái, Link để thẳng với header */
+.orders-table td:nth-child(1),
+.orders-table td:nth-child(2),
+.orders-table td:nth-child(3),
+.orders-table td:nth-child(4),
+.orders-table td:nth-child(5) {
+  text-align: center;
+}
+
+.orders-table tbody tr:hover {
+  background: #eef2ff;
+}
+
+.orders-loading,
+.orders-empty {
+  padding: 16px;
+  text-align: center;
+  color: #666;
+}
+
+.orders-task-code {
+  max-width: 200px; /* làm cột nhiệm vụ hẹp hơn nữa, text sẽ xuống dòng */
+  white-space: normal; /* cho phép xuống dòng */
+  word-break: break-word;
+  font-weight: 600;
+  color: #111827;
+  line-height: 1.4;
+  text-align: center; /* căn giữa cột Nhiệm vụ */
+}
+
+.orders-amount {
+  text-align: center; /* canh giữa dưới TIỀN KÈO */
+  white-space: nowrap;
+  font-weight: 700;
+  color: #111827;
+  font-family: inherit;
+}
+
+.orders-status {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.orders-actions {
+  white-space: nowrap;
+}
+
+/* Màu sắc status tương tự tab cá nhân */
+.orders-status-cho-duyet {
+  color: #a855f7; /* tím nhạt cho Chờ chấp nhận */
+}
+
+.orders-status-dang-thuc-hien {
+  color: #f59e0b;
+}
+
+.orders-status-done {
+  color: #16a34a;
+}
+
+.orders-status-huy-bo {
+  color: #dc2626;
+}
+
+.orders-status-den {
+  color: #1d4ed8;
+}
+
+.orders-link-cell a {
+  color: #4c51bf;
+  font-weight: 500;
+}
+
+.orders-link-cell a:hover {
+  text-decoration: underline;
+}
+
+.orders-confirm-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid #e4e6eb;
+  background: #4caf50;
+  color: white;
+  cursor: pointer;
+  margin-right: 6px;
+  transition: background 0.2s ease;
+}
+
+.orders-confirm-btn:hover:not(:disabled) {
+  background: #45a049;
+}
+
+.orders-confirm-btn:disabled {
+  background: #e0e0e0;
+  color: #666;
+  cursor: not-allowed;
+}
+
+.orders-view-login-btn,
+.orders-detail-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid #e4e6eb;
+  background: #fff;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.orders-view-login-btn:hover,
+.orders-detail-btn:hover {
+  background: #f5f5f5;
+}
+
+.orders-expanded-row {
+  background: #f9fafb;
+}
+
+.orders-login-info {
+  font-size: 12px;
+  color: #555;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.orders-account-info {
+  margin-top: 16px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #e4e6eb;
+  border-radius: 12px;
+}
+
+.orders-account-header {
+  margin-bottom: 12px;
+}
+
+.orders-account-header h4 {
+  margin: 0 0 8px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2933;
+}
+
+.orders-account-link {
+  color: #667eea;
+  text-decoration: none;
+  font-size: 13px;
+  word-break: break-all;
+  transition: color 0.2s ease;
+}
+
+.orders-account-link:hover {
+  color: #764ba2;
+  text-decoration: underline;
+}
+
+.orders-account-accounts {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.orders-account-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e4e6eb;
+  min-width: 180px;
+}
+
+.orders-account-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.orders-account-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f2933;
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+}
+
+.orders-account-separator {
+  font-size: 20px;
+  font-weight: 300;
+  color: #9ca3af;
+  margin: 0 8px;
+}
+
+/* Modal styles - copy từ ProfilePage.css */
+.reason-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.reason-modal-content {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 20px;
+  width: 90%;
+  max-width: 520px;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35);
+  animation: fadeInScale 0.18s ease-out;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+.reason-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.reason-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2933;
+}
+
+.reason-modal-close {
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  cursor: pointer;
+  color: #9ca3af;
+}
+
+.reason-modal-close:hover {
+  color: #4b5563;
+}
+
+.reason-modal-body {
+  padding: 8px 0 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #4b5563;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.reason-section {
+  margin-bottom: 20px;
+}
+
+.reason-section h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2933;
+}
+
+.reason-section p {
+  margin: 0;
+  padding: 10px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  color: #4b5563;
+}
+
+.task-detail-table-section {
+  margin-top: 20px;
+}
+
+.task-detail-table-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2933;
+}
+
+.task-detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.task-detail-table thead {
+  background: #f3f4f6;
+}
+
+.task-detail-table th {
+  padding: 10px 8px;
+  text-align: center;
+  font-weight: 600;
+  color: #4c51bf;
+  border: 1px solid #e5e7eb;
+}
+
+.task-detail-table td {
+  padding: 10px 8px;
+  text-align: center;
+  border: 1px solid #e5e7eb;
+  color: #1f2933;
+}
+
+.task-detail-table tbody tr {
+  background: #ffffff;
+}
+
+.task-detail-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.reason-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.reason-modal-button {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: none;
+  background: #4c51bf;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(76, 81, 191, 0.35);
+  transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+.reason-modal-button:hover {
+  background: #434190;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(76, 81, 191, 0.45);
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

@@ -15,6 +15,9 @@ func SetupRoutes(
 	depositHandler *handlers.DepositHandler,
 	withdrawalHandler *handlers.WithdrawalHandler,
 	historyHandler *handlers.BetReceiptHistoryHandler,
+	chatHandler *handlers.ChatHandler,
+	notificationHandler *handlers.NotificationHandler,
+	wsHandler *handlers.WebSocketHandler,
 ) {
 	// API group - prefix /api cho tất cả endpoints
 	api := router.Group("/api")
@@ -34,6 +37,13 @@ func SetupRoutes(
 	setupDepositRoutes(api, depositHandler)
 	setupWithdrawalRoutes(api, withdrawalHandler)
 	SetupBetReceiptHistoryRoutes(api, historyHandler)
+	setupChatRoutes(api, chatHandler)
+	setupNotificationRoutes(api, notificationHandler)
+	setupWebSocketRoutes(api, wsHandler)
+
+	// Proxy ảnh qua API (avatar, chat) — stream từ MinIO/local, frontend dùng baseURL + path
+	api.GET("/uploads/avatar/:filename", authHandler.ServeAvatar)
+	api.GET("/uploads/chat-images/:filename", chatHandler.ServeChatImage)
 
 	// TODO: Thêm các routes khác ở đây khi phát triển
 	// setupUserRoutes(api, userHandler)

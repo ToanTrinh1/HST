@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+	"strings"
+	"time"
 
 	"fullstack-backend/internal/api/handlers"
 	"fullstack-backend/internal/api/routes"
@@ -9,6 +11,8 @@ import (
 	"fullstack-backend/internal/database"
 	"fullstack-backend/internal/repository"
 	"fullstack-backend/internal/service"
+	"fullstack-backend/internal/storage"
+	"fullstack-backend/internal/websocket"
 	"fullstack-backend/pkg/email"
 
 	"github.com/gin-gonic/gin"
@@ -28,15 +32,20 @@ func main() {
 	log.Println("✅ Database connected")
 
 	// 2.1. Run migrations tự động
-	log.Println("🔄 Running database migrations...")
+	// log.Println("🔄 Running database migrations...")
 	// Khi chạy từ backend/ bằng "go run cmd/api/main.go", working directory là backend/
 	// nên path migrations là "migrations"
-	migrationsPath := "migrations"
-	if err := database.RunMigrations(db, migrationsPath); err != nil {
-		log.Printf("❌ Failed to run migrations: %v\n", err)
-		log.Fatal("Migration failed, please check the error above")
-	}
-	log.Println("✅ Migrations completed")
+	// migrationsPath := "migrations"
+	// if err := database.RunMigrations(db, migrationsPath); err != nil {
+	// 	log.Printf("❌ Failed to run migrations: %v\n", err)
+	// 	log.Fatal("Migration failed, please check the error above")
+	// }
+	// log.Println("✅ Migrations completed")
+
+	// 2.2. Initialize WebSocket Hub
+	wsHub := websocket.NewHub()
+	go wsHub.Run()
+	log.Println("✅ WebSocket Hub initialized")
 
 	// 3. Initialize layers (Dependency Injection)
 	userRepo := repository.NewUserRepository(db)
@@ -46,6 +55,8 @@ func main() {
 	depositRepo := repository.NewDepositRepository(db)
 	withdrawalRepo := repository.NewWithdrawalRepository(db)
 	historyRepo := repository.NewBetReceiptHistoryRepository(db)
+	notificationRepo := repository.NewNotificationRepository(db)
+	chatRepo := repository.NewChatRepository(db)
 
 	// Initialize email service
 	emailService := email.NewEmailService(
@@ -62,18 +73,69 @@ func main() {
 	}
 
 	authService := service.NewAuthService(userRepo, passwordResetRepo, cfg.JWTSecret, emailService)
-	betReceiptService := service.NewBetReceiptService(betReceiptRepo, userRepo, walletRepo, historyRepo)
+	notificationService := service.NewNotificationService(notificationRepo, wsHub)
+	chatService := service.NewChatService(chatRepo, userRepo, notificationService, wsHub)
+	betReceiptService := service.NewBetReceiptService(betReceiptRepo, userRepo, walletRepo, historyRepo, notificationService, wsHub)
 	walletService := service.NewWalletService(walletRepo)
 	depositService := service.NewDepositService(depositRepo, userRepo, walletRepo)
 	withdrawalService := service.NewWithdrawalService(withdrawalRepo, userRepo, walletRepo)
 	historyService := service.NewBetReceiptHistoryService(historyRepo)
 
-	authHandler := handlers.NewAuthHandler(authService, cfg.JWTSecret)
+	// Storage: 2 bucket MinIO (avatar + chat) hoặc 2 thư mục local
+	var avatarStore, chatStore storage.Storage
+	if cfg.MinIOConfigured() {
+		baseURL := cfg.MinIOPublicURL
+		if baseURL == "" {
+			baseURL = "http://" + cfg.MinIOEndpoint
+			if cfg.MinIOUseSSL {
+				baseURL = "https://" + cfg.MinIOEndpoint
+			}
+		}
+		baseURL = strings.TrimSuffix(baseURL, "/")
+		avatarPublicURL := baseURL + "/" + cfg.MinIOBucketAvatar
+		chatPublicURL := baseURL + "/" + cfg.MinIOBucketChat
+		const minioRetries = 10
+		const minioRetryDelay = 3 * time.Second
+		var err error
+		for attempt := 1; attempt <= minioRetries; attempt++ {
+			avatarStore, err = storage.NewMinIO(cfg.MinIOEndpoint, cfg.MinIOAccessKey, cfg.MinIOSecretKey, cfg.MinIOBucketAvatar, cfg.MinIOUseSSL, avatarPublicURL)
+			if err != nil {
+				log.Printf("⚠️ MinIO avatar bucket init (attempt %d/%d): %v", attempt, minioRetries, err)
+				if attempt < minioRetries {
+					time.Sleep(minioRetryDelay)
+				} else {
+					log.Fatalf("❌ MinIO avatar bucket init after %d attempts: %v", minioRetries, err)
+				}
+				continue
+			}
+			chatStore, err = storage.NewMinIO(cfg.MinIOEndpoint, cfg.MinIOAccessKey, cfg.MinIOSecretKey, cfg.MinIOBucketChat, cfg.MinIOUseSSL, chatPublicURL)
+			if err != nil {
+				log.Printf("⚠️ MinIO chat bucket init (attempt %d/%d): %v", attempt, minioRetries, err)
+				if attempt < minioRetries {
+					time.Sleep(minioRetryDelay)
+				} else {
+					log.Fatalf("❌ MinIO chat bucket init after %d attempts: %v", minioRetries, err)
+				}
+				continue
+			}
+			break
+		}
+		log.Printf("✅ MinIO enabled: bucket avatar=%s, chat=%s", cfg.MinIOBucketAvatar, cfg.MinIOBucketChat)
+	} else {
+		avatarStore = storage.NewLocal("uploads/avatars")
+		chatStore = storage.NewLocal("uploads/chat-images")
+		log.Println("✅ Local storage enabled (uploads/avatars, uploads/chat-images)")
+	}
+
+	authHandler := handlers.NewAuthHandler(authService, avatarStore, cfg.JWTSecret)
 	betReceiptHandler := handlers.NewBetReceiptHandler(betReceiptService, cfg.JWTSecret)
 	walletHandler := handlers.NewWalletHandler(walletService)
 	depositHandler := handlers.NewDepositHandler(depositService, cfg.JWTSecret)
 	withdrawalHandler := handlers.NewWithdrawalHandler(withdrawalService, cfg.JWTSecret)
 	historyHandler := handlers.NewBetReceiptHistoryHandler(historyService)
+	chatHandler := handlers.NewChatHandler(chatService, chatStore, avatarStore, cfg.JWTSecret)
+	notificationHandler := handlers.NewNotificationHandler(notificationService, cfg.JWTSecret)
+	wsHandler := handlers.NewWebSocketHandler(wsHub, cfg.JWTSecret)
 	log.Println("✅ Layers initialized")
 
 	// 4. Setup router
@@ -120,11 +182,11 @@ func main() {
 	})
 	log.Println("✅ CORS middleware enabled")
 
-	// Serve static files (avatars)
+	// Serve static files khi dùng local storage (fallback; MinIO thì ảnh lấy từ MinIO URL)
 	router.Static("/uploads", "./uploads")
-	log.Println("✅ Static file serving enabled for /uploads")
+	log.Println("✅ Static /uploads enabled (for local storage or legacy URLs)")
 
-	routes.SetupRoutes(router, authHandler, betReceiptHandler, walletHandler, depositHandler, withdrawalHandler, historyHandler)
+	routes.SetupRoutes(router, authHandler, betReceiptHandler, walletHandler, depositHandler, withdrawalHandler, historyHandler, chatHandler, notificationHandler, wsHandler)
 	log.Println("✅ Routes configured")
 
 	// 5. Start server

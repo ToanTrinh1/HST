@@ -1,44 +1,83 @@
-version: '3.8'
-
 services:
   backend:
     build: ./backend
     container_name: fullstack-backend-prod
     ports:
-      - "8080:8080"
+      - "0.0.0.0:${BACKEND_PORT:-8080}:8080"
     environment:
       - PORT=8080
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=hst_db
-      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
-      # Frontend URL for reset password links
-      - FRONTEND_URL=https://teocaothu.io.vn
-      # Email configuration (Gmail SMTP)
-      - SMTP_HOST=smtp.gmail.com
-      - SMTP_PORT=587
-      - SMTP_USER=ukt40g412345678@gmail.com
-      - SMTP_PASSWORD=afov bzqy ajxq wgig
-      - SMTP_FROM=ukt40g412345678@gmail.com
+
+      # Database
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - DB_NAME=${POSTGRES_DB:-hst_db}
+
+      # Auth
+      - JWT_SECRET=${JWT_SECRET:-change-me}
+
+      # MinIO
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_BUCKET_AVATAR=${MINIO_BUCKET_AVATAR:-hst-avatars}
+      - MINIO_BUCKET_CHAT=${MINIO_BUCKET_CHAT:-hst-chat-images}
+      - MINIO_USE_SSL=${MINIO_USE_SSL:-false}
+      - MINIO_PUBLIC_URL=${MINIO_PUBLIC_URL:-http://localhost:9000}
+
+      # Frontend URL
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+
+      # SMTP
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-example@gmail.com}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-app-password}
+      - SMTP_FROM=${SMTP_FROM:-example@gmail.com}
+
     volumes:
       - ./backend/uploads:/app/uploads
     networks:
       - app-network
     depends_on:
-      - postgres
+      postgres:
+        condition: service_started
+      minio:
+        condition: service_healthy
     restart: unless-stopped
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z
+    container_name: fullstack-minio-prod
+    ports:
+      - "0.0.0.0:${MINIO_PORT:-9000}:9000"
+      - "0.0.0.0:${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
   postgres:
     image: postgres:15-alpine
     container_name: fullstack-postgres-prod
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5532}:5432"
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=hst_db
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-hst_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -50,10 +89,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.prod
       args:
-        - REACT_APP_API_URL=https://teocaothu.io.vn/api
+        - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:8080/api}
     container_name: fullstack-frontend-prod
     ports:
-      - "3000:80"
+      - "0.0.0.0:${FRONTEND_PORT:-3000}:80"
     networks:
       - app-network
     depends_on:
@@ -66,5 +105,4 @@ networks:
 
 volumes:
   postgres_data:
-  frontend_node_modules:
-
+  minio_data:

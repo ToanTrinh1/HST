@@ -227,8 +227,8 @@ func (r *WalletRepository) RecalculateTotalReceived(userID string, exchangeRate 
 	// Tính tổng ActualAmountCNY và TotalReceivedVND (dùng tỷ giá riêng của từng đơn hàng)
 	query := `
 		SELECT 
-			COALESCE(SUM(cong_thuc_nhan_te), 0) as total_actual_amount_cny,
-			COALESCE(SUM(cong_thuc_nhan_te * COALESCE(exchange_rate, $1)), 0) as total_actual_amount_vnd
+			COALESCE(SUM(cong_thuc_nhan_te - COALESCE(tien_cat_te, 0)), 0) as total_actual_amount_cny,
+			COALESCE(SUM((cong_thuc_nhan_te - COALESCE(tien_cat_te, 0)) * COALESCE(exchange_rate, $1)), 0) as total_actual_amount_vnd
 		FROM thong_tin_nhan_keo
 		WHERE id_nguoi_dung = $2 AND (tien_do_hoan_thanh = 'DONE' OR tien_do_hoan_thanh = 'HỦY BỎ' OR tien_do_hoan_thanh = 'ĐỀN')
 	`
@@ -346,7 +346,7 @@ func (r *WalletRepository) AddToTotalWithdrawnVND(userID string, amountVND float
 			TotalWithdrawnCNY: 0,
 			TotalReceivedVND:  0,
 			TotalDepositVND:   0,
-			TotalWithdrawnVND: amountVND, // Số tiền rút đầu tiên
+			TotalWithdrawnVND: amountVND,  // Số tiền rút đầu tiên
 			CurrentBalanceVND: -amountVND, // Số dư âm (cho phép rút tiền vượt quá số dư)
 		}
 		return r.CreateWallet(wallet)
@@ -409,8 +409,8 @@ func (r *WalletRepository) RecalculateWallet(userID string, exchangeRate float64
 	var totalReceivedVND float64
 	betReceiptQuery := `
 		SELECT 
-			COALESCE(SUM(cong_thuc_nhan_te), 0) as total_cny,
-			COALESCE(SUM(cong_thuc_nhan_te * COALESCE(exchange_rate, $1)), 0) as total_vnd
+			COALESCE(SUM(cong_thuc_nhan_te - COALESCE(tien_cat_te, 0)), 0) as total_cny,
+			COALESCE(SUM((cong_thuc_nhan_te - COALESCE(tien_cat_te, 0)) * COALESCE(exchange_rate, $1)), 0) as total_vnd
 		FROM thong_tin_nhan_keo
 		WHERE id_nguoi_dung = $2 AND tien_do_hoan_thanh IN ('DONE', 'HỦY BỎ', 'ĐỀN')
 	`

@@ -157,6 +157,12 @@ set-admin:
 		exit 1; \
 	fi
 	@echo "$(GREEN)🔧 Setting user $(EMAIL) as admin...$(NC)"
-	@docker exec -i $$(docker ps -q -f name=postgres) psql -U postgres -d hst_db -c "UPDATE nguoi_dung SET vai_tro = 'admin', thoi_gian_cap_nhat = NOW() WHERE email = '$(EMAIL)';"
-	@docker exec -i $$(docker ps -q -f name=postgres) psql -U postgres -d hst_db -c "SELECT id, email, ten, vai_tro FROM nguoi_dung WHERE email = '$(EMAIL)';"
-	@echo "$(GREEN)✅ User đã được set thành admin$(NC)"
+	@POSTGRES_CONTAINER=$$(docker ps --format "{{.Names}}" | grep -E "postgres|fullstack.*postgres" | head -n 1); \
+	if [ -z "$$POSTGRES_CONTAINER" ]; then \
+		echo "$(RED)❌ Không tìm thấy PostgreSQL container!$(NC)"; \
+		exit 1; \
+	fi; \
+	echo "$(YELLOW)📦 Sử dụng container: $$POSTGRES_CONTAINER$(NC)"; \
+	docker exec -i $$POSTGRES_CONTAINER psql -U postgres -d hst_db -c "UPDATE nguoi_dung SET vai_tro = 'admin', thoi_gian_cap_nhat = NOW() WHERE email = '$(EMAIL)';"; \
+	docker exec -i $$POSTGRES_CONTAINER psql -U postgres -d hst_db -c "SELECT id, email, ten, vai_tro FROM nguoi_dung WHERE email = '$(EMAIL)';"; \
+	echo "$(GREEN)✅ User đã được set thành admin$(NC)"

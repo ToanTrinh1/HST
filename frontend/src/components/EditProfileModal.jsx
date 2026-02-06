@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api';
-import '../pages/ProfilePage.css';
+import '../pages/user/ProfilePage.css';
+import { buildAvatarUrl } from '../utils/avatar';
 
 const EditProfileModal = ({ isOpen, onClose }) => {
   const { user, updateUser } = useAuth();
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
+  const [editPhoneNumber, setEditPhoneNumber] = useState('');
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -38,7 +40,8 @@ const EditProfileModal = ({ isOpen, onClose }) => {
     if (isOpen) {
       setEditName(user?.name || '');
       setEditEmail(user?.email || '');
-      setAvatarPreview(user?.avatar_url ? `http://localhost:8080${user.avatar_url}` : null);
+      setEditPhoneNumber(user?.phone_number || '');
+      setAvatarPreview(buildAvatarUrl(user?.avatar_url));
       setSelectedAvatar(null);
       setOldPassword('');
       setNewPassword('');
@@ -272,13 +275,19 @@ const EditProfileModal = ({ isOpen, onClose }) => {
       return;
     }
 
+    // Validate phone chỉ chứa số (nếu có nhập)
+    if (editPhoneNumber.trim() && !/^\d+$/.test(editPhoneNumber.trim())) {
+      setErrorMessage('Số điện thoại chỉ được chứa chữ số');
+      return;
+    }
+
     setIsUpdatingProfile(true);
     setErrorMessage('');
     setSuccessMessage('');
 
     try {
       // Chỉ gửi tên, email không được phép thay đổi
-      const response = await authAPI.updateProfile(editName.trim(), user?.email || '');
+      const response = await authAPI.updateProfile(editName.trim(), editPhoneNumber.trim() || '');
       if (response.success) {
         updateUser(response.data);
         setSuccessMessage('Cập nhật thông tin thành công!');
@@ -555,6 +564,28 @@ const EditProfileModal = ({ isOpen, onClose }) => {
                   Email không được phép thay đổi
                 </p>
               </div>
+              <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500' }}>
+                    Số điện thoại
+                  </label>
+                  <input
+                    type="tel"
+                    value={editPhoneNumber}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, ''); // Chỉ cho phép số
+                      setEditPhoneNumber(value);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      fontSize: '14px',
+                      border: '1px solid #ddd',
+                      borderRadius: '8px',
+                      boxSizing: 'border-box',
+                    }}
+                    placeholder="Nhập số điện thoại (chỉ số)"
+                  />
+                </div>
               <button
                 type="button"
                 onClick={handleUpdateProfile}

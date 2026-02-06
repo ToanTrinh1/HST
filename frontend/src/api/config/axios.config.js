@@ -34,12 +34,40 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Add response interceptor để log errors
+// Add response interceptor để log errors và xử lý 401
 axiosInstance.interceptors.response.use(
   (response) => {
     return response;
   },
   (error) => {
+    // Xử lý 401 Unauthorized - Token hết hạn hoặc không hợp lệ
+    if (error.response?.status === 401) {
+      const errorMessage = error.response?.data?.error || 'Token không hợp lệ hoặc đã hết hạn';
+      
+      // Chỉ xử lý logout nếu không phải là request login/register (tránh loop)
+      const isAuthRequest = error.config?.url?.includes('/auth/login') || 
+                           error.config?.url?.includes('/auth/register');
+      
+      if (!isAuthRequest) {
+        console.warn('⚠️ Token hết hạn hoặc không hợp lệ. Đăng xuất và chuyển về trang đăng nhập...');
+        
+        // Clear localStorage
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        
+        // Show alert thông báo
+        alert('Phiên đăng nhập của bạn đã hết hạn. Vui lòng đăng nhập lại.');
+        
+        // Redirect về login page
+        // Sử dụng window.location để đảm bảo reload hoàn toàn và clear state
+        window.location.href = '/login';
+        
+        // Return một promise rejected để dừng request hiện tại
+        return Promise.reject(new Error('Unauthorized: Token expired'));
+      }
+    }
+    
+    // Log errors cho các request khác
     if (error.config?.url === '/auth/change-password') {
       console.error('📥 Response Error cho /auth/change-password:');
       console.error('  - Status:', error.response?.status);
@@ -50,6 +78,7 @@ axiosInstance.interceptors.response.use(
         console.error('  - Request URL:', error.config?.baseURL + error.config?.url);
       }
     }
+    
     return Promise.reject(error);
   }
 );

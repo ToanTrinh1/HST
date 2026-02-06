@@ -1,13 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { donHangAPI } from '../api/endpoints/don_hang.api';
 import './BetCalculationTable.css';
 
 const BetCalculationWrapper = () => {
   const [betPriceWeb, setBetPriceWeb] = useState(90);
   const [betPriceOuter, setBetPriceOuter] = useState(90);
-  const exchangeRate = 3550;
+  const [exchangeRate, setExchangeRate] = useState(3550);
+  const [feeRutTienPctWeb, setFeeRutTienPctWeb] = useState(2);
+  const [feeRutTienPctNgoai, setFeeRutTienPctNgoai] = useState(1);
+  const [feeTrungGianPct, setFeeTrungGianPct] = useState(6);
+  const [feeWebTiers, setFeeWebTiers] = useState([]);
 
-  // Bảng tra cứu phí web cho Kèo web
+  useEffect(() => {
+    let cancelled = false;
+    donHangAPI.layConfigTinhTienUser().then((res) => {
+      if (cancelled || !res) return;
+      if (res.exchange_rate != null) setExchangeRate(Number(res.exchange_rate));
+      if (res.fee_rut_tien_pct_web != null) setFeeRutTienPctWeb(Number(res.fee_rut_tien_pct_web));
+      if (res.fee_rut_tien_pct_ngoai != null) setFeeRutTienPctNgoai(Number(res.fee_rut_tien_pct_ngoai));
+      if (res.fee_trung_gian_pct != null) setFeeTrungGianPct(Number(res.fee_trung_gian_pct));
+      if (Array.isArray(res.fee_web_tiers)) setFeeWebTiers(res.fee_web_tiers);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Bảng tra cứu phí web từ config (fee_web_tiers: [{max, fee}, ...] - chọn fee của tier đầu tiên có price <= max)
   const getWebFee = (price) => {
+    if (feeWebTiers.length > 0) {
+      for (let i = 0; i < feeWebTiers.length; i++) {
+        const t = feeWebTiers[i];
+        const max = t.max != null ? Number(t.max) : 0;
+        if (price <= max) return t.fee != null ? Number(t.fee) : 0;
+      }
+      return 0;
+    }
     if (price < 20) return 2;
     if (price >= 20 && price <= 50) return 4;
     if (price >= 51 && price <= 100) return 5;
@@ -21,16 +47,20 @@ const BetCalculationWrapper = () => {
     return 0;
   };
 
+  const pctWeb = feeRutTienPctWeb / 100;
+  const pctNgoai = feeRutTienPctNgoai / 100;
+  const pctTrungGian = feeTrungGianPct / 100;
+
   // Tính toán cho Kèo web
   const webFee = getWebFee(betPriceWeb);
-  const withdrawalFeeWeb = (betPriceWeb * 0.02).toFixed(2);
-  const intermediaryFeeWeb = (betPriceWeb * 0.06).toFixed(2);
+  const withdrawalFeeWeb = (betPriceWeb * pctWeb).toFixed(2);
+  const intermediaryFeeWeb = (betPriceWeb * pctTrungGian).toFixed(2);
   const totalReceivedWeb = (betPriceWeb - webFee - parseFloat(withdrawalFeeWeb) - parseFloat(intermediaryFeeWeb)).toFixed(1);
 
   // Tính toán cho Kèo ngoài
   const webFeeOuter = 0;
-  const withdrawalFeeOuter = (betPriceOuter * 0.01).toFixed(2);
-  const intermediaryFeeOuter = (betPriceOuter * 0.06).toFixed(2);
+  const withdrawalFeeOuter = (betPriceOuter * pctNgoai).toFixed(2);
+  const intermediaryFeeOuter = (betPriceOuter * pctTrungGian).toFixed(2);
   const totalReceivedOuter = (betPriceOuter - webFeeOuter - parseFloat(withdrawalFeeOuter) - parseFloat(intermediaryFeeOuter)).toFixed(1);
 
   return (
@@ -46,11 +76,11 @@ const BetCalculationWrapper = () => {
                   <th>Phí web</th>
                   <th>
                     Phí rút tiền
-                    <span className="fee-percentage">2%</span>
+                    <span className="fee-percentage">{feeRutTienPctWeb}%</span>
                   </th>
                   <th>
                     Phí trung gian
-                    <span className="fee-percentage">6%</span>
+                    <span className="fee-percentage">{feeTrungGianPct}%</span>
                   </th>
                   <th>Tổng thực nhận</th>
                 </tr>
@@ -102,11 +132,11 @@ const BetCalculationWrapper = () => {
                   <th>Phí web</th>
                   <th>
                     Phí rút tiền
-                    <span className="fee-percentage">1%</span>
+                    <span className="fee-percentage">{feeRutTienPctNgoai}%</span>
                   </th>
                   <th>
                     Phí trung gian
-                    <span className="fee-percentage">6%</span>
+                    <span className="fee-percentage">{feeTrungGianPct}%</span>
                   </th>
                   <th>Tổng thực nhận</th>
                 </tr>
@@ -141,16 +171,27 @@ const BetCalculationWrapper = () => {
               </tr>
             </thead>
             <tbody>
-              <tr><td>&lt;20</td><td>2</td></tr>
-              <tr><td>20-50</td><td>4</td></tr>
-              <tr><td>51-100</td><td>5</td></tr>
-              <tr><td>101-150</td><td>6</td></tr>
-              <tr><td>151-200</td><td>7</td></tr>
-              <tr><td>201-250</td><td>8</td></tr>
-              <tr><td>251-300</td><td>9</td></tr>
-              <tr><td>301-350</td><td>10</td></tr>
-              <tr><td>&gt;351</td><td>11</td></tr>
-              <tr><td>800 trở lên</td><td>20</td></tr>
+              {feeWebTiers.length > 0 ? (
+                feeWebTiers.map((t, i) => (
+                  <tr key={i}>
+                    <td>{t.max >= 99999 ? '800 trở lên' : t.max === 20 ? '<20' : t.max === 799 ? '351-799' : `≤${t.max}`}</td>
+                    <td>{t.fee}</td>
+                  </tr>
+                ))
+              ) : (
+                <>
+                  <tr><td>&lt;20</td><td>2</td></tr>
+                  <tr><td>20-50</td><td>4</td></tr>
+                  <tr><td>51-100</td><td>5</td></tr>
+                  <tr><td>101-150</td><td>6</td></tr>
+                  <tr><td>151-200</td><td>7</td></tr>
+                  <tr><td>201-250</td><td>8</td></tr>
+                  <tr><td>251-300</td><td>9</td></tr>
+                  <tr><td>301-350</td><td>10</td></tr>
+                  <tr><td>&gt;351</td><td>11</td></tr>
+                  <tr><td>800 trở lên</td><td>20</td></tr>
+                </>
+              )}
             </tbody>
           </table>
         </div>

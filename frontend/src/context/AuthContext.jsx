@@ -1,5 +1,6 @@
 import { createContext, useState, useContext, useEffect } from 'react';
 import { authAPI } from '../api';
+import websocketService from '../services/websocket.service';
 
 const AuthContext = createContext(null);
 
@@ -11,12 +12,16 @@ export const AuthProvider = ({ children }) => {
   // Load user từ localStorage khi app start
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
-    if (storedUser) {
+    const token = localStorage.getItem('token');
+    if (storedUser && token) {
       try {
         setUser(JSON.parse(storedUser));
+        // Connect WebSocket if user is already logged in
+        websocketService.connect(token);
       } catch (err) {
         console.error('Error parsing stored user:', err);
         localStorage.removeItem('user');
+        localStorage.removeItem('token');
       }
     }
     setLoading(false);
@@ -60,6 +65,9 @@ export const AuthProvider = ({ children }) => {
         
         // Update state
         setUser(user);
+        
+        // Kết nối WebSocket ngay sau khi đăng nhập để có realtime chat (tin nhắn mới + đã xem)
+        websocketService.connect(token);
         
         console.log('AuthContext - User saved to localStorage and state');
         
@@ -126,6 +134,7 @@ export const AuthProvider = ({ children }) => {
   // Logout function
   const logout = () => {
     authAPI.logout();
+    websocketService.disconnect();
     setUser(null);
     setError(null);
   };

@@ -1,9 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { donHangAPI } from '../api/endpoints/don_hang.api';
 import './BetCalculationTable.css';
 
 const BetCalculationTable = () => {
   const [betPrice, setBetPrice] = useState(90);
-  const exchangeRate = 3550;
+  const [exchangeRate, setExchangeRate] = useState(3550);
+
+  useEffect(() => {
+    let cancelled = false;
+    donHangAPI.layTyGiaCongKhai().then((res) => {
+      if (!cancelled && res && res.exchange_rate != null) setExchangeRate(Number(res.exchange_rate));
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   // Bảng tra cứu phí web
   const getWebFee = (price) => {

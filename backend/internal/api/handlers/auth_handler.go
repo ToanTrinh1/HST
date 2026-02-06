@@ -2,12 +2,13 @@ package handlers
 
 // Xử lí đăng nhập đăng kí  trả về Json response
 import (
+	"context"
 	"fullstack-backend/internal/models"
 	"fullstack-backend/internal/service"
+	"fullstack-backend/internal/storage"
 	"fullstack-backend/pkg/utils"
 	"log"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -18,14 +19,40 @@ import (
 
 type AuthHandler struct {
 	authService *service.AuthService
+	storage     storage.Storage
 	jwtSecret   string
 }
 
-func NewAuthHandler(authService *service.AuthService, jwtSecret string) *AuthHandler {
+func NewAuthHandler(authService *service.AuthService, store storage.Storage, jwtSecret string) *AuthHandler {
 	return &AuthHandler{
 		authService: authService,
+		storage:     store,
 		jwtSecret:   jwtSecret,
 	}
+}
+
+// applyPresignUser: avatar_url trong DB là path proxy (uploads/avatar/xxx), trả nguyên để frontend ghép baseURL.
+func (h *AuthHandler) applyPresignUser(user *models.User) *models.User {
+	if user == nil {
+		return nil
+	}
+	return user
+}
+
+// ServeAvatar phục vụ ảnh avatar qua API (proxy từ MinIO/local) — GET /api/uploads/avatar/:filename
+func (h *AuthHandler) ServeAvatar(c *gin.Context) {
+	filename := c.Param("filename")
+	if filename == "" || strings.Contains(filename, "..") || strings.ContainsAny(filename, "/\\") {
+		c.Status(http.StatusBadRequest)
+		return
+	}
+	reader, size, contentType, err := h.storage.GetObject(c.Request.Context(), filename)
+	if err != nil {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	defer reader.Close()
+	c.DataFromReader(http.StatusOK, size, contentType, reader, nil)
 }
 
 // Register xử lý đăng ký user mới
@@ -68,10 +95,11 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	log.Printf("✅ ĐĂNG KÝ THÀNH CÔNG - User ID: %s, Email: %s", response.User.ID, response.User.Email)
 	log.Println("=== KẾT THÚC XỬ LÝ ĐĂNG KÝ ===\n")
 
-	// Trả response thành công
+	respCopy := *response
+	respCopy.User = h.applyPresignUser(response.User)
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
-		"data":    response,
+		"data":    respCopy,
 	})
 }
 
@@ -109,10 +137,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	log.Printf("🔍 DEBUG - User struct fields: ID=%s, Email=%s, Name=%s, Role=%s", response.User.ID, response.User.Email, response.User.Name, response.User.Role)
 	log.Println("=== KẾT THÚC XỬ LÝ ĐĂNG NHẬP ===\n")
 
-	// Trả response thành công
+	respCopy := *response
+	respCopy.User = h.applyPresignUser(response.User)
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"data":    response,
+		"data":    respCopy,
 	})
 }
 
@@ -161,9 +190,10 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 
 	log.Printf("✅ GetCurrentUser - User ID: %s, Email: %s, VaiTro: %s", user.ID, user.Email, user.Role)
 
+	out := h.applyPresignUser(user)
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"data":    user,
+		"data":    out,
 	})
 }
 
@@ -191,10 +221,13 @@ func (h *AuthHandler) GetAllUsers(c *gin.Context) {
 		})
 		return
 	}
-
+	out := make([]*models.User, len(users))
+	for i, u := range users {
+		out[i] = h.applyPresignUser(u)
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"data":    users,
+		"data":    out,
 	})
 }
 
@@ -260,10 +293,10 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 	log.Printf("✅ CẬP NHẬT PROFILE THÀNH CÔNG - User ID: %s, Name: %s, Email: %s", updatedUser.ID, updatedUser.Name, updatedUser.Email)
 	log.Println("=== KẾT THÚC XỬ LÝ CẬP NHẬT PROFILE ===\n")
 
-	// 4. Trả response thành công
+	out := h.applyPresignUser(updatedUser)
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"data":    updatedUser,
+		"data":    out,
 	})
 }
 
@@ -385,8 +418,8 @@ func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 	allowedTypes := map[string]bool{
 		"image/jpeg": true,
 		"image/jpg":  true,
-		"image/png": true,
-		"image/gif": true,
+		"image/png":  true,
+		"image/gif":  true,
 	}
 	if !allowedTypes[file.Header.Get("Content-Type")] {
 		log.Printf("❌ File type không hợp lệ: %s", file.Header.Get("Content-Type"))
@@ -408,40 +441,38 @@ func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 		return
 	}
 
-	// 5. Tạo tên file unique (userID_timestamp.extension)
+	// 5. Tạo tên file unique (userID_timestamp.extension) — bucket avatar riêng nên không cần prefix
 	ext := filepath.Ext(file.Filename)
 	filename := claims.UserID + "_" + strconv.FormatInt(time.Now().Unix(), 10) + ext
-	uploadPath := "uploads/avatars"
-	
-	// Tạo thư mục nếu chưa tồn tại
-	if err := os.MkdirAll(uploadPath, 0755); err != nil {
-		log.Printf("❌ Lỗi tạo thư mục: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   "Lỗi khi tạo thư mục lưu ảnh",
-		})
-		return
-	}
+	objectKey := filename
 
-	// 6. Lưu file
-	filePath := filepath.Join(uploadPath, filename)
-	if err := c.SaveUploadedFile(file, filePath); err != nil {
-		log.Printf("❌ Lỗi lưu file: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"error":   "Lỗi khi lưu file",
-		})
-		return
-	}
-
-	// 7. Tạo URL để trả về (relative path)
-	avatarURL := "/uploads/avatars/" + filename
-
-	// 8. Cập nhật avatar URL trong database
-	updatedUser, err := h.authService.UpdateAvatar(claims.UserID, avatarURL)
+	// 6. Mở file và upload qua storage (MinIO hoặc local)
+	opened, err := file.Open()
 	if err != nil {
-		// Xóa file nếu cập nhật database thất bại
-		os.Remove(filePath)
+		log.Printf("❌ Lỗi mở file: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "Lỗi khi đọc file"})
+		return
+	}
+	defer opened.Close()
+
+	contentType := file.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "image/jpeg"
+	}
+	_, err = h.storage.Upload(context.Background(), objectKey, opened, file.Size, contentType)
+	if err != nil {
+		log.Printf("❌ Lỗi upload avatar: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Lỗi khi lưu ảnh",
+		})
+		return
+	}
+
+	// 7. Lưu path proxy vào DB — frontend truy cập qua GET /api/uploads/avatar/:filename
+	proxyPath := "uploads/avatar/" + filename
+	updatedUser, err := h.authService.UpdateAvatar(claims.UserID, proxyPath)
+	if err != nil {
 		errorMsg := err.Error()
 		log.Printf("❌ CẬP NHẬT AVATAR THẤT BẠI: %s", errorMsg)
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -451,13 +482,13 @@ func (h *AuthHandler) UploadAvatar(c *gin.Context) {
 		return
 	}
 
-	log.Printf("✅ UPLOAD AVATAR THÀNH CÔNG - User ID: %s, Avatar URL: %s", claims.UserID, avatarURL)
+	log.Printf("✅ UPLOAD AVATAR THÀNH CÔNG - User ID: %s, Avatar path: %s", claims.UserID, proxyPath)
 	log.Println("=== KẾT THÚC XỬ LÝ UPLOAD AVATAR ===\n")
 
-	// 9. Trả response thành công
+	out := h.applyPresignUser(updatedUser)
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"data":    updatedUser,
+		"data":    out,
 		"message": "Cập nhật ảnh đại diện thành công",
 	})
 }
