@@ -166,14 +166,16 @@ func (s *BetReceiptService) CreateBetReceipt(req *models.CreateBetReceiptRequest
 }
 
 // GetAllBetReceipts lấy tất cả đơn hàng (thông tin nhận kèo) theo user (dùng cho user thường)
-func (s *BetReceiptService) GetAllBetReceipts(limit, offset int, userID *string) ([]*models.BetReceipt, error) {
-	return s.betReceiptRepo.GetAll(limit, offset, userID, false, nil)
+// completedMonth: "YYYY-MM" hoặc rỗng — khi có giá trị chỉ trả đơn DONE/HỦY BỎ/ĐỀN hoàn thành trong tháng (server)
+func (s *BetReceiptService) GetAllBetReceipts(limit, offset int, userID *string, completedMonth string) ([]*models.BetReceipt, error) {
+	return s.betReceiptRepo.GetAll(limit, offset, userID, false, nil, completedMonth)
 }
 
 // GetByTab lấy đơn hàng theo tab cho admin: don_hang_moi | cho_chap_nhan | tong_hop
 // - isSuperAdmin (admin tổng): thấy tất cả đơn; admin thường chỉ thấy đơn của mình (id_admin_duyet = adminID hoặc NULL cho tab chờ chấp nhận)
-func (s *BetReceiptService) GetByTab(limit, offset int, tab, adminID string, isSuperAdmin bool) ([]*models.BetReceipt, error) {
-	return s.betReceiptRepo.GetByTab(limit, offset, tab, adminID, isSuperAdmin)
+// completedMonth chỉ áp dụng tab da_xu_ly (lọc theo tháng hoàn thành, server)
+func (s *BetReceiptService) GetByTab(limit, offset int, tab, adminID string, isSuperAdmin bool, completedMonth string) ([]*models.BetReceipt, error) {
+	return s.betReceiptRepo.GetByTab(limit, offset, tab, adminID, isSuperAdmin, completedMonth)
 }
 
 // GetBetReceiptByID lấy đơn hàng (thông tin nhận kèo) theo ID

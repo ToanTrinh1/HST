@@ -130,8 +130,8 @@ func (h *BetReceiptHandler) CreateBetReceipt(c *gin.Context) {
 }
 
 // GetAllBetReceipts lấy danh sách đơn hàng
-// - User: lấy đơn của user đó
-// - Admin: tab=don_hang_moi | cho_chap_nhan | tong_hop; admin_tong thấy tất cả, admin thường chỉ thấy đơn của mình
+// - User: lấy đơn của user đó; query month=YYYY-MM (optional) lọc DONE/HỦY BỎ/ĐỀN theo tháng hoàn thành (server)
+// - Admin: tab=don_hang_moi | cho_chap_nhan | tong_hop | da_xu_ly; month chỉ áp với tab da_xu_ly; admin_tong thấy tất cả, admin thường chỉ thấy đơn của mình
 func (h *BetReceiptHandler) GetAllBetReceipts(c *gin.Context) {
 	log.Println("=== BẮT ĐẦU LẤY DANH SÁCH ĐƠN HÀNG ===")
 
@@ -147,6 +147,16 @@ func (h *BetReceiptHandler) GetAllBetReceipts(c *gin.Context) {
 	offset, err := strconv.Atoi(offsetStr)
 	if err != nil || offset < 0 {
 		offset = 0
+	}
+
+	monthQuery := strings.TrimSpace(c.Query("month"))
+	completedMonth := ""
+	if monthQuery != "" {
+		if _, perr := time.Parse("2006-01", monthQuery); perr == nil {
+			completedMonth = monthQuery
+		} else {
+			log.Printf("⚠️ Query month không hợp lệ (YYYY-MM): %q", monthQuery)
+		}
 	}
 
 	var userID *string
@@ -184,10 +194,10 @@ func (h *BetReceiptHandler) GetAllBetReceipts(c *gin.Context) {
 		if tabVal == "" {
 			tabVal = "tong_hop"
 		}
-		betReceipts, err = h.betReceiptService.GetByTab(limit, offset, tabVal, adminID, isSuperAdmin)
-		log.Printf("🔍 Admin - Lấy danh sách tab=%s (admin_id=%s, super=%v)", tabVal, adminID, isSuperAdmin)
+		betReceipts, err = h.betReceiptService.GetByTab(limit, offset, tabVal, adminID, isSuperAdmin, completedMonth)
+		log.Printf("🔍 Admin - Lấy danh sách tab=%s (admin_id=%s, super=%v, month=%q)", tabVal, adminID, isSuperAdmin, completedMonth)
 	} else {
-		betReceipts, err = h.betReceiptService.GetAllBetReceipts(limit, offset, userID)
+		betReceipts, err = h.betReceiptService.GetAllBetReceipts(limit, offset, userID, completedMonth)
 	}
 	if err != nil {
 		log.Printf("❌ LỖI LẤY DANH SÁCH ĐƠN HÀNG: %v", err)

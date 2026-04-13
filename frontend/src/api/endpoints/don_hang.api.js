@@ -82,11 +82,13 @@ export const donHangAPI = {
   },
 
   // Lấy danh sách đơn hàng
-  // tab (admin): 'tong_hop' | 'don_hang_moi' | 'cho_chap_nhan'. User không truyền tab.
-  layDanhSachDonHang: async (limit = 100, offset = 0, tab = null) => {
+  // tab (admin): 'tong_hop' | 'don_hang_moi' | 'cho_chap_nhan' | 'da_xu_ly'. User không truyền tab.
+  // month (optional): 'YYYY-MM' — lọc theo tháng hoàn thành (Asia/HCM) trên server (tab da_xu_ly hoặc user đơn DONE/Hủy/Đền)
+  layDanhSachDonHang: async (limit = 100, offset = 0, tab = null, month = null) => {
     try {
       const params = { limit, offset };
       if (tab) params.tab = tab;
+      if (month) params.month = month;
       console.log('donHangAPI - 📡 Gửi GET request đến /bet-receipts với params:', params);
       const response = await axiosInstance.get('/bet-receipts', {
         params

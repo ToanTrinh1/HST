@@ -62,7 +62,7 @@ func (r *BetReceiptHistoryRepository) Create(history *models.BetReceiptHistory) 
 	return nil
 }
 
-// GetAll lấy tất cả lịch sử (có phân trang)
+// GetAll lấy lịch sử mới nhất trước (có phân trang) — limit/offset áp sau ORDER BY DESC
 func (r *BetReceiptHistoryRepository) GetAll(limit, offset int) ([]*models.BetReceiptHistory, error) {
 	query := `
 		SELECT 
@@ -78,7 +78,7 @@ func (r *BetReceiptHistoryRepository) GetAll(limit, offset int) ([]*models.BetRe
 			h.created_at
 		FROM bet_receipt_history h
 		LEFT JOIN nguoi_dung u ON h.performed_by = u.id
-		ORDER BY h.created_at ASC
+		ORDER BY h.created_at DESC
 		LIMIT $1 OFFSET $2
 	`
 

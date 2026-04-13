@@ -56,7 +56,8 @@ func (r *BetReceiptRepository) Create(betReceipt *models.BetReceipt) error {
 
 // GetByTab lấy đơn hàng theo tab cho admin: don_hang_moi | cho_chap_nhan | tong_hop | da_xu_ly
 // - isSuperAdmin: admin tổng thấy tất cả; admin thường chỉ thấy đơn có id_admin_duyet = adminID (hoặc NULL cho tab chờ chấp nhận)
-func (r *BetReceiptRepository) GetByTab(limit, offset int, tab, adminID string, isSuperAdmin bool) ([]*models.BetReceipt, error) {
+// - completedMonth: "YYYY-MM" theo Asia/Ho_Chi_Minh — chỉ áp khi tab = da_xu_ly; rỗng = không lọc tháng
+func (r *BetReceiptRepository) GetByTab(limit, offset int, tab, adminID string, isSuperAdmin bool, completedMonth string) ([]*models.BetReceipt, error) {
 	query := `
         SELECT 
             ttnk.id, ttnk.stt, ttnk.id_nguoi_dung, nd.ten as user_name,
@@ -113,10 +114,21 @@ func (r *BetReceiptRepository) GetByTab(limit, offset int, tab, adminID string, 
 		}
 	}
 
+	if tab == "da_xu_ly" && completedMonth != "" {
+		whereConditions = append(whereConditions, fmt.Sprintf(
+			"to_char(timezone('Asia/Ho_Chi_Minh', ttnk.thoi_gian_hoan_thanh), 'YYYY-MM') = $%d", argIndex))
+		args = append(args, completedMonth)
+		argIndex++
+	}
+
 	if len(whereConditions) > 0 {
 		query += " WHERE " + strings.Join(whereConditions, " AND ")
 	}
-	query += fmt.Sprintf(" ORDER BY ttnk.stt ASC LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+	orderBy := "ttnk.stt ASC"
+	if tab == "da_xu_ly" {
+		orderBy = "ttnk.thoi_gian_hoan_thanh DESC NULLS LAST, ttnk.stt DESC"
+	}
+	query += fmt.Sprintf(" ORDER BY %s LIMIT $%d OFFSET $%d", orderBy, argIndex, argIndex+1)
 	args = append(args, limit, offset)
 
 	return r.queryBetReceipts(query, args)
@@ -291,7 +303,8 @@ func (r *BetReceiptRepository) queryBetReceipts(query string, args []interface{}
 // GetAll lấy tất cả đơn hàng (thông tin nhận kèo) có phân trang, join với bảng nguoi_dung để lấy tên
 // - userID != nil: chỉ lấy đơn hàng của user đó (dùng cho user thường)
 // - pendingForAdmin, assignedToAdminID: giữ để tương thích; admin dùng GetByTab
-func (r *BetReceiptRepository) GetAll(limit, offset int, userID *string, pendingForAdmin bool, assignedToAdminID *string) ([]*models.BetReceipt, error) {
+// - completedMonth: "YYYY-MM" (Asia/Ho_Chi_Minh) — chỉ khi userID != nil; lọc DONE/HỦY BỎ/ĐỀN trong tháng; rỗng = không lọc
+func (r *BetReceiptRepository) GetAll(limit, offset int, userID *string, pendingForAdmin bool, assignedToAdminID *string, completedMonth string) ([]*models.BetReceipt, error) {
 	query := `
         SELECT 
             ttnk.id, ttnk.stt, ttnk.id_nguoi_dung, nd.ten as user_name,
@@ -331,11 +344,24 @@ func (r *BetReceiptRepository) GetAll(limit, offset int, userID *string, pending
 		log.Printf("Repository - 🔍 Filtering by assigned_admin_id: %s", *assignedToAdminID)
 	}
 
+	if userID != nil && completedMonth != "" {
+		whereConditions = append(whereConditions, "ttnk.tien_do_hoan_thanh IN ('DONE', 'HỦY BỎ', 'ĐỀN')")
+		whereConditions = append(whereConditions, fmt.Sprintf(
+			"to_char(timezone('Asia/Ho_Chi_Minh', ttnk.thoi_gian_hoan_thanh), 'YYYY-MM') = $%d", argIndex))
+		args = append(args, completedMonth)
+		argIndex++
+		log.Printf("Repository - 🔍 User completed orders by month (Asia/HCM): %s", completedMonth)
+	}
+
 	if len(whereConditions) > 0 {
 		query += " WHERE " + strings.Join(whereConditions, " AND ")
 	}
 
-	query += fmt.Sprintf(" ORDER BY ttnk.stt ASC LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+	orderBy := "ttnk.stt ASC"
+	if userID != nil && completedMonth != "" {
+		orderBy = "ttnk.thoi_gian_hoan_thanh DESC NULLS LAST, ttnk.stt DESC"
+	}
+	query += fmt.Sprintf(" ORDER BY %s LIMIT $%d OFFSET $%d", orderBy, argIndex, argIndex+1)
 	args = append(args, limit, offset)
 
 	log.Printf("Repository - 🔍 Executing query với limit=%d, offset=%d", limit, offset)

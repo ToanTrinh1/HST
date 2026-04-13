@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import BottomNavigation from '../../components/BottomNavigation';
 import TopBar from '../../components/TopBar';
@@ -31,7 +31,10 @@ const ProfilePage = () => {
   const [withdrawalHistory, setWithdrawalHistory] = useState([]);
   const [isLoadingWithdrawal, setIsLoadingWithdrawal] = useState(false);
 
-  const [monthFilter, setMonthFilter] = useState('');
+  const [monthFilter, setMonthFilter] = useState(() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [showMonthFilter, setShowMonthFilter] = useState(false);
   const [monthlyTotal, setMonthlyTotal] = useState(0);
   const [isLoadingMonthlyTotal, setIsLoadingMonthlyTotal] = useState(false);
@@ -44,6 +47,8 @@ const ProfilePage = () => {
   const timeoutRef = useRef(null);
   const isMountedRef = useRef(true);
   const previousDoneTasksRef = useRef([]);
+  const monthFilterRef = useRef(monthFilter);
+  monthFilterRef.current = monthFilter;
   const formatNumber = (num) => {
     if (num === null || num === undefined || num === '') return '-';
     const n = Number(num);
@@ -76,10 +81,15 @@ const ProfilePage = () => {
     
     setIsLoadingTasks(true);
     try {
-      const res = await donHangAPI.layDanhSachDonHang(50, 0);
+      const month = (monthFilterRef.current || '').trim();
+      const res = month
+        ? await donHangAPI.layDanhSachDonHang(300, 0, null, month)
+        : await donHangAPI.layDanhSachDonHang(50, 0);
       if (res.success && Array.isArray(res.data)) {
-        // Backend đã filter theo user hiện tại, chỉ cần filter theo status
-        const done = res.data.filter((item) => item.status === 'DONE' || item.status === 'HỦY BỎ' || item.status === 'ĐỀN');
+        // Có month: server đã lọc DONE/HỦY BỎ/ĐỀN + tháng (Asia/HCM). Không month: lọc status trên client.
+        const done = month
+          ? res.data
+          : res.data.filter((item) => item.status === 'DONE' || item.status === 'HỦY BỎ' || item.status === 'ĐỀN');
         
         console.log('📥 [fetchDoneTasks] Tổng số đơn hàng từ API:', res.data.length);
         console.log('📥 [fetchDoneTasks] Số đơn hàng đã hoàn thành (DONE/HỦY BỎ/ĐỀN):', done.length);
@@ -343,12 +353,11 @@ const ProfilePage = () => {
   // Fetch danh sách kèo đã hoàn thành (DONE) và đang xử lý, lắng nghe sự kiện/global focus
   useEffect(() => {
     isMountedRef.current = true;
-    fetchDoneTasks(true); // Lần đầu load
     fetchPendingTasks();
     fetchInProgressTasks();
     if (user?.id) {
       fetchCurrentUserBalance();
-      fetchMonthlyTotal(monthFilter || null); // Nếu monthFilter rỗng/null, sẽ tự động tính tháng hiện tại
+      fetchMonthlyTotal(monthFilter || null); // rỗng = API tổng tất cả tháng; có giá trị = theo tháng đó
     }
 
     const handleRefresh = (event) => {
@@ -367,7 +376,7 @@ const ProfilePage = () => {
       fetchInProgressTasks();
       if (user?.id) {
         fetchCurrentUserBalance();
-        fetchMonthlyTotal(monthFilter || null); // Nếu monthFilter rỗng/null, sẽ tự động tính tháng hiện tại
+        fetchMonthlyTotal(monthFilterRef.current || null); // ref = tháng đang chọn khi refresh/focus
       }
     };
 
@@ -390,34 +399,29 @@ const ProfilePage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  useEffect(() => {
+    if (!user?.id) return;
+    fetchDoneTasks(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, monthFilter]);
+
   // Fetch monthly total khi monthFilter thay đổi
   useEffect(() => {
     if (user?.id) {
-      fetchMonthlyTotal(monthFilter || null); // Nếu monthFilter rỗng/null, sẽ tự động tính tháng hiện tại
+      fetchMonthlyTotal(monthFilter || null); // rỗng = API tổng tất cả tháng; có giá trị = theo tháng đó
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monthFilter, user?.id]);
 
-  // Lấy danh sách tháng từ doneTasks
-  const availableMonths = Array.from(
-    new Set(
-      doneTasks
-        .map((task) => {
-          const completedAt = task.completed_at || task.completedAt;
-          if (!completedAt) return null;
-          try {
-            const date = new Date(completedAt);
-            if (isNaN(date.getTime())) return null;
-            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-          } catch (e) {
-            return null;
-          }
-        })
-        .filter(Boolean)
-    )
-  )
-    .sort()
-    .reverse();
+  const availableMonths = useMemo(() => {
+    const opts = [];
+    const now = new Date();
+    for (let i = 0; i < 24; i += 1) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      opts.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    return opts;
+  }, []);
 
   return (
     <div className="page-with-bottom-nav">
@@ -488,22 +492,7 @@ const ProfilePage = () => {
 
             <div className="personal-box personal-box-center">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <h3 style={{ margin: 0 }}>Nhiệm vụ đã hoàn thành : {
-                  monthFilter 
-                    ? doneTasks.filter((task) => {
-                        const completedAt = task.completed_at || task.completedAt;
-                        if (!completedAt) return false;
-                        try {
-                          const date = new Date(completedAt);
-                          if (isNaN(date.getTime())) return false;
-                          const taskMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                          return taskMonth === monthFilter;
-                        } catch (e) {
-                          return false;
-                        }
-                      }).length
-                    : doneTasks.length
-                }</h3>
+                <h3 style={{ margin: 0 }}>Nhiệm vụ đã hoàn thành : {doneTasks.length}</h3>
                 {/* Filter theo tháng */}
                 <div style={{ position: 'relative' }} data-month-filter>
                   <button
@@ -543,23 +532,7 @@ const ProfilePage = () => {
               <div className="personal-box-body">
                 {isLoadingTasks ? (
                   'Đang tải...'
-                ) : (() => {
-                    const filteredDoneTasks = monthFilter
-                      ? doneTasks.filter((task) => {
-                          const completedAt = task.completed_at || task.completedAt;
-                          if (!completedAt) return false;
-                          try {
-                            const date = new Date(completedAt);
-                            if (isNaN(date.getTime())) return false;
-                            const taskMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                            return taskMonth === monthFilter;
-                          } catch (e) {
-                            return false;
-                          }
-                        })
-                      : doneTasks;
-                    
-                    return filteredDoneTasks.length === 0 ? (
+                ) : doneTasks.length === 0 ? (
                       'Chưa có dữ liệu'
                     ) : (
                       <div className="task-list-compact">
@@ -571,7 +544,7 @@ const ProfilePage = () => {
                           <span>Chi tiết</span>
                         </div>
                         <div className="task-list-body">
-                          {filteredDoneTasks.map((task) => {
+                          {doneTasks.map((task) => {
                             return (
                               <div key={task.id} className="task-list-row">
                                 <span>{task.task_code || task.task || '-'}</span>
@@ -601,8 +574,7 @@ const ProfilePage = () => {
                           })}
                         </div>
                       </div>
-                    );
-                  })()}
+                    )}
               </div>
             </div>
 

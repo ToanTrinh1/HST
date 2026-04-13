@@ -19,7 +19,7 @@ func NewBetReceiptHistoryHandler(historyService *service.BetReceiptHistoryServic
 	}
 }
 
-// GetAllHistories lấy tất cả lịch sử
+// GetAllHistories lấy lịch sử (mới nhất trước; limit/offset trên kết quả đã sort DESC)
 func (h *BetReceiptHistoryHandler) GetAllHistories(c *gin.Context) {
 	// Parse pagination parameters
 	limitStr := c.DefaultQuery("limit", "100")

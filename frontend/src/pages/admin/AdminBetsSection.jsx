@@ -153,13 +153,6 @@ const AdminBetsSection = () => {
     }
     if (filters.orderCode && !bet.orderCode?.toLowerCase().includes(filters.orderCode.toLowerCase())) return false;
     if (filters.status && bet.status !== filters.status) return false;
-    if (filters.month) {
-      if (!bet.completedAt) return false;
-      const d = new Date(bet.completedAt);
-      if (isNaN(d.getTime())) return false;
-      const betMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      if (betMonth !== filters.month) return false;
-    }
     return true;
   });
 
@@ -220,7 +213,7 @@ const AdminBetsSection = () => {
     try {
       const tabMap = { 'tong-hop': 'tong_hop', 'don-hang-moi': 'don_hang_moi', 'cho-chap-nhan': 'cho_chap_nhan' };
       const tab = tabMap[activeDonHangTab] || 'tong_hop';
-      const response = await donHangAPI.layDanhSachDonHang(100, 0, tab);
+      const response = await donHangAPI.layDanhSachDonHang(200, 0, tab);
       if (response.success && response.data) {
         setBetList(response.data.map(mapItemToBet));
       } else {
@@ -266,7 +259,8 @@ const AdminBetsSection = () => {
   const fetchProcessedDonHangList = async () => {
     setIsLoadingProcessed(true);
     try {
-      const response = await donHangAPI.layDanhSachDonHang(100, 0, 'da_xu_ly');
+      const monthParam = filters.month?.trim() || null;
+      const response = await donHangAPI.layDanhSachDonHang(2000, 0, 'da_xu_ly', monthParam);
       if (response.success && response.data) {
         const mappedData = response.data.map(mapItemToBet);
         setProcessedBetListFromApi(mappedData);
@@ -333,7 +327,7 @@ const AdminBetsSection = () => {
   useEffect(() => {
     if (activeTopTab === 'lich-su-chinh-sua') fetchHistoryList();
     if (activeTopTab === 'don-hang-da-xu-li') fetchProcessedDonHangList();
-  }, [activeTopTab]);
+  }, [activeTopTab, filters.month]);
 
   useEffect(() => {
     const onBetReceiptUpdated = () => {
@@ -341,7 +335,7 @@ const AdminBetsSection = () => {
     };
     websocketService.on('bet_receipt_updated', onBetReceiptUpdated);
     return () => websocketService.off('bet_receipt_updated', onBetReceiptUpdated);
-  }, [activeTopTab]);
+  }, [activeTopTab, filters.month]);
 
   useEffect(() => {
     if (showCreateModal || showEditModal) fetchUserList();

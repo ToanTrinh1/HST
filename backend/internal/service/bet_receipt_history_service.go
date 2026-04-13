@@ -68,7 +68,7 @@ func (s *BetReceiptHistoryService) CreateHistory(req *models.CreateHistoryReques
 	return nil
 }
 
-// GetAllHistories lấy tất cả lịch sử (có phân trang)
+// GetAllHistories lấy lịch sử, mới nhất trước (có phân trang)
 func (s *BetReceiptHistoryService) GetAllHistories(limit, offset int) ([]*models.BetReceiptHistory, error) {
 	return s.historyRepo.GetAll(limit, offset)
 }
